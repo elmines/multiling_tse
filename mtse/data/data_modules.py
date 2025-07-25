@@ -50,22 +50,12 @@ class SplitDataModule(MtseDataModule):
         for corpus, data_ratio in zip(self._corpora, self._ratios):
             samples = list(tqdm(corpus.parse_fn(corpus.path), desc=f"Parsing {corpus.path}"))
 
-            indices = np.arange(len(samples))
-            np.random.shuffle(indices)
-
-            n_train = int(data_ratio[0] * len(indices))
-            n_val = int(data_ratio[1] * len(indices))
-
-            train_samples = [samples[ind] for ind in indices[:n_train]]
-            val_samples = [samples[ind] for ind in indices[n_train:n_train+n_val]]
-            test_samples = [samples[ind] for ind in indices[n_train+n_val:]]
-
+            [train_raw, val_raw, test_raw] = random_split(MapDataset(samples), data_ratio)
             train_encode = lambda s: self.encoder.encode(s, inference=False)
             infer_encode = lambda s: self.encoder.encode(s, inference=True)
-
-            train_ds = MapDataset(map(train_encode, tqdm(train_samples, desc=f"Encoding train samples for {corpus.path}")))
-            val_ds = MapDataset(map(infer_encode, tqdm(val_samples, desc=f"Encoding val samples for {corpus.path}")))
-            test_ds = MapDataset(map(infer_encode, tqdm(test_samples, desc=f"Encoding test samples for {corpus.path}")))
+            train_ds = MapDataset(map(train_encode, tqdm(train_raw, desc=f"Encoding train samples for {corpus.path}")))
+            val_ds = MapDataset(map(infer_encode, tqdm(val_raw, desc=f"Encoding val samples for {corpus.path}")))
+            test_ds = MapDataset(map(infer_encode, tqdm(test_raw, desc=f"Encoding test samples for {corpus.path}")))
 
             train_dses.append(train_ds)
             val_dses.append(val_ds)
