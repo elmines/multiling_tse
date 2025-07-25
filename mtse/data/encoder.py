@@ -1,0 +1,44 @@
+# STL
+from typing import List, Dict
+import abc
+# 3rd party
+import torch
+from transformers import PreTrainedTokenizerFast
+# Local
+from ..types import TensorDict
+
+PoolIndices = Dict[int, List[int]]
+
+class Encoder(abc.ABC):
+
+    @abc.abstractmethod
+    def encode(self, sample, inference=False) -> TensorDict:
+        pass
+
+    @abc.abstractmethod
+    def collate(self, samples: List[TensorDict]) -> TensorDict:
+        pass
+
+def keyed_pad(samples: List[TensorDict], k: str, padding_value=0):
+    return torch.nn.utils.rnn.pad_sequence(
+        [torch.squeeze(s[k], dim=0) for s in samples],
+        batch_first=True,
+        padding_value=padding_value)
+
+def keyed_scalar_stack(samples: List[TensorDict], k: str):
+    return torch.stack([torch.squeeze(s[k]) for s in samples])
+
+def collate_ids(tokenizer: PreTrainedTokenizerFast,
+                samples: List[TensorDict],
+                return_attention_mask: bool = False) -> TensorDict:
+    token_padding = tokenizer.pad_token_id
+    rdict = {}
+    rdict['input_ids'] = keyed_pad(samples, 'input_ids', padding_value=token_padding)
+    if return_attention_mask:
+        rdict['attention_mask'] = rdict['input_ids'] != token_padding
+    if 'position_ids' in samples[0]:
+        # FIXME: Need a custom pad value for this?
+        rdict['position_ids'] = keyed_pad(samples, 'position_ids')
+    if 'token_type_ids' in samples[0]:
+        rdict['token_type_ids'] = keyed_pad(samples, 'token_type_ids', padding_value=tokenizer.pad_token_type_id)
+    return rdict
