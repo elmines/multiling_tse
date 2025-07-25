@@ -63,9 +63,9 @@ class SplitDataModule(MtseDataModule):
             train_encode = lambda s: self.encoder.encode(s, inference=False)
             infer_encode = lambda s: self.encoder.encode(s, inference=True)
 
-            train_ds = MapDataset(map(infer_encode, tqdm(val_samples, desc=f"Encoding val samples for {corpus.path}")))
-            val_ds = MapDataset(map(infer_encode, tqdm(test_samples, desc=f"Encoding test samples for {corpus.path}")))
-            test_ds = MapDataset(map(train_encode, tqdm(train_samples, desc=f"Encoding train samples for {corpus.path}")))
+            train_ds = MapDataset(map(train_encode, tqdm(train_samples, desc=f"Encoding train samples for {corpus.path}")))
+            val_ds = MapDataset(map(infer_encode, tqdm(val_samples, desc=f"Encoding val samples for {corpus.path}")))
+            test_ds = MapDataset(map(infer_encode, tqdm(test_samples, desc=f"Encoding test samples for {corpus.path}")))
 
             train_dses.append(train_ds)
             val_dses.append(val_ds)

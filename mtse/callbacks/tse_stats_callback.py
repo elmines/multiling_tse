@@ -16,7 +16,7 @@ class TSEStatsCallback(Callback):
 
         self.__summarized = False
         self.__tp = 0
-        self.__all_pos = 0
+        self.__pred_pos = 0
         self.__support = 0
 
 
@@ -40,20 +40,23 @@ class TSEStatsCallback(Callback):
         if self.__summarized:
             raise ValueError("Must reset F1Calc before recording more results")
 
-        self.__all_pos += int(torch.sum(target_preds != self.no_target))
-        self.__support += int(torch.sum(target_labels != self.no_target))
+        batch_pred_pos = int(torch.sum(target_preds != self.no_target))
+        self.__pred_pos += batch_pred_pos
+        batch_support = int(torch.sum(target_labels != self.no_target))
+        self.__support += batch_support
 
         label_has_target = torch.where(target_labels != self.no_target)
         target_preds = target_preds[label_has_target]
         stance_preds = stance_preds[label_has_target]
         target_labels = target_labels[label_has_target]
         stance_labels = stance_labels[label_has_target]
-        self.__tp += int(torch.logical_and(target_preds == stance_preds, target_labels == stance_labels))
+
+        self.__tp += int(torch.sum(torch.logical_and(target_preds == target_labels, stance_preds == stance_labels)))
 
     def reset(self):
         self.__summarized = False
         self.__tp = 0
-        self.__all_pos = 0
+        self.__pred_pos = 0
         self.__support = 0
 
     def on_validation_epoch_start(self, trainer, pl_module):
@@ -74,6 +77,6 @@ class TSEStatsCallback(Callback):
         return self._on_epoch_end(trainer, pl_module, "test")
     def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
         results = {}
-        _, _2, results['tse_f1'] = TSEStatsCallback.compute_metrics(self.__tp, self.__all_pos, self.__support)
+        _, _2, results['tse_f1'] = TSEStatsCallback.compute_metrics(self.__tp, self.__pred_pos, self.__support)
         for (k, v) in filter(lambda pair: pair[0].endswith('f1'), results.items()):
             pl_module.log(k, v, on_step=False, on_epoch=True)
