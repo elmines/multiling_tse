@@ -15,12 +15,12 @@ from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
 from ..constants import DEFAULT_BATCH_SIZE
 
-class MtseDataModule(L.LightningDataModule):
+class BaseDataModule(L.LightningDataModule):
     """
     Dummy placeholder, just to constrain what classes the CLI permits
     """
 
-class SplitDataModule(MtseDataModule):
+class SplitDataModule(BaseDataModule):
     def __init__(self,
                  corpora: List[StanceCorpus],
                  ratios: List[Tuple[float, float, float]],

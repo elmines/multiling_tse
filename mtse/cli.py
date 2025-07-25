@@ -16,13 +16,15 @@ class StanceCLI(LightningCLI):
         self.datamodule.encoder = model.encoder
         if isinstance(self.model, TargetClassModule):
             self.trainer.callbacks.append(TSEStatsCallback())
+        elif isinstance(self.model, StanceOnlyModule):
+            self.trainer.callbacks.append(TSEStatsCallback())
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")
 
 def cli_main(**cli_kwargs):
     return StanceCLI(
-        model_class=TargetClassModule, subclass_mode_model=True,
-        datamodule_class=MtseDataModule, subclass_mode_data=True,
+        model_class=BaseModule, subclass_mode_model=True,
+        datamodule_class=BaseDataModule, subclass_mode_data=True,
         trainer_defaults={
             "max_epochs": 1000,
             "deterministic": True
