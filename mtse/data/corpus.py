@@ -6,8 +6,9 @@ from .parse import DetCorpusType, CORPUS_PARSERS
 
 class StanceCorpus:
     def __init__(self,
-                 path: pathlib.Path):
-        self._parse_fn = CORPUS_PARSERS['nlpcc']
+                 path: pathlib.Path,
+                 corpus_type: DetCorpusType):
+        self._parse_fn = CORPUS_PARSERS[corpus_type]
         self.path = path
         self.transforms = []
 

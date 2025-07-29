@@ -6,8 +6,8 @@ from .stance import BaseStance
 @dataclasses.dataclass
 class Sample:
     context: str 
-    target: str
     stance: BaseStance
+    target: Optional[str] = None
     lang: Optional[str] = None
 
 

@@ -89,7 +89,8 @@ class BertTCModule(TargetClassModule):
         def encode(self, sample: Sample, inference=False):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt')
             # +1 to handle the nontarget-0
-            encoding['target'] = torch.tensor(self.module.targets.index(sample.target) + 1)
+            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
+            encoding['target'] = torch.tensor(target_code)
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
         def collate(self, samples):
