@@ -68,9 +68,11 @@ class StanceOnlyModule(BaseModule):
             self.module = module
             self.tokenizer = module.tokenizer
         def encode(self, sample: Sample, inference=False):
-            encoding = self.tokenizer(text=sample.context, text_pair=sample.target, return_tensors='pt')
+            target_text = sample.target if sample.target else 'unknown'
+            encoding = self.tokenizer(text=sample.context, text_pair=target_text, return_tensors='pt')
             # +1 to handle the nontarget-0
-            encoding['target'] = torch.tensor(self.module.targets.index(sample.target) + 1)
+            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
+            encoding['target'] = torch.tensor(target_code)
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
         def collate(self, samples):
