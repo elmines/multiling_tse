@@ -3,7 +3,7 @@ import pathlib
 import dataclasses
 # 3rd Party
 import torch
-from transformers import BertModel, BertTokenizerFast
+from transformers import AutoModel, AutoTokenizer
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack
@@ -34,8 +34,8 @@ class BertTCModule(TargetClassModule):
                  pretrained_model: str = "google-bert/bert-base-chinese",
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = BertModel.from_pretrained(pretrained_model)
-        self.tokenizer = BertTokenizerFast.from_pretrained(pretrained_model)
+        self.bert = AutoModel.from_pretrained(pretrained_model)
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model, use_fast=True)
         config = self.bert.config
         dropout_prob = config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         hidden_size = config.hidden_size

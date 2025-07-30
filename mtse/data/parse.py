@@ -6,6 +6,22 @@ import csv
 from .stance import TriStance
 from .sample import Sample
 
+def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
+    str2strance = {
+        "FAVOR": TriStance.favor,
+        "NONE": TriStance.neutral,
+        "AGAINST": TriStance.against,
+        "Dummy Stance": TriStance.neutral
+    }
+    def f(row):
+        target = row['Target'] if row['Target'] != 'Unrelated' else None
+        return Sample(context=row['Tweet'],
+                      target=target,
+                      stance=str2strance[row['Stance']],
+                      lang='en')
+    with open(corpus_path, 'r', encoding='utf-8') as r:
+        yield from map(f, csv.DictReader(r, delimiter=','))
+
 def parse_cstance(corpus_path) -> Generator[Sample, None, None]:
     strstance2 = {
         "支持": TriStance.favor,
@@ -39,7 +55,7 @@ def parse_nlpcc(corpus_path: os.PathLike):
     if discarded:
         print(f"Discarded {discarded} samples from {corpus_path}", file=sys.stderr)
 
-DetCorpusType = Literal['nlpcc', 'cstance']
+DetCorpusType = Literal['nlpcc', 'cstance', 'yingjie']
 
 StanceParser = Callable[[os.PathLike], Generator[Sample, None, None]]
 """
@@ -48,5 +64,6 @@ Function taking a file path and returning a generator of samples
 
 CORPUS_PARSERS: Dict[DetCorpusType, StanceParser] = {
     "nlpcc": parse_nlpcc,
-    "cstance": parse_cstance
+    "cstance": parse_cstance,
+    "yingjie": parse_yingjie
 }
