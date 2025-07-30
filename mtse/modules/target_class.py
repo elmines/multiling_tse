@@ -1,9 +1,10 @@
 from __future__ import annotations
 import pathlib
 import dataclasses
+from typing import Optional
 # 3rd Party
 import torch
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack
@@ -37,6 +38,9 @@ class BertTCModule(TargetClassModule):
         self.bert = AutoModel.from_pretrained(pretrained_model)
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model, use_fast=True)
         config = self.bert.config
+
+        self.max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
+
         dropout_prob = config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         hidden_size = config.hidden_size
         self.target_classifier = torch.nn.Sequential(
@@ -85,9 +89,13 @@ class BertTCModule(TargetClassModule):
     class Encoder(Encoder):
         def __init__(self, module: BertTCModule):
             self.module = module
-            self.tokenizer = module.tokenizer
+            self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
         def encode(self, sample: Sample, inference=False):
-            encoding = self.tokenizer(text=sample.context, return_tensors='pt')
+            encoding = self.tokenizer(text=sample.context, return_tensors='pt',
+                                      truncation=True, max_length=self.module.max_length)
+            if 'position_ids' not in encoding:
+                encoding['position_ids'] = torch.arange(encoding['input_ids'].numel()).unsqueeze(0)
+
             # +1 to handle the nontarget-0
             target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
             encoding['target'] = torch.tensor(target_code)
