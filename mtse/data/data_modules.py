@@ -21,21 +21,23 @@ class BaseDataModule(L.LightningDataModule):
     """
 
 class PredictDataModule(BaseDataModule):
-    def __init__(self, corpus: StanceCorpus, batch_size: int = DEFAULT_BATCH_SIZE):
+    def __init__(self, corpora: List[StanceCorpus], batch_size: int = DEFAULT_BATCH_SIZE):
         super().__init__()
         self.encoder: Encoder = None
         self.batch_size = batch_size
-        self.corpus = corpus
-        self.__ds: Dataset = None
+        self.corpora = corpora
+        self.__datasets: List[Dataset] = []
 
     def setup(self, stage):
-        if self.__ds is not None:
+        if self.__datasets:
             return
-        samples = list(self.corpus)
-        self.__ds = MapDataset(map(lambda s: self.encoder.encode(s, inference=True), samples))
+        for corpus in self.corpora:
+            samples = list(corpus)
+            encode_iter = tqdm(map(lambda s: self.encoder.encode(s, inference=True), samples), desc=f"Encoding {corpus}")
+            self.__datasets.append(MapDataset(encode_iter))
 
     def predict_dataloader(self):
-        return DataLoader(self.__ds, batch_size=self.batch_size, collate_fn=self.encoder.collate)
+        return [DataLoader(ds, batch_size=self.batch_size, collate_fn=self.encoder.collate) for ds in self.__datasets]
     def test_dataloader(self):
         return self.predict_dataloader()
     
