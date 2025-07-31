@@ -1,23 +1,15 @@
 # 3rd Party
-import lightning as L
-from lightning.pytorch.cli import LightningCLI, LightningArgumentParser
-import pathlib
+from lightning.pytorch.cli import LightningCLI
 # Local
 from .modules import *
 from .data import *
-from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback
+from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback, TargetPredictionWriter
 
 class StanceCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
         """
         I frequently use this, but don't need it for this project yet.
         """
-        # parser.add_argument("--predict.out", type=pathlib.Path, help="Path to write predictions")
-
-    def _add_subcommands(self, parser: LightningArgumentParser, **kwargs):
-        super()._add_subcommands(parser, **kwargs)
-        predict_parser = self._subcommand_parsers['predict']
-        predict_parser.add_argument('--predictions', type=pathlib.Path, help='Path to write predictions')
 
     def after_instantiate_classes(self):
         model = self.model
@@ -26,6 +18,7 @@ class StanceCLI(LightningCLI):
             self.trainer.callbacks.append(TSEStatsCallback())
         elif isinstance(self.model, TargetModule):
             self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
+            self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
         elif isinstance(self.model, StanceOnlyModule):
             self.trainer.callbacks.append(TSEStatsCallback())
         else:

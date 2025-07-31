@@ -31,14 +31,13 @@ class PredictDataModule(BaseDataModule):
     def setup(self, stage):
         if self.__ds is not None:
             return
-        corpus = self.corpus
-        samples = list(tqdm(corpus.parse_fn(corpus.path), desc=f"Parsing {corpus.path}"))
+        samples = list(self.corpus)
         self.__ds = MapDataset(map(lambda s: self.encoder.encode(s, inference=True), samples))
 
     def predict_dataloader(self):
         return DataLoader(self.__ds, batch_size=self.batch_size, collate_fn=self.encoder.collate)
     def test_dataloader(self):
-        return DataLoader(self.__ds, batch_size=self.batch_size, collate_fn=self.encoder.collate)
+        return self.predict_dataloader()
     
 
 class SplitDataModule(BaseDataModule):
