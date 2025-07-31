@@ -15,6 +15,8 @@ class BaseModule(L.LightningModule):
         return self._infer_step(batch)
     def test_step(self, batch, batch_idx):
         return self._infer_step(batch)
+    def predict_step(self, batch, batch_idx):
+        return self._infer_step(batch)
     @abc.abstractmethod
     def _infer_step(self, batch):
         raise NotImplementedError

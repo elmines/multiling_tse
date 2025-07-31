@@ -20,6 +20,27 @@ class BaseDataModule(L.LightningDataModule):
     Dummy placeholder, just to constrain what classes the CLI permits
     """
 
+class PredictDataModule(BaseDataModule):
+    def __init__(self, corpus: StanceCorpus, batch_size: int = DEFAULT_BATCH_SIZE):
+        super().__init__()
+        self.encoder: Encoder = None
+        self.batch_size = batch_size
+        self.corpus = corpus
+        self.__ds: Dataset = None
+
+    def setup(self, stage):
+        if self.__ds is not None:
+            return
+        corpus = self.corpus
+        samples = list(tqdm(corpus.parse_fn(corpus.path), desc=f"Parsing {corpus.path}"))
+        self.__ds = MapDataset(map(lambda s: self.encoder.encode(s, inference=True), samples))
+
+    def predict_dataloader(self):
+        return DataLoader(self.__ds, batch_size=self.batch_size, collate_fn=self.encoder.collate)
+    def test_dataloader(self):
+        return DataLoader(self.__ds, batch_size=self.batch_size, collate_fn=self.encoder.collate)
+    
+
 class SplitDataModule(BaseDataModule):
     def __init__(self,
                  corpora: List[StanceCorpus],
