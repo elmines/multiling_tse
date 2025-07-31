@@ -22,7 +22,7 @@ class StanceCorpus:
     def _iter_targets(target_path):
         with open(target_path, 'r') as r:
             for line in r:
-                yield line
+                yield line.strip()
 
     def __iter__(self):
         sample_iter = self._parse_fn(self._path)
