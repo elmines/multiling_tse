@@ -1,6 +1,7 @@
 # 3rd Party
 import lightning as L
-from lightning.pytorch.cli import LightningCLI
+from lightning.pytorch.cli import LightningCLI, LightningArgumentParser
+import pathlib
 # Local
 from .modules import *
 from .data import *
@@ -11,6 +12,13 @@ class StanceCLI(LightningCLI):
         """
         I frequently use this, but don't need it for this project yet.
         """
+        # parser.add_argument("--predict.out", type=pathlib.Path, help="Path to write predictions")
+
+    def _add_subcommands(self, parser: LightningArgumentParser, **kwargs):
+        super()._add_subcommands(parser, **kwargs)
+        predict_parser = self._subcommand_parsers['predict']
+        predict_parser.add_argument('--predictions', type=pathlib.Path, help='Path to write predictions')
+
     def after_instantiate_classes(self):
         model = self.model
         self.datamodule.encoder = model.encoder
