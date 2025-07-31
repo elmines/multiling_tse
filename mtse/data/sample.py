@@ -8,6 +8,7 @@ class Sample:
     context: str 
     stance: BaseStance
     target: Optional[str] = None
+    target_prediction: Optional[str] = None
     lang: Optional[str] = None
 
 

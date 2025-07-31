@@ -69,14 +69,14 @@ class SplitDataModule(BaseDataModule):
         val_dses = []
         test_dses = []
         for corpus, data_ratio in zip(self._corpora, self._ratios):
-            samples = list(tqdm(corpus.parse_fn(corpus.path), desc=f"Parsing {corpus.path}"))
+            samples = list(corpus)
 
             [train_raw, val_raw, test_raw] = random_split(MapDataset(samples), data_ratio)
             train_encode = lambda s: self.encoder.encode(s, inference=False)
             infer_encode = lambda s: self.encoder.encode(s, inference=True)
-            train_ds = MapDataset(map(train_encode, tqdm(train_raw, desc=f"Encoding train samples for {corpus.path}")))
-            val_ds = MapDataset(map(infer_encode, tqdm(val_raw, desc=f"Encoding val samples for {corpus.path}")))
-            test_ds = MapDataset(map(infer_encode, tqdm(test_raw, desc=f"Encoding test samples for {corpus.path}")))
+            train_ds = MapDataset(map(train_encode, tqdm(train_raw, desc=f"Encoding train samples for {corpus}")))
+            val_ds = MapDataset(map(infer_encode, tqdm(val_raw, desc=f"Encoding val samples for {corpus}")))
+            test_ds = MapDataset(map(infer_encode, tqdm(test_raw, desc=f"Encoding test samples for {corpus}")))
 
             train_dses.append(train_ds)
             val_dses.append(val_ds)
