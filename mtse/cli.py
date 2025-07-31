@@ -19,7 +19,7 @@ class StanceCLI(LightningCLI):
         elif isinstance(self.model, TargetModule):
             self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
             self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
-        elif isinstance(self.model, StanceOnlyModule):
+        elif isinstance(self.model, TwoShotModule):
             self.trainer.callbacks.append(TSEStatsCallback())
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")

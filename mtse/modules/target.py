@@ -7,7 +7,7 @@ import torch
 from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
 # 
 from .base_module import BaseModule
-from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack
+from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
 from ..constants import DEFAULT_HF_MODEL
 
 class TargetModule(BaseModule):
@@ -74,14 +74,13 @@ class HFTargetModule(TargetModule):
         )
 
     class Encoder(Encoder):
-        def __init__(self, module: TargetModule):
+        def __init__(self, module: HFTargetModule):
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
         def encode(self, sample: Sample, inference=False):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                       truncation=True, max_length=self.module.max_length)
-            if 'position_ids' not in encoding:
-                encoding['position_ids'] = torch.arange(encoding['input_ids'].numel()).unsqueeze(0)
+            try_add_position_ids(encoding)
             # +1 to handle the nontarget-0
             target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
             encoding['target'] = torch.tensor(target_code)

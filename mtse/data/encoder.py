@@ -19,6 +19,10 @@ class Encoder(abc.ABC):
     def collate(self, samples: List[TensorDict]) -> TensorDict:
         pass
 
+def try_add_position_ids(encoding: TensorDict):
+    if 'position_ids' not in encoding:
+        encoding['position_ids'] = torch.arange(encoding['input_ids'].numel()).unsqueeze(0)
+
 def keyed_pad(samples: List[TensorDict], k: str, padding_value=0):
     return torch.nn.utils.rnn.pad_sequence(
         [torch.squeeze(s[k], dim=0) for s in samples],
