@@ -1,1 +1,2 @@
 from .tse_stats_callback import TSEStatsCallback
+from .target_classification_stats_callback import TargetClassificationStatsCallback

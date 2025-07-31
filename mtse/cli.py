@@ -4,7 +4,7 @@ from lightning.pytorch.cli import LightningCLI
 # Local
 from .modules import *
 from .data import *
-from .callbacks import TSEStatsCallback
+from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback
 
 class StanceCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
@@ -14,8 +14,10 @@ class StanceCLI(LightningCLI):
     def after_instantiate_classes(self):
         model = self.model
         self.datamodule.encoder = model.encoder
-        if isinstance(self.model, TargetClassModule):
+        if isinstance(self.model, OneShotModule):
             self.trainer.callbacks.append(TSEStatsCallback())
+        elif isinstance(self.model, TargetModule):
+            self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
         elif isinstance(self.model, StanceOnlyModule):
             self.trainer.callbacks.append(TSEStatsCallback())
         else:
