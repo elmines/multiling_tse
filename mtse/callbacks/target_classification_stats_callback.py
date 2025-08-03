@@ -46,19 +46,31 @@ class TargetClassificationStatsCallback(Callback):
         return self._on_epoch_end(trainer, pl_module, "val")
     def on_test_epoch_end(self, trainer, pl_module):
         return self._on_epoch_end(trainer, pl_module, "test")
-    def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
-        tp = self.__stats[:, 0]
-        fp = self.__stats[:, 1]
-        fn = self.__stats[:, 2]
+
+    @staticmethod
+    def compute_metrics(tp, fp, fn):
         pred_pos = tp + fp
         support = tp + fn
         prec = torch.where(pred_pos > 0, tp / pred_pos, 0.)
         rec = torch.where(support > 0, tp / support, 0.)
         denom = prec + rec
         f1 = torch.where(denom > 0, 2 * prec * rec / denom, 0.)
-        macro_f1 = torch.mean(f1)
-        results = {}
-        results['macro_f1'] = macro_f1
+        return prec, rec, f1
+
+    def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
+        tp = self.__stats[:, 0]
+        fp = self.__stats[:, 1]
+        fn = self.__stats[:, 2]
+
+        _, _2, class_f1 = TargetClassificationStatsCallback.compute_metrics(tp, fp, fn)
+        macro_f1 = torch.mean(class_f1)
+
+        agg_tp = torch.sum(tp)
+        agg_fp = torch.sum(fp)
+        agg_fn = torch.sum(fn)
+        _, _2, micro_f1 = TargetClassificationStatsCallback.compute_metrics(agg_tp, agg_fp, agg_fn)
+
+        results = {"macro_f1": macro_f1, "micro_f1": micro_f1}
 
         results = {f"{stage}_{k}":v for k,v in results.items()}
         for (k, v) in results.items():
