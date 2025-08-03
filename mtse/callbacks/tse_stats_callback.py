@@ -8,8 +8,9 @@ import lightning as L
 
 class TSEStatsCallback(Callback):
 
-    def __init__(self):
+    def __init__(self, full_metrics=False):
         self.no_target = 0
+        self.full_metrics = full_metrics
 
         self.__summarized = False
         self.__tp = 0
@@ -20,6 +21,9 @@ class TSEStatsCallback(Callback):
         self.__fn_wrongstance = 0
         self.__fp_wrongtarg = 0
         self.__fp_wrongstance = 0
+
+        self.__correct = 0
+        self.__total = 0
 
     def reset(self):
         self.__summarized = False
@@ -32,6 +36,8 @@ class TSEStatsCallback(Callback):
         self.__fp_wrongtarg = 0
         self.__fp_wrongstance = 0
 
+        self.__correct = 0
+        self.__total = 0
 
     @staticmethod
     def compute_metrics(tp, pred_pos, support) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -52,6 +58,13 @@ class TSEStatsCallback(Callback):
                stance_labels: torch.Tensor):
         if self.__summarized:
             raise ValueError("Must reset F1Calc before recording more results")
+
+        self.__correct += int(torch.sum(torch.logical_or(
+            torch.logical_and(target_preds == self.no_target, target_labels == self.no_target),
+            torch.logical_and(target_preds == target_labels, stance_preds == stance_labels)
+        )))
+        self.__total += stance_labels.numel()
+
 
         pred_pos = target_preds != self.no_target
         label_has_target = target_labels != self.no_target
@@ -94,16 +107,19 @@ class TSEStatsCallback(Callback):
         return self._on_epoch_end(trainer, pl_module, "test")
     def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
         results = {}
-        results['fn_wrongtarg'] = self.__fn_wrongtarg
-        results['fn_wrongstance'] = self.__fn_wrongstance
-        results['fp_wrongtarg'] = self.__fp_wrongtarg
-        results['fp_wrongstance'] = self.__fp_wrongstance
-        results['pred_pos'] = self.__pred_pos
-        results['support'] = self.__support
-        results['tp'] = self.__tp
+        if self.full_metrics:
+            results['fn_wrongtarg'] = self.__fn_wrongtarg
+            results['fn_wrongstance'] = self.__fn_wrongstance
+            results['fp_wrongtarg'] = self.__fp_wrongtarg
+            results['fp_wrongstance'] = self.__fp_wrongstance
+            results['pred_pos'] = self.__pred_pos
+            results['support'] = self.__support
+            results['tp'] = self.__tp
 
         _, _2, results['tse_f1'] = \
             TSEStatsCallback.compute_metrics(self.__tp, self.__pred_pos, self.__support)
+
+        results['tse_acc'] = self.__correct / self.__total if self.__total > 0 else 0.0
 
         results = {f"{stage}_{k}":v for k,v in results.items()}
         for (k, v) in results.items():
