@@ -1,5 +1,6 @@
 from .stance import *
 from .sample import *
+from .transforms import *
 from .parse import *
 from .corpus import *
 from .encoder import *
