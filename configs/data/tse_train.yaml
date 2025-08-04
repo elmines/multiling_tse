@@ -1,0 +1,10 @@
+class_path: mtse.data.SplitDataModule
+init_args:
+  corpora:
+    - path: data/li_tse/raw_train_all_onecol.csv
+      corpus_type: 'yingjie'
+      transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+    - path: data/li_tse/raw_val_all_onecol.csv
+      corpus_type: 'yingjie'
+      transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+  ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
