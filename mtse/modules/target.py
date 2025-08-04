@@ -76,7 +76,7 @@ class YingjieTargetModule(TargetModule):
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.bert = RobertaModel.from_pretrained(YingjieTargetModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(YingjieTargetModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(YingjieTargetModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.__max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
         hidden_size = config.hidden_size
