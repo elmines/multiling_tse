@@ -55,7 +55,7 @@ def parse_nlpcc(corpus_path: os.PathLike):
     if discarded:
         print(f"Discarded {discarded} samples from {corpus_path}", file=sys.stderr)
 
-DetCorpusType = Literal['nlpcc', 'cstance', 'yingjie']
+DetCorpusType = Literal['nlpcc', 'cstance', 'li']
 
 StanceParser = Callable[[os.PathLike], Generator[Sample, None, None]]
 """
@@ -65,5 +65,5 @@ Function taking a file path and returning a generator of samples
 CORPUS_PARSERS: Dict[DetCorpusType, StanceParser] = {
     "nlpcc": parse_nlpcc,
     "cstance": parse_cstance,
-    "yingjie": parse_yingjie
+    "li": parse_yingjie
 }
