@@ -63,7 +63,7 @@ class TargetModule(BaseModule):
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             return rdict
 
-class YingjieTargetModule(TargetModule):
+class LiTargetModule(TargetModule):
     """
     Modelled from code in paper https://aclanthology.org/2023.acl-long.560/
 
@@ -75,8 +75,8 @@ class YingjieTargetModule(TargetModule):
 
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = RobertaModel.from_pretrained(YingjieTargetModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(YingjieTargetModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(LiTargetModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(LiTargetModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.__max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
         hidden_size = config.hidden_size
@@ -84,6 +84,20 @@ class YingjieTargetModule(TargetModule):
         self.linear = torch.nn.Linear(hidden_size, hidden_size, bias=True)
         self.out = torch.nn.Linear(hidden_size, self.n_targets + 1)
         self.__encoder = self.Encoder(self)
+
+    class Encoder(TargetModule.Encoder):
+        def encode(self, sample: Sample, inference=False):
+            encoding = self.tokenizer(text=sample.context, return_tensors='pt',
+                                      padding="max_length", max_length=128)
+            keys = list(encoding)
+            for k in keys:
+                if encoding[k].shape[-1] > 128:
+                    encoding[k] = encoding[k][..., :128]
+            try_add_position_ids(encoding)
+            # +1 to handle the nontarget-0
+            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
+            encoding['target'] = torch.tensor(target_code)
+            return encoding
 
     def configure_optimizers(self):
         for p in self.bert.embeddings.parameters():
@@ -149,4 +163,4 @@ class HFTargetModule(TargetModule):
         target_logits = self.target_classifier(cls_hidden_state)
         return target_logits
 
-__all__ = ["TargetModule", "YingjieTargetModule", "HFTargetModule"]
+__all__ = ["TargetModule", "LiTargetModule", "HFTargetModule"]

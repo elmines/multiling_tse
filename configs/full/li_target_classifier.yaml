@@ -1,4 +1,4 @@
-seed_everything: 0 # Yingjie's seeds were 0,112,343
+seed_everything: 0 # Li's seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
@@ -10,7 +10,7 @@ trainer:
   num_nodes: 1
   precision: null
 
-  # No early stopping-- Yingjie just does 5 epochs
+  # No early stopping-- Li just does 5 epochs
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -19,7 +19,7 @@ trainer:
               filename: "{epoch:02d}-{val_micro_f1:.3f}"
   fast_dev_run: false
 
-  # Fixed five epochs from Yingjie
+  # Fixed five epochs from Li
   max_epochs: 5 
 
   min_epochs: null
@@ -40,7 +40,7 @@ trainer:
   enable_model_summary: null
   accumulate_grad_batches: 1
 
-  # Yingjie did gradient norm clipping to 1.
+  # Li did gradient norm clipping to 1.
   gradient_clip_val: 1.
   gradient_clip_algorithm: norm
 
@@ -61,7 +61,7 @@ optimizer: null
 lr_scheduler: null
 
 model:
-  class_path: mtse.modules.YingjieTargetModule
+  class_path: mtse.modules.LiTargetModule
   init_args:
     targets_path: static/yingjie_merged_targets.txt
 data:
@@ -72,3 +72,8 @@ data:
       - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_train_all_onecol.csv", "corpus_type": "yingjie"}}
       - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_val_all_onecol.csv", "corpus_type": "yingjie"}}
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
+
+    # Convenience--use these params instead if you just wanna do a test run and not wait for all the data to parse
+    # corpora:
+    #   - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_val_all_onecol.csv", "corpus_type": "yingjie"}}
+    # ratios: [ [0.8, 0.2, 0.0] ]
