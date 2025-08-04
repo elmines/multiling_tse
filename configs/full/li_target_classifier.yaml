@@ -69,7 +69,6 @@ data:
   init_args:
     batch_size: 128
     corpora:
-      # - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_train_all_onecol.csv", "corpus_type": "yingjie"}}
+      - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_train_all_onecol.csv", "corpus_type": "yingjie"}}
       - {"class_path": "mtse.data.StanceCorpus", "init_args": {"path": "data/li_tse/raw_val_all_onecol.csv", "corpus_type": "yingjie"}}
-    # ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
-    ratios: [ [0.8, 0.2, 0.0] ]
+    ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
