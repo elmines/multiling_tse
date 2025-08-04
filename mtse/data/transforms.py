@@ -10,6 +10,14 @@ class Transform(abc.ABC):
     def __call__(self, sample: Sample) -> Sample:
         pass
 
+class SemHashtagRemoval(Transform):
+    def __init__(self):
+        self.pattern = re.compile('#SemST', flags=re.IGNORECASE)
+    def __call__(self, sample: Sample) -> Sample:
+        s = copy.deepcopy(sample)
+        s.context = self.pattern.sub('', s.context)
+        return s
+
 class LiKeywordRemoval(Transform):
 
     def __init__(self):
@@ -29,4 +37,4 @@ class LiKeywordRemoval(Transform):
         s.context = self.pattern.sub('', s.context)
         return s
 
-__all__ = ["Transform", "LiKeywordRemoval"]
+__all__ = ["Transform", "SemHashtagRemoval", "LiKeywordRemoval"]
