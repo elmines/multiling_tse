@@ -11,41 +11,39 @@ class TargetClassificationStatsCallback(Callback):
 
     def __init__(self, n_classes: int):
         self.n_classes = n_classes
-        self.__summarized = False
         self.__stats = self.__empty_stats()
+
+        self.__cur_dataloader = None
 
     def __empty_stats(self):
         return torch.zeros((self.n_classes, 3), dtype=torch.long)
 
-    def reset(self):
-        self.__summarized = False
-        self.__stats = self.__empty_stats()
-
     def record(self,
                target_preds: torch.Tensor,
                target_labels: torch.Tensor):
-        if self.__summarized:
-            raise ValueError("Must reset before recording more results")
         # Indices [0, 1, 3] correspond to [tp, fp, fn]
         rval = multiclass_stat_scores(target_preds, target_labels, self.n_classes, average='none')[:, [0, 1, 3]]
         self.__stats += rval.to(self.__stats.device)
 
-    def on_validation_epoch_start(self, trainer, pl_module):
-        self.reset()
-    def on_test_epoch_start(self, trainer, pl_module):
-        self.reset()
-
     def on_validation_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0):
-        return self._on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
+        return self._on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, 'val')
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0):
-        return self._on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
-    def _on_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0):
+        return self._on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, 'test')
+    def _on_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx, stage):
+        if dataloader_idx != self.__cur_dataloader:
+            if self.__cur_dataloader != None:
+                self._log_stats(pl_module, stage)
+            self.__cur_dataloader = dataloader_idx
         self.record(outputs.target_preds, batch['target'])
 
     def on_validation_epoch_end(self, trainer, pl_module):
-        return self._on_epoch_end(trainer, pl_module, "val")
+        if self.__cur_dataloader != None:
+            self._log_stats(pl_module, 'val')
+            self.__cur_dataloader = None
     def on_test_epoch_end(self, trainer, pl_module):
-        return self._on_epoch_end(trainer, pl_module, "test")
+        if self.__cur_dataloader != None:
+            self._log_stats(pl_module, 'test')
+            self.__cur_dataloader = None
 
     @staticmethod
     def compute_metrics(tp, fp, fn):
@@ -57,7 +55,7 @@ class TargetClassificationStatsCallback(Callback):
         f1 = torch.where(denom > 0, 2 * prec * rec / denom, 0.)
         return prec, rec, f1
 
-    def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
+    def _log_stats(self, pl_module: L.LightningModule, stage):
         tp = self.__stats[:, 0]
         fp = self.__stats[:, 1]
         fn = self.__stats[:, 2]
@@ -74,4 +72,6 @@ class TargetClassificationStatsCallback(Callback):
 
         results = {f"{stage}_{k}":v for k,v in results.items()}
         for (k, v) in results.items():
-            pl_module.log(k, v, on_step=False, on_epoch=True)
+            pl_module.log(k, v, on_step=False, on_epoch=True, add_dataloader_idx=True)
+
+        self.__stats = self.__empty_stats()
