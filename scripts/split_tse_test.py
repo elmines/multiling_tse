@@ -18,7 +18,8 @@ def main(in_path, out_dir):
         "test_semeval.csv": rows[:1080],
         "test_covid.csv": rows[1080:1880],
         "test_am.csv": rows[1880:6989],
-        "test_pstance.csv": rows[6989:9146]
+        "test_pstance.csv": rows[6989:9146],
+        "test_unrelated.csv": rows[9146:]
     }
     for (filename, rowset) in corpus_rows.items():
         with open(os.path.join(out_dir, filename), 'w') as w:
