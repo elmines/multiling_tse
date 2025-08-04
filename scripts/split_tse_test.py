@@ -4,7 +4,6 @@ representing individual corpora (SemEval, P-Stance, etc.)
 
 Usage: python split_tse_test.py raw_test_all_onecol.csv out_dir/
 """
-import sys
 import os
 import csv
 
@@ -28,7 +27,6 @@ def main(in_path, out_dir):
             writer.writerows(rowset)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print(__doc__, file=sys.stderr)
-        sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    data_dir = os.path.join("data", "li_tse")
+    test_path = os.path.join(data_dir, "raw_test_all_onecol.csv")
+    main(test_path, out_dir=data_dir)
