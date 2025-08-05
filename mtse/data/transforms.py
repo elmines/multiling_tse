@@ -3,6 +3,9 @@ import json
 import re
 from typing import Dict, Optional
 import importlib.resources
+# 3rd Party
+import wordninja
+# Local
 from .sample import Sample
 
 
@@ -80,11 +83,19 @@ class LiSlangExpansion(Transform):
                 converted.append(tok)
         sample.context = " ".join(converted)
 
+class LiHashtagSplit(Transform):
+    def __call__(self, sample: Sample):
+        old_context = sample.context
+        tok_sets = [wordninja.split(tok) if tok.startswith('#') or tok.startswith('@') else [tok] for tok in old_context.split()]
+        new_context = " ".join(tok for tok_set in tok_sets for tok in tok_set)
+        sample.context = new_context
+
 
 __all__ = [
     "Transform",
     "SemHashtagRemoval",
     "LiPretokenize",
     "LiKeywordRemoval",
-    "LiSlangExpansion"
+    "LiSlangExpansion",
+    "LiHashtagSplit"
 ]
