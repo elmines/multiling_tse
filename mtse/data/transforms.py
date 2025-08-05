@@ -5,6 +5,8 @@ from typing import Dict, Optional
 import importlib.resources
 # 3rd Party
 import wordninja
+import preprocessor as twp
+twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
 
@@ -15,6 +17,12 @@ class Transform(abc.ABC):
         """
         Modifies the sample in-place
         """
+
+class TweetPreprocess(Transform):
+    def __call__(self, sample: Sample):
+        old_context = sample.context
+        new_context = twp.clean(old_context)
+        sample.context = new_context
 
 class SemHashtagRemoval(Transform):
     def __init__(self):
@@ -93,6 +101,7 @@ class LiHashtagSplit(Transform):
 
 __all__ = [
     "Transform",
+    "TweetPreprocess",
     "SemHashtagRemoval",
     "LiPretokenize",
     "LiKeywordRemoval",

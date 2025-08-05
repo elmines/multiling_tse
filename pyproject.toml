@@ -8,7 +8,8 @@ dependencies = [
     "transformers",
     "lightning",
     "jsonargparse[signatures]",
-    "wordninja"
+    "wordninja",
+    "tweet-preprocess",
 ]
 [tool.setuptools.packages.find]
 include =["mtse*"]

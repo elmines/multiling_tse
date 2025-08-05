@@ -6,6 +6,7 @@ init_args:
         path: data/li_tse/test_semeval.csv
         corpus_type: 'li'
         transforms:
+          - {"class_path": "mtse.data.TweetPreprocess"}
           - {"class_path": "mtse.data.LiPretokenize"}
           - {"class_path": "mtse.data.SemHashtagRemoval"}
           - {"class_path": "mtse.data.LiKeywordRemoval"}
@@ -16,6 +17,7 @@ init_args:
         path: data/li_tse/test_am.csv
         corpus_type: 'li'
         transforms:
+          - {"class_path": "mtse.data.TweetPreprocess"}
           - {"class_path": "mtse.data.LiPretokenize"}
           - {"class_path": "mtse.data.SemHashtagRemoval"}
           - {"class_path": "mtse.data.LiKeywordRemoval"}
@@ -26,6 +28,7 @@ init_args:
         path: data/li_tse/test_covid.csv
         corpus_type: 'li'
         transforms:
+          - {"class_path": "mtse.data.TweetPreprocess"}
           - {"class_path": "mtse.data.LiPretokenize"}
           - {"class_path": "mtse.data.SemHashtagRemoval"}
           - {"class_path": "mtse.data.LiKeywordRemoval"}
@@ -36,6 +39,7 @@ init_args:
         path: data/li_tse/test_pstance.csv
         corpus_type: 'li'
         transforms:
+          - {"class_path": "mtse.data.TweetPreprocess"}
           - {"class_path": "mtse.data.LiPretokenize"}
           - {"class_path": "mtse.data.SemHashtagRemoval"}
           - {"class_path": "mtse.data.LiKeywordRemoval"}
@@ -46,6 +50,7 @@ init_args:
         path: data/li_tse/test_unrelated.csv
         corpus_type: 'li'
         transforms:
+          - {"class_path": "mtse.data.TweetPreprocess"}
           - {"class_path": "mtse.data.LiPretokenize"}
           - {"class_path": "mtse.data.SemHashtagRemoval"}
           - {"class_path": "mtse.data.LiKeywordRemoval"}

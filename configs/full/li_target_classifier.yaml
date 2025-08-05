@@ -37,6 +37,7 @@ data:
           path: data/li_tse/raw_train_all_onecol.csv
           corpus_type: li
           transforms:
+            - {"class_path": "mtse.data.TweetPreprocess"}
             - {"class_path": "mtse.data.LiPretokenize"}
             - {"class_path": "mtse.data.SemHashtagRemoval"}
             - {"class_path": "mtse.data.LiKeywordRemoval"}
@@ -47,6 +48,7 @@ data:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
           transforms:
+            - {"class_path": "mtse.data.TweetPreprocess"}
             - {"class_path": "mtse.data.LiPretokenize"}
             - {"class_path": "mtse.data.SemHashtagRemoval"}
             - {"class_path": "mtse.data.LiKeywordRemoval"}
