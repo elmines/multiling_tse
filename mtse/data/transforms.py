@@ -18,25 +18,11 @@ class Transform(abc.ABC):
         Modifies the sample in-place
         """
 
-class TweetPreprocess(Transform):
-    def __call__(self, sample: Sample):
-        old_context = sample.context
-        new_context = twp.clean(old_context)
-        sample.context = new_context
-
 class SemHashtagRemoval(Transform):
     def __init__(self):
         self.pattern = re.compile('#SemST', flags=re.IGNORECASE)
     def __call__(self, sample: Sample):
         sample.context = self.pattern.sub('', sample.context)
-
-class LiPretokenize(Transform):
-    def __init__(self):
-        self.pattern = re.compile(r"[A-Za-z#@]+|[,.!?&/\<>=$]|[0-9]+")
-    def __call__(self, sample: Sample):
-        old_context = sample.context
-        new_context = " ".join(self.pattern.findall(old_context))
-        sample.context = new_context
 
 class LiKeywordRemoval(Transform):
 
@@ -55,12 +41,13 @@ class LiKeywordRemoval(Transform):
     def __call__(self, sample: Sample):
         sample.context = self.pattern.sub('', sample.context)
 
-class LiSlangExpansion(Transform):
+class LiPreprocess(Transform):
 
     KEYWORD_DICT: Optional[Dict[str, str]] = None
 
     def __init__(self):
-        self._keyword_dict = LiSlangExpansion.get_keyword_dict()
+        self._keyword_dict = LiPreprocess.get_keyword_dict()
+        self.phrase_pattern = re.compile(r"[A-Za-z#@]+|[,.!?&/\<>=$]|[0-9]+")
 
     @classmethod
     def get_keyword_dict(cls) -> Dict[str, str]:
@@ -79,32 +66,29 @@ class LiSlangExpansion(Transform):
         return cls.KEYWORD_DICT
 
     def __call__(self, sample: Sample):
-        converted = []
-        hits = []
-        for tok in sample.context.split():
-            lowered = tok.lower()
-            if lowered in self._keyword_dict:
-                conversion = self._keyword_dict[lowered]
-                converted.append(conversion)
-                hits.append((tok, conversion))
-            else:
-                converted.append(tok)
-        sample.context = " ".join(converted)
-
-class LiHashtagSplit(Transform):
-    def __call__(self, sample: Sample):
         old_context = sample.context
-        tok_sets = [wordninja.split(tok) if tok.startswith('#') or tok.startswith('@') else [tok] for tok in old_context.split()]
-        new_context = " ".join(tok for tok_set in tok_sets for tok in tok_set)
+
+        twp_cleaned = twp.clean(old_context)
+
+        converted = []
+        phrases = self.phrase_pattern.findall(twp_cleaned)
+        for phrase in phrases:
+            lowered = phrase.lower()
+            if lowered in self._keyword_dict:
+                conversion = [self._keyword_dict[lowered]]
+                converted.append(conversion)
+            elif phrase.startswith('#') or phrase.startswith('@'):
+                conversion = wordninja.split(phrase)
+                converted.append(conversion)
+            else:
+                converted.append([phrase])
+        new_context = " ".join(tok for tok_set in converted for tok in tok_set)
         sample.context = new_context
 
 
 __all__ = [
     "Transform",
-    "TweetPreprocess",
     "SemHashtagRemoval",
-    "LiPretokenize",
     "LiKeywordRemoval",
-    "LiSlangExpansion",
-    "LiHashtagSplit"
+    "LiPreprocess",
 ]
