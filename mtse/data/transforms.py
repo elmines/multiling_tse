@@ -16,8 +16,16 @@ class Transform(abc.ABC):
 class SemHashtagRemoval(Transform):
     def __init__(self):
         self.pattern = re.compile('#SemST', flags=re.IGNORECASE)
-    def __call__(self, sample: Sample) -> Sample:
+    def __call__(self, sample: Sample):
         sample.context = self.pattern.sub('', sample.context)
+
+class LiPretokenize(Transform):
+    def __init__(self):
+        self.pattern = re.compile(r"[A-Za-z#@]+|[,.!?&/\<>=$]|[0-9]+")
+    def __call__(self, sample: Sample):
+        old_context = sample.context
+        new_context = " ".join(self.pattern.findall(old_context))
+        sample.context = new_context
 
 class LiKeywordRemoval(Transform):
 
@@ -73,4 +81,10 @@ class LiSlangExpansion(Transform):
         sample.context = " ".join(converted)
 
 
-__all__ = ["Transform", "SemHashtagRemoval", "LiKeywordRemoval", "LiSlangExpansion"]
+__all__ = [
+    "Transform",
+    "SemHashtagRemoval",
+    "LiPretokenize",
+    "LiKeywordRemoval",
+    "LiSlangExpansion"
+]

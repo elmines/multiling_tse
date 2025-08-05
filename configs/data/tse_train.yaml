@@ -3,8 +3,8 @@ init_args:
   corpora:
     - path: data/li_tse/raw_train_all_onecol.csv
       corpus_type: 'li'
-      transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+      transforms: [{"class_path": "mtse.data.LiPretokenize"}, {"class_path": "mtse.data.SemHashtagRemoval"}, {"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}]
     - path: data/li_tse/raw_val_all_onecol.csv
       corpus_type: 'li'
-      transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+      transforms: [{"class_path": "mtse.data.LiPretokenize"}, {"class_path": "mtse.data.SemHashtagRemoval"}, {"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}]
   ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
