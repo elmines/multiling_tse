@@ -18,16 +18,20 @@ class Transform(abc.ABC):
         Modifies the sample in-place
         """
 
+_semeval_tag = re.compile('#SemST', flags=re.IGNORECASE)
+def _remove_semeval_tag(text):
+    return _semeval_tag.sub('', text)
+
 class SemHashtagRemoval(Transform):
-    def __init__(self):
-        self.pattern = re.compile('#SemST', flags=re.IGNORECASE)
     def __call__(self, sample: Sample):
-        sample.context = self.pattern.sub('', sample.context)
+        sample.context = _remove_semeval_tag(sample.context)
 
-class LiKeywordRemoval(Transform):
+class LiPreprocess(Transform):
+    """
+    Performs the preprocessing logic from Li et al. (2023)'s work
+    """
 
-    # Replacement dict is from Li et al. (2023)'s work
-    KEYWORDS =  [
+    TARGET_WORDS =  [
         'Joe',
         'Biden',
         'Bernie',
@@ -63,14 +67,7 @@ class LiKeywordRemoval(Transform):
         'orders'
     ]
 
-    KEYWORD_PATT = re.compile('|'.join(KEYWORDS), flags=re.IGNORECASE)
-
-    def __call__(self, sample: Sample):
-        old_context = sample.context
-        new_context, count = LiKeywordRemoval.KEYWORD_PATT.subn('', old_context)
-        sample.context = new_context
-
-class LiPreprocess(Transform):
+    TARGET_PATT = re.compile('|'.join(TARGET_WORDS), flags=re.IGNORECASE)
 
     KEYWORD_DICT: Optional[Dict[str, str]] = None
 
@@ -96,13 +93,16 @@ class LiPreprocess(Transform):
         return cls.KEYWORD_DICT
 
     def __call__(self, sample: Sample):
-        old_context = sample.context
-
-        twp_cleaned = twp.clean(old_context)
-
+        context = sample.context
+        # 1. Remove target keywords
+        context = LiPreprocess.TARGET_PATT.sub('', context)
+        # 2. Use tweet-preprocessor
+        context = twp.clean(context)
+        # 3. Remove SemEval hashtags
+        context = _remove_semeval_tag(context)
+        # 4. Normalize slang and split hashtags/mentions
         converted = []
-        phrases = LiPreprocess.PHRASE_PATTERN.findall(twp_cleaned)
-        for phrase in phrases:
+        for phrase in LiPreprocess.PHRASE_PATTERN.findall(context):
             lowered = phrase.lower()
             if lowered in self._keyword_dict:
                 conversion = [self._keyword_dict[lowered]]
@@ -112,13 +112,13 @@ class LiPreprocess(Transform):
                 converted.append(conversion)
             else:
                 converted.append([phrase])
-        new_context = " ".join(tok for tok_set in converted for tok in tok_set)
-        sample.context = new_context
+        context = " ".join(tok for tok_set in converted for tok in tok_set)
+
+        sample.context = context
 
 
 __all__ = [
     "Transform",
     "SemHashtagRemoval",
-    "LiKeywordRemoval",
     "LiPreprocess",
 ]
