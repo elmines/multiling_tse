@@ -5,24 +5,24 @@ init_args:
       init_args:
         path: data/li_tse/test_semeval.csv
         corpus_type: 'li'
-        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
     - class_path: mtse.data.StanceCorpus
       init_args:
         path: data/li_tse/test_am.csv
         corpus_type: 'li'
-        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
     - class_path: mtse.data.StanceCorpus
       init_args:
         path: data/li_tse/test_covid.csv
         corpus_type: 'li'
-        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
     - class_path: mtse.data.StanceCorpus
       init_args:
         path: data/li_tse/test_pstance.csv
         corpus_type: 'li'
-        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
     - class_path: mtse.data.StanceCorpus
       init_args:
         path: data/li_tse/test_unrelated.csv
         corpus_type: 'li'
-        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.SemHashtagRemoval"}]
+        transforms: [{"class_path": "mtse.data.LiKeywordRemoval"}, {"class_path": "mtse.data.LiSlangExpansion"}, {"class_path": "mtse.data.SemHashtagRemoval"}]

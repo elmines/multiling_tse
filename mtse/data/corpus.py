@@ -1,9 +1,11 @@
 import pathlib
 from typing import Optional, List
 import functools
+import copy
 # 3rd Party
 from tqdm import tqdm
 # Local
+from .sample import Sample
 from .parse import DetCorpusType, CORPUS_PARSERS
 from .transforms import Transform
 
@@ -16,9 +18,17 @@ class StanceCorpus:
         self._parse_fn = CORPUS_PARSERS[corpus_type]
         self._path = path
         self._target_preds_path = target_preds_path
+        self._transforms = transforms
 
         # Combine those transforms into one function
         self._transform = lambda s: functools.reduce(lambda accum, t: t(accum), transforms, s)
+
+    def _apply_transforms(self, sample: Sample):
+        # This is why transforms are in-place: we don't have to make a copy for each transform
+        s = copy.deepcopy(sample)
+        for t in self._transforms:
+            t(s)
+        return s
 
     def __str__(self):
         return f"<StanceCorpus path='{self._path}'>"
@@ -42,5 +52,5 @@ class StanceCorpus:
         else:
             raw_iter = sample_iter
             desc = f"Parsing {self._path}"
-        trans_iter = map(self._transform, raw_iter)
+        trans_iter = map(self._apply_transforms, raw_iter)
         return iter(tqdm(trans_iter, desc=desc))
