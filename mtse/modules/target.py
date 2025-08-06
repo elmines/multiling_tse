@@ -93,7 +93,6 @@ class LiTargetModule(TargetModule):
             for k in keys:
                 if encoding[k].shape[-1] > 128:
                     encoding[k] = encoding[k][..., :128]
-            try_add_position_ids(encoding)
             # +1 to handle the nontarget-0
             target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
             encoding['target'] = torch.tensor(target_code)
