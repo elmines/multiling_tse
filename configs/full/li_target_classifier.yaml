@@ -6,13 +6,7 @@ trainer:
       save_dir: ./
 
   # No early stopping-- Li just does 5 epochs
-  callbacks:
-    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
-      init_args:
-              monitor: val_micro_f1
-              mode: max
-              filename: "{epoch:02d}-{val_micro_f1:.3f}"
-
+  # He also just uses the last checkpoint--not the one with the best val score
   # Fixed five epochs from Li
   max_epochs: 5 
 
@@ -43,3 +37,11 @@ data:
           corpus_type: li
           transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
+
+    # corpora:
+    #   - class_path: mtse.data.StanceCorpus
+    #     init_args:
+    #       path: data/li_tse/raw_val_all_onecol.csv
+    #       corpus_type: li
+    #       transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+    # ratios: [ [0.8, 0.2, 0.0] ]
