@@ -94,17 +94,22 @@ class LiPreprocess(Transform):
 
     def __call__(self, sample: Sample):
         context = sample.context
-        # 1. Remove target keywords
+        # 1. Lowercase the text (even though he was using a case-sensitive tokenizer)
+        context = context.lower()
+        # 2. Remove target keywords
         context = LiPreprocess.TARGET_PATT.sub('', context)
-        # 2. Use tweet-preprocessor
+        # 3. Use tweet-preprocessor
         context = twp.clean(context)
-        # 3. Remove SemEval hashtags
+        # 4. Remove SemEval hashtags
         context = _remove_semeval_tag(context)
-        # 4. Normalize slang and split hashtags/mentions
+        # 5. Normalize slang and split hashtags/mentions
         converted = []
         for phrase in LiPreprocess.PHRASE_PATTERN.findall(context):
             lowered = phrase.lower()
             if lowered in self._keyword_dict:
+                # The keyword dict actually has some uppercase words,
+                # meaning we'll have some uppercase letters in the final context.
+                # But that's what Li did in his code
                 conversion = [self._keyword_dict[lowered]]
                 converted.append(conversion)
             elif phrase.startswith('#') or phrase.startswith('@'):
