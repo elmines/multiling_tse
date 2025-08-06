@@ -19,7 +19,7 @@ def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
                       target=target,
                       stance=str2strance[row['Stance']],
                       lang='en')
-    with open(corpus_path, 'r', encoding='utf-8') as r:
+    with open(corpus_path, 'r', encoding='ISO-8859-1') as r:
         yield from map(f, csv.DictReader(r, delimiter=','))
 
 def parse_cstance(corpus_path) -> Generator[Sample, None, None]:

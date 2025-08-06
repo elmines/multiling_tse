@@ -7,13 +7,15 @@ Usage: python split_tse_test.py raw_test_all_onecol.csv out_dir/
 import os
 import csv
 
+ENCODING = 'ISO-8859-1'
+
 def copy_se_rows(source_path, out_path):
-    with open(source_path, 'r') as r:
+    with open(source_path, 'r', encoding=ENCODING) as r:
         reader = csv.DictReader(r)
         fieldnames = reader.fieldnames
         train_rows = list(reader) 
     se_trainrows = [row for row in train_rows if '#SemST' in row['Tweet']]
-    with open(out_path, 'w') as w:
+    with open(out_path, 'w', encoding=ENCODING) as w:
         writer = csv.DictWriter(w, fieldnames=fieldnames, lineterminator='\n')
         writer.writeheader()
         writer.writerows(se_trainrows)
@@ -22,7 +24,7 @@ if __name__ == "__main__":
 
     data_dir = os.path.join("data", "li_tse")
 
-    with open(os.path.join(data_dir, "raw_test_all_onecol.csv"), 'r') as r:
+    with open(os.path.join(data_dir, "raw_test_all_onecol.csv"), 'r', encoding=ENCODING) as r:
         reader = csv.DictReader(r)
         fieldnames = reader.fieldnames
         test_rows = list(reader)
@@ -34,7 +36,7 @@ if __name__ == "__main__":
         "test_unrelated.csv": test_rows[9146:]
     }
     for (filename, rowset) in corpus_rows.items():
-        with open(os.path.join(data_dir, filename), 'w') as w:
+        with open(os.path.join(data_dir, filename), 'w', encoding=ENCODING) as w:
             writer = csv.DictWriter(w, fieldnames=fieldnames, lineterminator='\n')
             writer.writeheader()
             writer.writerows(rowset)
