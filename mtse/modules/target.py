@@ -101,6 +101,23 @@ class LiTargetModule(TargetModule):
     def configure_optimizers(self):
         for p in self.bert.embeddings.parameters():
             p.requires_grad = False
+
+        linear_params_a = list(self.linear.parameters())
+        linear_params_b = [p for n, p in self.named_parameters() if n.startswith('linear')]
+        assert linear_params_a == linear_params_b
+
+        out_params_a = list(self.out.parameters())
+        out_params_b = [p for n, p in self.named_parameters() if n.startswith('out')]
+        assert out_params_a == out_params_b
+
+        pooler_params_a = list(self.bert.pooler.parameters())
+        pooler_params_b = [p for n, p in self.named_parameters() if n.startswith('bert.pooler')] 
+        assert pooler_params_a == pooler_params_b
+
+        encoder_params_a = list(self.bert.encoder.parameters())
+        encoder_params_b = [p for n, p in self.named_parameters() if n.startswith('bert.encoder')] 
+        assert encoder_params_a == encoder_params_b
+
         return torch.optim.AdamW([
            {"params": self.linear.parameters(), "lr": 1e-3},
            {"params": self.out.parameters(), "lr": 1e-3},
@@ -115,6 +132,15 @@ class LiTargetModule(TargetModule):
     @property
     def encoder(self):
         return self.__encoder
+
+    def training_step(self, batch, batch_idx):
+        target_logits = self(**batch)
+        # Li specifically chose a sum reduction, not the 'mean' default
+        target_loss = torch.nn.functional.cross_entropy(target_logits, batch['target'], reduction='sum')
+        self.log('loss/target', target_loss)
+        loss = target_loss
+        self.log('loss', loss)
+        return loss
 
     def forward(self, **kwargs):
         bert_kwargs = {k:v for k,v in kwargs.items() if k != 'target' and k != 'stance'}
