@@ -6,6 +6,7 @@ from lightning.pytorch.callbacks import Callback
 import lightning as L
 from torchmetrics.functional.classification import multiclass_stat_scores
 # Local
+from .utils import _compute_class_metrics
 
 def _compute_corpus_metrics(tp, fp, fn):
     _, _2, class_f1 = _compute_class_metrics(tp, fp, fn)
@@ -15,16 +16,6 @@ def _compute_corpus_metrics(tp, fp, fn):
     agg_fn = torch.sum(fn)
     _, _2, micro_f1 = _compute_class_metrics(agg_tp, agg_fp, agg_fn)
     return macro_f1, micro_f1
-
-
-def _compute_class_metrics(tp, fp, fn):
-    pred_pos = tp + fp
-    support = tp + fn
-    prec = torch.where(pred_pos > 0, tp / pred_pos, 0.)
-    rec = torch.where(support > 0, tp / support, 0.)
-    denom = prec + rec
-    f1 = torch.where(denom > 0, 2 * prec * rec / denom, 0.)
-    return prec, rec, f1
 
 
 class TargetClassificationStatsCallback(Callback):

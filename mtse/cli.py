@@ -3,7 +3,7 @@ from lightning.pytorch.cli import LightningCLI
 # Local
 from .modules import *
 from .data import *
-from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback, TargetPredictionWriter
+from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback, TargetPredictionWriter, StanceClassificationStatsCallback
 
 class StanceCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
@@ -20,7 +20,9 @@ class StanceCLI(LightningCLI):
             self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
             self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
         elif isinstance(self.model, TwoShotModule):
-            self.trainer.callbacks.append(TSEStatsCallback())
+            # We leave it to the user to choose what metric callbacks they want in this case
+            # TODO: Just do that for the other models types--way cleaner
+            pass
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")
 
