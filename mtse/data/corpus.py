@@ -1,4 +1,5 @@
 import pathlib
+import csv
 from typing import Optional, List
 import functools
 import copy
@@ -36,8 +37,9 @@ class StanceCorpus:
     @staticmethod
     def _iter_targets(target_path):
         with open(target_path, 'r') as r:
-            for line in r:
-                yield line.strip()
+            reader = csv.DictReader(r)
+            for row in reader:
+                yield row['Mapped Target']
 
     def __iter__(self):
         sample_iter = self._parse_fn(self._path)

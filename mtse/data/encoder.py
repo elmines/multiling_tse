@@ -11,14 +11,15 @@ from ..types import TensorDict
 PoolIndices = Dict[int, List[int]]
 
 @enum.unique
-class EncodeTask(enum.Enum):
-    CONTEXT = enum.auto()
-    BOTH = enum.auto()
+class PredictTask(enum.IntEnum):
+    STANCE = 0
+    TARGET = 1
+    BOTH = 2
 
 class Encoder(abc.ABC):
 
     @abc.abstractmethod
-    def encode(self, sample, inference=False, task: Optional[EncodeTask] = None) -> TensorDict:
+    def encode(self, sample, inference=False, task: Optional[PredictTask] = None) -> TensorDict:
         pass
 
     @abc.abstractmethod
