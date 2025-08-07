@@ -73,8 +73,9 @@ class LiPreprocess(Transform):
 
     PHRASE_PATTERN = re.compile(r"[A-Za-z#@]+|[,.!?&/\<>=$]|[0-9]+")
 
-    def __init__(self):
+    def __init__(self, scrub_targets: bool = False):
         self._keyword_dict = LiPreprocess.get_keyword_dict()
+        self.scrub_targets = scrub_targets
 
     @classmethod
     def get_keyword_dict(cls) -> Dict[str, str]:
@@ -97,7 +98,8 @@ class LiPreprocess(Transform):
         # 1. Lowercase the text (even though he was using a case-sensitive tokenizer)
         context = context.lower()
         # 2. Remove target keywords
-        context = LiPreprocess.TARGET_PATT.sub('', context)
+        if self.scrub_targets:
+            context = LiPreprocess.TARGET_PATT.sub('', context)
         # 3. Use tweet-preprocessor
         context = twp.clean(context)
         # 4. Remove SemEval hashtags
