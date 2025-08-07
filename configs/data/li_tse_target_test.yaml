@@ -1,0 +1,8 @@
+class_path: mtse.data.PredictDataModule
+init_args:
+  corpora:
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/raw_test_all_onecol.csv
+        corpus_type: 'li'
+        transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
