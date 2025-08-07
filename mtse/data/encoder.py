@@ -19,7 +19,7 @@ class PredictTask(enum.IntEnum):
 class Encoder(abc.ABC):
 
     @abc.abstractmethod
-    def encode(self, sample, inference=False, task: Optional[PredictTask] = None) -> TensorDict:
+    def encode(self, sample, inference=False, predict_task: Optional[PredictTask] = None) -> TensorDict:
         pass
 
     @abc.abstractmethod

@@ -123,10 +123,12 @@ class LiTwoShotModule(TwoShotModule):
         def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             if predict_task is None:
                 predict_task = PredictTask.STANCE
+
+            if sample.target_prediction is None:
+                raise ValueError(f"Sample missing target prediction: {sample}")
+            target_str = sample.target_prediction
+
             if predict_task == PredictTask.STANCE:
-                if sample.target_prediction is None:
-                    raise ValueError(f"Sample missing target prediction: {sample}")
-                target_str = sample.target_prediction
                 encoding = self.tokenizer(text=target_str, text_pair=sample.context, return_tensors='pt',
                                           truncation=True, max_length=self.module.max_length, padding='max_length',
                                           return_attention_mask=True)

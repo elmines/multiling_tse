@@ -2,6 +2,7 @@
 from __future__ import annotations
 import pathlib
 # 3rd Party
+import random
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split, Sampler
@@ -9,7 +10,7 @@ import lightning as L
 from tqdm import tqdm
 from typing import Tuple, List, Tuple, Sequence
 # Local
-from .encoder import Encoder
+from .encoder import Encoder, PredictTask
 from .dataset import MapDataset
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
@@ -40,6 +41,63 @@ class PredictDataModule(BaseDataModule):
         return [DataLoader(ds, batch_size=self.batch_size, collate_fn=self.encoder.collate) for ds in self.__datasets]
     def test_dataloader(self):
         return self.predict_dataloader()
+
+class TaskSampler(Sampler):
+    def __init__(self,
+                 stance_indices: np.ndarray,
+                 target_indices: np.ndarray,
+                 batch_size: int):
+        self.stance_indices = stance_indices
+        self.target_indices = target_indices
+        self.batch_size = batch_size
+
+        stance_len = len(self.stance_indices)
+        self.__n_stance_batches = stance_len // batch_size + bool(stance_len % batch_size)
+        target_len = len(self.target_indices)
+        self.__n_target_batches = target_len // batch_size + bool(target_len % batch_size)
+
+    def __len__(self):
+        return self.__n_stance_batches + self.__n_target_batches
+
+    def __iter__(self):
+        permuted_stance_inds = np.random.permutation(self.stance_indices)
+        permuted_target_inds = np.random.permutation(self.target_indices)
+        mixed_batches = np.array_split(permuted_stance_inds, self.__n_stance_batches) + np.array_split(permuted_target_inds, self.__n_target_batches)
+        random.shuffle(mixed_batches)
+        return iter(map(lambda inds: inds.tolist(), mixed_batches))
+
+class MixedTrainingDataModule(BaseDataModule):
+    def __init__(self,
+                 stance_train_corpus: StanceCorpus,
+                 target_train_corpus: StanceCorpus,
+                 val_corpus: StanceCorpus,
+                 batch_size: int = DEFAULT_BATCH_SIZE):
+        super().__init__()
+        self.encoder: Encoder = None
+
+        self.stance_train_corpus = stance_train_corpus
+        self.target_train_corpus = target_train_corpus
+        self.val_corpus = val_corpus
+        self.batch_size = batch_size
+
+        self.__train_ds: Dataset = None
+        self.__n_stance: int = None
+        self.__val_ds: Dataset = None
+
+    def setup(self, stage):
+        if self.__train_ds and self.__val_ds and self.__n_stance is not None:
+            return
+        stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE) for s in self.stance_train_corpus]
+        target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET) for s in self.target_train_corpus]
+        self.__n_stance = len(stance_samples)
+        self.__train_ds = MapDataset(stance_samples + target_samples)
+        self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE) for s in self.val_corpus])
+
+    def train_dataloader(self):
+        sampler = TaskSampler(np.arange(self.__n_stance), np.arange(self.__n_stance, len(self.__train_ds)), self.batch_size)
+        return DataLoader(self.__train_ds, shuffle=False, sampler=sampler, collate_fn=self.encoder.collate)
+    def val_dataloader(self):
+        return DataLoader(self.__val_ds, shuffle=False, batch_size=self.batch_size, collate_fn=self.encoder.collate)
     
 
 class SplitDataModule(BaseDataModule):
