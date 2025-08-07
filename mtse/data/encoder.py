@@ -1,5 +1,6 @@
 # STL
-from typing import List, Dict
+from typing import List, Dict, Optional
+import enum
 import abc
 # 3rd party
 import torch
@@ -9,10 +10,15 @@ from ..types import TensorDict
 
 PoolIndices = Dict[int, List[int]]
 
+@enum.unique
+class EncodeTask(enum.Enum):
+    CONTEXT = enum.auto()
+    BOTH = enum.auto()
+
 class Encoder(abc.ABC):
 
     @abc.abstractmethod
-    def encode(self, sample, inference=False) -> TensorDict:
+    def encode(self, sample, inference=False, task: Optional[EncodeTask] = None) -> TensorDict:
         pass
 
     @abc.abstractmethod

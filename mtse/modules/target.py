@@ -8,7 +8,7 @@ from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
 from transformers import BertweetTokenizer, RobertaModel
 # 
 from .base_module import BaseModule
-from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
+from ..data import Encoder, EncodeTask, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
 from ..constants import DEFAULT_HF_MODEL
 
 class TargetModule(BaseModule):
@@ -50,7 +50,8 @@ class TargetModule(BaseModule):
         def __init__(self, module: TargetModule):
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
-        def encode(self, sample: Sample, inference=False):
+        def encode(self, sample: Sample, inference=False, encode_task: Optional[EncodeTask] = None):
+            assert encode_task is None or encode_task == EncodeTask.CONTEXT
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                       truncation=True, max_length=self.module.max_length)
             try_add_position_ids(encoding)
@@ -86,7 +87,8 @@ class LiTargetModule(TargetModule):
         self.__encoder = self.Encoder(self)
 
     class Encoder(TargetModule.Encoder):
-        def encode(self, sample: Sample, inference=False):
+        def encode(self, sample: Sample, inference=False, encode_task: Optional[EncodeTask] = None):
+            assert encode_task is None or encode_task == EncodeTask.CONTEXT
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                       padding="max_length", max_length=128)
             keys = list(encoding)
