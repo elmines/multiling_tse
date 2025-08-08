@@ -122,7 +122,6 @@ class LiTwoShotModule(TwoShotModule):
         def __init__(self, module: LiTwoShotModule):
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
-            self.target_strs = [UNRELATED_TARGET] + self.module.targets
 
         def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             if predict_task is None:
@@ -152,8 +151,8 @@ class LiTwoShotModule(TwoShotModule):
                                           return_attention_mask=True)
             else:
                 raise ValueError(f"Invalid task ID {predict_task}")
-            encoding['target'] = torch.tensor(self.target_strs.index(target_str))
-            encoding['target_pred'] = torch.tensor(self.target_strs.index(target_pred_str))
+            encoding['target'] = torch.tensor(self.module.targets.index(target_str))
+            encoding['target_pred'] = torch.tensor(self.module.targets.index(target_pred_str))
             encoding['stance'] = torch.tensor(sample.stance)
             encoding['task'] = torch.tensor(predict_task, dtype=torch.long)
             return encoding
