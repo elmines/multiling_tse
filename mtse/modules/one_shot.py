@@ -4,11 +4,11 @@ import dataclasses
 from typing import Optional
 # 3rd Party
 import torch
-from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
+from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
-from ..constants import DEFAULT_HF_MODEL
+from ..constants import DEFAULT_HF_MODEL, UNRELATED_TARGET
 
 class OneShotModule(BaseModule):
 
@@ -22,48 +22,59 @@ class OneShotModule(BaseModule):
                  stance_type: StanceType):
         super().__init__()
         self.stance_type = STANCE_TYPE_MAP[stance_type]
-        self.no_target = 0
         with open(targets_path, 'r') as r:
             targets = [t.strip() for t in r]
-        self.targets = targets
+        self.targets = [UNRELATED_TARGET] + targets
     
     @property
     def n_targets(self):
         return len(self.targets)
 
-class HFOneShotModule(OneShotModule):
-    def __init__(self,
-                 pretrained_model: str = DEFAULT_HF_MODEL,
-                 **parent_kwargs):
+class LiOneShotModule(OneShotModule):
+    PRETRAINED_MODEL = "vinai/bertweet-base"
+
+    NON_BERT_KEYS = {'target', 'stance'}
+
+    def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = AutoModel.from_pretrained(pretrained_model)
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model, use_fast=True)
+        self.bert = RobertaModel.from_pretrained(LiOneShotModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(LiOneShotModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
-
-        self.max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
-
-        dropout_prob = config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
         hidden_size = config.hidden_size
-        self.target_classifier = torch.nn.Sequential(
-            torch.nn.Dropout(dropout_prob),
-            torch.nn.Linear(hidden_size, hidden_size, bias=True),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, self.n_targets + 1)
-        )
+
         self.stance_classifier = torch.nn.Sequential(
-            torch.nn.Dropout(dropout_prob),
-            torch.nn.Linear(hidden_size, hidden_size, bias=True),
+            torch.nn.Linear(hidden_size, hidden_size),
             torch.nn.ReLU(),
             torch.nn.Linear(hidden_size, len(self.stance_type))
         )
+        self.target_classifier = torch.nn.Sequential(
+            torch.nn.Linear(hidden_size, hidden_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_size, len(self.targets))
+        )
+
         self.__encoder = self.Encoder(self)
 
     @property
     def encoder(self):
         return self.__encoder
 
+    def configure_optimizers(self):
+        for p in self.bert.embeddings.parameters():
+            p.requires_grad = False
+        return torch.optim.AdamW([
+           {"params": self.stance_classifier.parameters(), "lr": 1e-3},
+           {"params": self.target_classifier.parameters(), "lr": 1e-3},
+           {"params": self.bert.encoder.parameters(), "lr": 2e-5},
+        ])
+
+    def configure_gradient_clipping(self, optimizer, gradient_clip_val = None, gradient_clip_algorithm = None):
+        assert gradient_clip_val is None and gradient_clip_algorithm is None
+        return super().configure_gradient_clipping(optimizer, 1.0, 'norm')
+
+
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k != 'target' and k != 'stance'}
+        bert_kwargs = {k:v for k,v in kwargs.items() if k not in LiOneShotModule.NON_BERT_KEYS}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
         target_logits = self.target_classifier(cls_hidden_state)
@@ -88,17 +99,13 @@ class HFOneShotModule(OneShotModule):
         )
 
     class Encoder(Encoder):
-        def __init__(self, module: HFOneShotModule):
+        def __init__(self, module: LiOneShotModule):
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
         def encode(self, sample: Sample, inference=False):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
-                                      truncation=True, max_length=self.module.max_length)
-            try_add_position_ids(encoding)
-
-            # +1 to handle the nontarget-0
-            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
-            encoding['target'] = torch.tensor(target_code)
+                                    truncation=True, max_length=128)
+            encoding['target'] = torch.tensor(self.module.targets.index(sample.target))
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
         def collate(self, samples):
@@ -107,4 +114,4 @@ class HFOneShotModule(OneShotModule):
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')
             return rdict
 
-__all__ = ["OneShotModule", "HFOneShotModule"]
+__all__ = ["OneShotModule", "LiOneShotModule"]

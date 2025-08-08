@@ -1,0 +1,58 @@
+seed_everything: 0 # Li's seeds were 0,112,343
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: ./
+
+  # No early stopping-- Li just does 5 epochs
+  max_epochs: 5 
+
+  # Li does use model checkpointing for his stance training
+  # But he uses F1 score for just stance (not the targets)
+  callbacks:
+
+    - class_path: mtse.callbacks.TSEStatsCallback
+
+    # Monitor the stance F1
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/tse/f1
+        mode: max
+        filename: "epoch={epoch:02d}-bimacro_f1={val/tse/f1:.3f}"
+        auto_insert_metric_name: false
+
+
+  # Li didn't specify, so neither will we
+  deterministic: null
+
+model:
+  class_path: mtse.modules.LiOneShotModule
+  init_args:
+    targets_path: static/li_merged_targets.txt
+    stance_type: tri
+
+data:
+  class_path: mtse.data.SplitDataModule
+  init_args:
+    batch_size: 64
+    corpora:
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/li_tse/raw_train_all_onecol.csv
+          corpus_type: li
+          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/li_tse/raw_val_all_onecol.csv
+          corpus_type: li
+          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+    ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
+
+    # corpora:
+    #   - class_path: mtse.data.StanceCorpus
+    #     init_args:
+    #       path: data/li_tse/raw_val_all_onecol.csv
+    #       corpus_type: li
+    #       transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+    # ratios: [ [0.8, 0.2, 0.0] ]

@@ -121,6 +121,6 @@ class TSEStatsCallback(Callback):
 
         results['tse/acc'] = self.__correct / self.__total if self.__total > 0 else 0.0
 
-        results = {f"{stage}_{k}":v for k,v in results.items()}
+        results = {f"{stage}/{k}":v for k,v in results.items()}
         for (k, v) in results.items():
             pl_module.log(k, v, on_step=False, on_epoch=True)
