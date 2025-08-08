@@ -108,18 +108,18 @@ class TSEStatsCallback(Callback):
     def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
         results = {}
         if self.full_metrics:
-            results['fn_wrongtarg'] = self.__fn_wrongtarg
-            results['fn_wrongstance'] = self.__fn_wrongstance
-            results['fp_wrongtarg'] = self.__fp_wrongtarg
-            results['fp_wrongstance'] = self.__fp_wrongstance
-            results['pred_pos'] = self.__pred_pos
-            results['support'] = self.__support
-            results['tp'] = self.__tp
+            results['tse/fn_wrongtarg'] = self.__fn_wrongtarg
+            results['tse/fn_wrongstance'] = self.__fn_wrongstance
+            results['tse/fp_wrongtarg'] = self.__fp_wrongtarg
+            results['tse/fp_wrongstance'] = self.__fp_wrongstance
+            results['tse/pred_pos'] = self.__pred_pos
+            results['tse/support'] = self.__support
+            results['tse/tp'] = self.__tp
 
-        _, _2, results['tse_f1'] = \
+        _, _2, results['tse/f1'] = \
             TSEStatsCallback.compute_metrics(self.__tp, self.__pred_pos, self.__support)
 
-        results['tse_acc'] = self.__correct / self.__total if self.__total > 0 else 0.0
+        results['tse/acc'] = self.__correct / self.__total if self.__total > 0 else 0.0
 
         results = {f"{stage}_{k}":v for k,v in results.items()}
         for (k, v) in results.items():

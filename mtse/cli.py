@@ -15,13 +15,12 @@ class StanceCLI(LightningCLI):
         model = self.model
         self.datamodule.encoder = model.encoder
         if isinstance(self.model, OneShotModule):
-            self.trainer.callbacks.append(TSEStatsCallback())
+            pass
         elif isinstance(self.model, TargetModule):
+            # TODO: Just make the uesr specify these callbacks in the YAML config
             self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
             self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
         elif isinstance(self.model, TwoShotModule):
-            # We leave it to the user to choose what metric callbacks they want in this case
-            # TODO: Just do that for the other models types--way cleaner
             pass
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")
