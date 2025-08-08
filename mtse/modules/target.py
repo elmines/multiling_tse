@@ -9,7 +9,7 @@ from transformers import BertweetTokenizer, RobertaModel
 # 
 from .base_module import BaseModule
 from ..data import Encoder, PredictTask, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
-from ..constants import DEFAULT_HF_MODEL
+from ..constants import DEFAULT_HF_MODEL, UNRELATED_TARGET
 
 class TargetModule(BaseModule):
 
@@ -22,7 +22,7 @@ class TargetModule(BaseModule):
         self.no_target = 0
         with open(targets_path, 'r') as r:
             targets = [t.strip() for t in r]
-        self.targets = targets
+        self.targets = [UNRELATED_TARGET] + targets
     
     @property
     def n_targets(self):
@@ -55,8 +55,7 @@ class TargetModule(BaseModule):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                       truncation=True, max_length=self.module.max_length)
             try_add_position_ids(encoding)
-            # +1 to handle the nontarget-0
-            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
+            target_code = self.module.targets.index(sample.target)
             encoding['target'] = torch.tensor(target_code)
             return encoding
         def collate(self, samples):
@@ -83,7 +82,7 @@ class LiTargetModule(TargetModule):
         hidden_size = config.hidden_size
 
         self.linear = torch.nn.Linear(hidden_size, hidden_size, bias=True)
-        self.out = torch.nn.Linear(hidden_size, self.n_targets + 1)
+        self.out = torch.nn.Linear(hidden_size, self.n_targets)
         self.__encoder = self.Encoder(self)
 
     class Encoder(TargetModule.Encoder):
@@ -96,7 +95,7 @@ class LiTargetModule(TargetModule):
                 if encoding[k].shape[-1] > 128:
                     encoding[k] = encoding[k][..., :128]
             # +1 to handle the nontarget-0
-            target_code = 0 if sample.target is None else self.module.targets.index(sample.target) + 1
+            target_code = self.module.targets.index(sample.target)
             encoding['target'] = torch.tensor(target_code)
             return encoding
 

@@ -89,14 +89,14 @@ class MixedTrainingDataModule(BaseDataModule):
         if self.__train_ds and self.__val_ds and self.__n_stance is not None:
             return
         raw_target_samples = list(self.target_train_corpus)
-        target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET)
+        target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET, inference=False)
                           for s in tqdm(raw_target_samples, desc='Encoding target train corpus')]
         raw_stance_samples = list(self.stance_train_corpus)
-        stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE)
+        stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=False)
                           for s in tqdm(raw_stance_samples, desc='Encoding stance train corpus')]
         self.__n_stance = len(stance_samples)
         self.__train_ds = MapDataset(stance_samples + target_samples)
-        self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE) for s in self.val_corpus])
+        self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=True) for s in self.val_corpus])
 
     def train_dataloader(self):
         sampler = TaskSampler(np.arange(self.__n_stance), np.arange(self.__n_stance, len(self.__train_ds)), self.batch_size)

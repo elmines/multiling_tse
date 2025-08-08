@@ -18,19 +18,21 @@ class TwoShotModule(BaseModule):
 
     def __init__(self,
                  targets_path: pathlib.Path,
-                 stance_type: StanceType):
+                 stance_type: StanceType,
+                 use_target_gt: bool = False):
         super().__init__()
         self.stance_type = STANCE_TYPE_MAP[stance_type]
         self.no_target = 0
         with open(targets_path, 'r') as r:
             targets = [t.strip() for t in r]
-        self.targets = targets
+        self.targets = [UNRELATED_TARGET] + targets
+        self.use_target_gt = use_target_gt
 
 class LiTwoShotModule(TwoShotModule):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
-    NON_BERT_KEYS = {'target', 'stance', 'task'}
+    NON_BERT_KEYS = {'target', 'target_pred', 'stance', 'task'}
 
     @dataclasses.dataclass
     class Output:
@@ -42,7 +44,7 @@ class LiTwoShotModule(TwoShotModule):
         super().__init__(**parent_kwargs)
 
         self.bert = RobertaModel.from_pretrained(LiTwoShotModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiTwoShotModule.PRETRAINED_MODEL, use_fast=True)
+        self.tokenizer = BertweetTokenizer.from_pretrained(LiTwoShotModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.max_length: int = 128
         hidden_size = config.hidden_size
@@ -55,7 +57,7 @@ class LiTwoShotModule(TwoShotModule):
         self.target_classifier = torch.nn.Sequential(
             torch.nn.Linear(hidden_size, hidden_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, len(self.targets) + 1)
+            torch.nn.Linear(hidden_size, len(self.targets))
         )
 
         self.__encoder = self.Encoder(self)
@@ -96,7 +98,9 @@ class LiTwoShotModule(TwoShotModule):
             # Li uses a mean reduction in the stance training,
             # not a sum reduction like in the target classifier training
             loss = torch.nn.functional.cross_entropy(stance_logits, kwargs['stance'])
-            return LiTwoShotModule.Output(target_preds=kwargs['target'],
+
+            target_preds = kwargs['target' if self.use_target_gt else 'target_pred']
+            return LiTwoShotModule.Output(target_preds=target_preds,
                                           stance_preds=torch.argmax(stance_logits, dim=1),
                                           loss=loss)
         else:
@@ -126,20 +130,30 @@ class LiTwoShotModule(TwoShotModule):
 
             if sample.target_prediction is None:
                 raise ValueError(f"Sample missing target prediction: {sample}")
-            target_str = sample.target_prediction
+            target_pred_str = sample.target_prediction
+            if sample.target is None:
+                raise ValueError(f"Sample missing target GT: {sample.target}")
+            target_str = sample.target
 
             if predict_task == PredictTask.STANCE:
-                encoding = self.tokenizer(text=target_str, text_pair=sample.context, return_tensors='pt',
-                                          truncation=True, max_length=self.module.max_length, padding='max_length',
-                                          return_attention_mask=True)
+                # In training, use the GT target as input, not the predicted target
+                t = target_pred_str if inference else target_str
+                encoding = self.tokenizer(
+                                        text=t,
+                                        text_pair=sample.context,
+                                        return_tensors='pt',
+                                        truncation=True,
+                                        max_length=self.module.max_length,
+                                        padding='max_length',
+                                        return_attention_mask=True)
             elif predict_task == PredictTask.TARGET:
                 encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                           truncation=True, max_length=self.module.max_length, padding='max_length',
                                           return_attention_mask=True)
             else:
                 raise ValueError(f"Invalid task ID {predict_task}")
-            target_code = self.target_strs.index(target_str)
-            encoding['target'] = torch.tensor(target_code)
+            encoding['target'] = torch.tensor(self.target_strs.index(target_str))
+            encoding['target_pred'] = torch.tensor(self.target_strs.index(target_pred_str))
             encoding['stance'] = torch.tensor(sample.stance)
             encoding['task'] = torch.tensor(predict_task, dtype=torch.long)
             return encoding
@@ -148,7 +162,7 @@ class LiTwoShotModule(TwoShotModule):
             if not all(t is not None and t == tasks[0] for t in tasks):
                 raise ValueError("Need matching task IDs for all samples in batch")
             rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
-            rdict['target'] = keyed_scalar_stack(samples, 'target')
-            rdict['stance'] = keyed_scalar_stack(samples, 'stance')
+            for scalar_key in ['target', 'stance', 'target_pred']:
+                rdict[scalar_key] = keyed_scalar_stack(samples, scalar_key)
             rdict['task'] = tasks[0]
             return rdict

@@ -14,9 +14,8 @@ def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
         "Dummy Stance": TriStance.neutral
     }
     def f(row):
-        target = row['Target'] if row['Target'] != 'Unrelated' else None
         return Sample(context=row['Tweet'],
-                      target=target,
+                      target=row['Target'],
                       stance=str2strance[row['Stance']],
                       lang='en')
     with open(corpus_path, 'r', encoding='ISO-8859-1') as r:
