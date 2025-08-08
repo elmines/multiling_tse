@@ -64,7 +64,8 @@ class TaskSampler(Sampler):
         permuted_target_inds = np.random.permutation(self.target_indices)
         mixed_batches = np.array_split(permuted_stance_inds, self.__n_stance_batches) + np.array_split(permuted_target_inds, self.__n_target_batches)
         random.shuffle(mixed_batches)
-        return iter(map(lambda inds: inds.tolist(), mixed_batches))
+        mixed_batches = [torch.tensor(inds) for inds in mixed_batches]
+        return iter(mixed_batches)
 
 class MixedTrainingDataModule(BaseDataModule):
     def __init__(self,
@@ -87,15 +88,19 @@ class MixedTrainingDataModule(BaseDataModule):
     def setup(self, stage):
         if self.__train_ds and self.__val_ds and self.__n_stance is not None:
             return
-        stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE) for s in self.stance_train_corpus]
-        target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET) for s in self.target_train_corpus]
+        raw_target_samples = list(self.target_train_corpus)
+        target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET)
+                          for s in tqdm(raw_target_samples, desc='Encoding target train corpus')]
+        raw_stance_samples = list(self.stance_train_corpus)
+        stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE)
+                          for s in tqdm(raw_stance_samples, desc='Encoding stance train corpus')]
         self.__n_stance = len(stance_samples)
         self.__train_ds = MapDataset(stance_samples + target_samples)
         self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE) for s in self.val_corpus])
 
     def train_dataloader(self):
         sampler = TaskSampler(np.arange(self.__n_stance), np.arange(self.__n_stance, len(self.__train_ds)), self.batch_size)
-        return DataLoader(self.__train_ds, shuffle=False, sampler=sampler, collate_fn=self.encoder.collate)
+        return DataLoader(self.__train_ds, shuffle=False, batch_sampler=sampler, collate_fn=self.encoder.collate)
     def val_dataloader(self):
         return DataLoader(self.__val_ds, shuffle=False, batch_size=self.batch_size, collate_fn=self.encoder.collate)
     
