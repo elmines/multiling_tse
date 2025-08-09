@@ -88,8 +88,17 @@ class LiTargetModule(TargetModule):
     class Encoder(TargetModule.Encoder):
         def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
-            encoding = self.tokenizer(text=sample.context, return_tensors='pt',
-                                      padding="max_length", max_length=128)
+            # This looks clunky, but trying to imitate Li's original code
+            encoding = self.tokenizer.encode_plus(text=sample.context, 
+                                      padding="max_length", max_length=128, add_special_tokens=True,
+                                      return_attention_mask=True)
+            encoding = {k:torch.unsqueeze(torch.tensor(v, dtype=torch.long), 0) for k,v in encoding.items()}
+            
+            def compare_dicts(a, b):
+                assert set(a.keys()) == set(b.keys())
+                for k,v in a.items():
+                    assert torch.all(v == b[k])
+
             keys = list(encoding)
             for k in keys:
                 if encoding[k].shape[-1] > 128:
@@ -102,6 +111,10 @@ class LiTargetModule(TargetModule):
     def configure_optimizers(self):
         for p in self.bert.embeddings.parameters():
             p.requires_grad = False
+
+        embed_params_a = list(self.bert.embeddings.parameters())
+        embed_params_b = [p for n,p in self.named_parameters() if 'bert.embeddings' in n]
+        assert embed_params_a == embed_params_b
 
         linear_params_a = list(self.linear.parameters())
         linear_params_b = [p for n, p in self.named_parameters() if n.startswith('linear')]
