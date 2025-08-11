@@ -68,6 +68,6 @@ class TargetClassificationStatsCallback(Callback):
                 results[f'micro_f1/{dataloader_idx}'] = micro_f1
             global_stats = sum(stats_by_corp.values())
             results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*global_stats.transpose(1, 0))
-        results = {f"{stage}_{k}":v for k,v in results.items()}
+        results = {f"{stage}/{k}":v for k,v in results.items()}
         for (k, v) in results.items():
             pl_module.log(k, v, on_step=False, on_epoch=True, add_dataloader_idx=False)
