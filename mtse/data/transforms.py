@@ -82,15 +82,16 @@ class LiPreprocess(Transform):
         if cls.KEYWORD_DICT is None:
             res_files = importlib.resources.files('mtse.res')
             emnlp_text = res_files.joinpath('emnlp_dict.txt').read_text()
-            d = {}
+            emnlp_dict = {}
             for l in emnlp_text.replace('\r', '').strip().split('\n'):
                 pair = l.strip().split()
-                d[pair[0]] = pair[1]
+                emnlp_dict[pair[0]] = pair[1]
 
             slang_json = json.loads(res_files.joinpath('noslang_data.json').read_text())
-            d.update(slang_json)
 
-            cls.KEYWORD_DICT = d
+            # The order of these 2 matters, because 253 keys
+            # are in both dictionaries. emnlp's takes precedence
+            cls.KEYWORD_DICT = {**slang_json, **emnlp_dict}
         return cls.KEYWORD_DICT
 
     def __call__(self, sample: Sample):
