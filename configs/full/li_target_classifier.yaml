@@ -6,9 +6,16 @@ trainer:
       save_dir: ./
 
   # No early stopping-- Li just does 5 epochs
-  # He also just uses the last checkpoint--not the one with the best val score
   # Fixed five epochs from Li
   max_epochs: 5 
+
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/target/micro_f1
+        mode: max
+        filename: "epoch={epoch:02d}-micro_f1={val/target/micro_f1:.3f}"
+        auto_insert_metric_name: false
 
   # Li did gradient norm clipping to 1.
   gradient_clip_val: 1.
