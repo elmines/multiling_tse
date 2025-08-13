@@ -15,8 +15,6 @@ trainer:
     # Calculate the stance F1
     - class_path: mtse.callbacks.StanceClassificationStatsCallback
 
-    - class_path: mtse.callbacks.TSEStatsCallback
-
     # Monitor the stance F1
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -40,18 +38,18 @@ data:
   init_args:
     # He cut the batch size down to 64 for the stance training
     batch_size: 64
+
+    # Notice no target_pred_path values
+    # Li only uses GT targets during stance training
     stance_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
-      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]
     target_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
-      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     val_corpus:
       path: data/li_tse/raw_val_all_onecol.csv
-      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]

@@ -88,6 +88,7 @@ class LiTargetModule(TargetModule):
     class Encoder(TargetModule.Encoder):
         def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
+            assert sample.target_label is not None
             # This looks clunky, but trying to imitate Li's original code
             encoding = self.tokenizer.encode_plus(text=sample.context, 
                                       padding="max_length", max_length=128, add_special_tokens=True,
@@ -103,8 +104,7 @@ class LiTargetModule(TargetModule):
             for k in keys:
                 if encoding[k].shape[-1] > 128:
                     encoding[k] = encoding[k][..., :128]
-            # +1 to handle the nontarget-0
-            target_code = self.module.targets.index(sample.target)
+            target_code = self.module.targets.index(sample.target_label)
             encoding['target'] = torch.tensor(target_code)
             return encoding
 

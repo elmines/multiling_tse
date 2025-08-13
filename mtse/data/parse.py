@@ -15,7 +15,7 @@ def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
     }
     def f(row):
         return Sample(context=row['Tweet'],
-                      target=row['Target'],
+                      target_label=row['Target'],
                       stance=str2strance[row['Stance']],
                       lang='en')
     with open(corpus_path, 'r', encoding='ISO-8859-1') as r:
@@ -29,7 +29,7 @@ def parse_cstance(corpus_path) -> Generator[Sample, None, None]:
     }
     def f(row):
         return Sample(context=row['Text'],
-                      target=None, # Using this as the "unrelated" target dataset
+                      target_label=None, # Using this as the "unrelated" target dataset
                       stance=strstance2[row['Stance 1']],
                       lang='zh')
     with open(corpus_path, 'r', encoding='utf-8-sig') as r:
@@ -47,7 +47,7 @@ def parse_nlpcc(corpus_path: os.PathLike):
                 continue
             yield Sample(
                 context=row['TEXT'],
-                target=row['TARGET'],
+                target_label=row['TARGET'],
                 stance=stance_map[stance],
                 lang='zh'
             )

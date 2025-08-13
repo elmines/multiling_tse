@@ -1,6 +1,6 @@
 import pathlib
 import csv
-from typing import Optional, List
+from typing import Optional, List, Literal
 import functools
 import copy
 # 3rd Party
@@ -10,16 +10,32 @@ from .sample import Sample
 from .parse import DetCorpusType, CORPUS_PARSERS
 from .transforms import Transform
 
+TargetInputType = Literal['pred', 'label']
+
 class StanceCorpus:
+
+    class SetTargetInput(Transform):
+        def __init__(self, target_input: TargetInputType):
+            self.target_input = target_input
+        def __call__(self, sample: Sample):
+            assert sample.target_input is None
+            if self.target_input == 'pred':
+                sample.target_input = sample.target_pred
+            elif self.target_input == 'label':
+                sample.target_input = sample.target_label
+            else:
+                raise ValueError(f"Invalid target_input = {self.target_input}")
+
     def __init__(self,
                  corpus_type: DetCorpusType,
                  path: pathlib.Path,
                  target_preds_path: Optional[pathlib.Path] = None,
-                 transforms: List[Transform] = []):
+                 transforms: List[Transform] = [],
+                 target_input: TargetInputType = 'label'):
         self._parse_fn = CORPUS_PARSERS[corpus_type]
         self._path = path
         self._target_preds_path = target_preds_path
-        self._transforms = transforms
+        self._transforms = [StanceCorpus.SetTargetInput(target_input)] + transforms
 
         # Combine those transforms into one function
         self._transform = lambda s: functools.reduce(lambda accum, t: t(accum), transforms, s)
@@ -47,7 +63,7 @@ class StanceCorpus:
             target_iter = StanceCorpus._iter_targets(self._target_preds_path)
             def combined_iter():
                 for sample, target in zip(sample_iter, target_iter):
-                    sample.target_prediction = target
+                    sample.target_pred = target
                     yield sample
             raw_iter = combined_iter()
             desc = f"Parsing {self._path} and {self._target_preds_path}"
