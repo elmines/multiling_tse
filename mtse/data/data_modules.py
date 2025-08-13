@@ -89,8 +89,8 @@ class MixedTrainingDataModule(BaseDataModule):
         if self.__train_ds and self.__val_ds and self.__n_stance is not None:
             return
         permitted_stances = {'favor', 'against'}
-        raw_target_samples = [s for s in self.target_train_corpus if s.target != UNRELATED_TARGET and s.stance.name in permitted_stances]
-        raw_stance_samples = [s for s in self.stance_train_corpus if s.target != UNRELATED_TARGET]
+        raw_target_samples = [s for s in self.target_train_corpus if s.target_label != UNRELATED_TARGET and s.stance.name in permitted_stances]
+        raw_stance_samples = [s for s in self.stance_train_corpus if s.target_label != UNRELATED_TARGET]
         target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET, inference=False)
                           for s in tqdm(raw_target_samples, desc='Encoding target train corpus')]
         stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=False)

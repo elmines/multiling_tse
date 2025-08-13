@@ -94,9 +94,6 @@ then
         python -m mtse fit \
             -c configs/full/li_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --data.stance_train_corpus.target_preds_path $(get_target_preds_dir $seed)/target_preds.0.txt \
-            --data.target_train_corpus.target_preds_path $(get_target_preds_dir $seed)/target_preds.0.txt \
-            --data.val_corpus.target_preds_path $(get_target_preds_dir $seed)/target_preds.1.txt \
             --trainer.logger.version $(get_stance_exp_name $seed) \
             --seed_everything $seed
     done
