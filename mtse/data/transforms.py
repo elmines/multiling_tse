@@ -94,13 +94,7 @@ class LiPreprocess(Transform):
             cls.KEYWORD_DICT = {**slang_json, **emnlp_dict}
         return cls.KEYWORD_DICT
 
-    def __call__(self, sample: Sample):
-        context = sample.context
-        # 1. Lowercase the text (even though he was using a case-sensitive tokenizer)
-        context = context.lower()
-        # 2. Remove target keywords
-        if self.scrub_targets:
-            context = LiPreprocess.TARGET_PATT.sub('', context)
+    def _clean_text(self, context):
         # 3. Use tweet-preprocessor
         context = twp.clean(context)
         # 4. Remove SemEval hashtags
@@ -121,8 +115,24 @@ class LiPreprocess(Transform):
             else:
                 converted.append([phrase])
         context = " ".join(tok for tok_set in converted for tok in tok_set)
+        return context
 
+
+    def __call__(self, sample: Sample):
+        context = sample.context
+        # 1. Lowercase the text (even though he was using a case-sensitive tokenizer)
+        context = context.lower()
+        # 2. Remove target keywords
+        if self.scrub_targets:
+            context = LiPreprocess.TARGET_PATT.sub('', context)
+        context = self._clean_text(context)
         sample.context = context
+
+        if sample.target_input is not None:
+            target_input = sample.target_input
+            target_input = target_input.lower()
+            target_input = self._clean_text(target_input)
+            sample.target_input = target_input
 
 
 __all__ = [
