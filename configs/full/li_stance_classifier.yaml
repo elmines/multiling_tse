@@ -22,12 +22,13 @@ trainer:
       init_args:
         monitor: val/stance/bimacro_f1
         mode: max
-        filename: "{epoch:02d}-bimacro_f1={val/stance/bimacro_f1:.3f}"
+        filename: "epoch={epoch:02d}-bimacro_f1={val/stance/bimacro_f1:.3f}"
         auto_insert_metric_name: false
 
-
-  # Li didn't specify, so neither will we
-  deterministic: null
+  # These are Li's settings, for both training and inference
+  # Doesn't set these for target classification
+  deterministic: true
+  benchmark: false
 
 model:
   class_path: mtse.modules.LiTwoShotModule
@@ -39,25 +40,18 @@ data:
   init_args:
     # He cut the batch size down to 64 for the stance training
     batch_size: 64
-
     stance_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
-      target_preds_path: lightning_logs/LiTargetPreds/target_preds.0.txt
-
-      # path: data/li_tse/raw_val_all_onecol.csv
-      # target_preds_path: lightning_logs/LiTargetPreds/target_preds.1.txt
+      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]
     target_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
-      target_preds_path: lightning_logs/LiTargetPreds/target_preds.0.txt
-
-      # path: data/li_tse/raw_val_all_onecol.csv
-      # target_preds_path: lightning_logs/LiTargetPreds/target_preds.1.txt
+      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     val_corpus:
       path: data/li_tse/raw_val_all_onecol.csv
-      target_preds_path: lightning_logs/LiTargetPreds/target_preds.1.txt
+      # target_preds_path: Specify it yourself
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]
