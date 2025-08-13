@@ -4,6 +4,7 @@ TARGET_FIT=${TARGET_FIT:-1}
 TARGET_TEST=${TARGET_TEST:-1}
 TARGET_PRED=${TARGET_PRED:-1}
 STANCE_FIT=${STANCE_FIT:-1}
+SEEDS=${@:- 0 112 343}
 
 SAVE_DIR=./lightning_logs
 EXP_NAME=MultiLi
@@ -46,7 +47,7 @@ function get_stance_train_dir
 
 if [ $TARGET_FIT -eq 1 ]
 then
-    for seed in 0 112 343
+    for seed in $SEEDS
     do
         python -m mtse fit \
             -c configs/full/li_target_classifier.yaml \
@@ -60,7 +61,7 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-    for seed in 0 112 343
+    for seed in $SEEDS
     do
         python -m mtse test \
             -c $(get_target_train_dir $seed)/config.yaml \
@@ -74,7 +75,7 @@ fi
 
 if [ $TARGET_PRED -eq 1 ]
 then
-    for seed in 0 112 343
+    for seed in $SEEDS
     do
         python -m mtse predict \
             -c $(get_target_train_dir $seed)/config.yaml \
@@ -88,7 +89,7 @@ fi
 
 if [ $STANCE_FIT -eq 1 ]
 then
-    for seed in 0 112 343
+    for seed in $SEEDS
     do
         python -m mtse fit \
             -c configs/full/li_stance_classifier.yaml \
