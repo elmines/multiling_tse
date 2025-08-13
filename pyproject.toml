@@ -9,7 +9,7 @@ dependencies = [
     "lightning",
     "jsonargparse[signatures]",
     "wordninja",
-    "tweet-preprocess",
+    "tweet-preprocessor",
 ]
 [tool.setuptools.packages.find]
 include =["mtse*"]
