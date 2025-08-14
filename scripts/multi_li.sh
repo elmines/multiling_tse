@@ -4,6 +4,7 @@ TARGET_FIT=${TARGET_FIT:-1}
 TARGET_TEST=${TARGET_TEST:-1}
 TARGET_PRED=${TARGET_PRED:-1}
 STANCE_FIT=${STANCE_FIT:-1}
+STANCE_TEST=${STANCE_TEST:-1}
 SEEDS=${@:- 0 112 343}
 
 SAVE_DIR=./lightning_logs
@@ -33,17 +34,9 @@ function get_target_preds_dir
     echo $SAVE_DIR/$EXP_NAME/$(get_target_predict_version $seed)
 }
 
-function get_stance_exp_name
-{
-    seed=$1
-    echo LiStanceClassifier_seed${seed}
-}
+function get_stance_train_version { echo LiStanceClassifier_seed${1}; }
 
-function get_stance_train_dir
-{
-    seed=$1
-    echo $SAVE_DIR/$EXP_NAME/$(get_stance_exp_name $seed)
-}
+function get_stance_train_dir { echo $SAVE_DIR/$EXP_NAME/$(get_stance_train_version $1); }
 
 if [ $TARGET_FIT -eq 1 ]
 then
@@ -67,7 +60,7 @@ then
             -c $(get_target_train_dir $seed)/config.yaml \
             --data configs/data/li_tse_target_test_split.yaml \
             --trainer.logger.version $(get_target_train_version $seed)_test \
-            --ckpt_path $(ls $(get_target_train_dir $seed)/checkpoints/*ckpt)
+            --ckpt_path $(get_target_train_dir $seed)/checkpoints/*ckpt
     done
 else
     echo "Skipping target testing"
@@ -81,7 +74,7 @@ then
             -c $(get_target_train_dir $seed)/config.yaml \
             --data configs/data/li_tse_target_predict_all.yaml \
             --trainer.logger.version $(get_target_predict_version $seed) \
-            --ckpt_path $(ls $(get_target_train_dir $seed)/checkpoints/*ckpt)
+            --ckpt_path $(get_target_train_dir $seed)/checkpoints/*ckpt
     done
 else
     echo "Skipping target prediction"
@@ -94,9 +87,23 @@ then
         python -m mtse fit \
             -c configs/full/li_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version $(get_stance_exp_name $seed) \
+            --trainer.logger.version $(get_stance_train_version $seed) \
             --seed_everything $seed
     done
 else
     echo "Skipping stance fitting"
+fi
+
+if [ $STANCE_TEST -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        python -m mtse test \
+            -c $(get_stance_train_dir $seed)/config.yaml \
+            --data configs/data/li_tse_stance_test_split.yaml \
+            --trainer.logger.version $(get_stance_train_version $seed)_test \
+            --ckpt_path $(get_stance_train_dir $seed)/checkpoints/*ckpt
+    done
+else
+    echo "Skipping stance testing"
 fi
