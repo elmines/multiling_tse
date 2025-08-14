@@ -6,6 +6,7 @@ TARGET_PRED=${TARGET_PRED:-$ALL}
 STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
+GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 112 343}
 
@@ -109,4 +110,41 @@ then
     done
 else
     echo "Skipping tse testing"
+fi
+
+if [ $TSE_TEST -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        train_dir=$LOGS_ROOT/$(v_stance_train $seed)
+        python -m mtse test \
+            -c $train_dir/config.yaml \
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --data configs/data/li_tse_test.yaml \
+            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.0.txt \
+            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
+            --trainer.callbacks.full_metrics true \
+            --trainer.logger.version LiTse_seed${seed}
+    done
+else
+    echo "Skipping tse testing"
+fi
+
+if [ $GT_TSE_TEST -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        train_dir=$LOGS_ROOT/$(v_stance_train $seed)
+        python -m mtse test \
+            -c $train_dir/config.yaml \
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --data configs/data/li_tse_test.yaml \
+            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
+            --trainer.callbacks.full_metrics true \
+            --trainer.logger.version LiGtTse_seed${seed} \
+            --data.corpora.target_input label \
+            --model.use_target_gt true
+    done
+else
+    echo "Skipping gt tse testing"
 fi
