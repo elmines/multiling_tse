@@ -43,7 +43,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/full/li_target_classifier.yaml \
+            -c configs/base/li_target_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version $(get_target_train_version $seed) \
             --seed_everything $seed
@@ -58,7 +58,7 @@ then
     do
         python -m mtse test \
             -c $(get_target_train_dir $seed)/config.yaml \
-            --data configs/data/li_tse_target_test_split.yaml \
+            --data configs/data/li_target_test.yaml \
             --trainer.logger.version $(get_target_train_version $seed)_test \
             --ckpt_path $(get_target_train_dir $seed)/checkpoints/*ckpt
     done
@@ -72,7 +72,7 @@ then
     do
         python -m mtse predict \
             -c $(get_target_train_dir $seed)/config.yaml \
-            --data configs/data/li_tse_target_predict_all.yaml \
+            --data configs/data/li_target_predict.yaml \
             --trainer.logger.version $(get_target_predict_version $seed) \
             --ckpt_path $(get_target_train_dir $seed)/checkpoints/*ckpt
     done
@@ -85,7 +85,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/full/li_stance_classifier.yaml \
+            -c configs/base/li_stance_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version $(get_stance_train_version $seed) \
             --seed_everything $seed
@@ -100,7 +100,7 @@ then
     do
         python -m mtse test \
             -c $(get_stance_train_dir $seed)/config.yaml \
-            --data configs/data/li_tse_stance_test_split.yaml \
+            --data configs/data/li_stance_test.yaml \
             --trainer.logger.version $(get_stance_train_version $seed)_test \
             --ckpt_path $(get_stance_train_dir $seed)/checkpoints/*ckpt
     done
