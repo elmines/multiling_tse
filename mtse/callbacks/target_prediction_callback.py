@@ -39,7 +39,7 @@ class TargetPredictionWriter(BasePredictionWriter):
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
         target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
         target_labels = batch['target'].flatten().detach().cpu().tolist()
-        target_lookup = [UNRELATED_TARGET] + pl_module.targets
+        target_lookup = pl_module.targets
         str_preds = [target_lookup[t] for t in target_preds]
         str_labels = [target_lookup[t] for t in target_labels]
         row_dicts = [{"Mapped Target": pred, "GT Target": label} for pred, label in zip(str_preds, str_labels)]
