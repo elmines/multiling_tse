@@ -32,7 +32,7 @@ class LiTwoShotModule(TwoShotModule):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
-    NON_BERT_KEYS = {'target', 'target_in', 'stance', 'task'}
+    NON_BERT_KEYS = {'target', 'target_pred', 'stance', 'task'}
 
     @dataclasses.dataclass
     class Output:
@@ -99,7 +99,7 @@ class LiTwoShotModule(TwoShotModule):
             # not a sum reduction like in the target classifier training
             loss = torch.nn.functional.cross_entropy(stance_logits, kwargs['stance'])
 
-            target_preds = kwargs['target' if self.use_target_gt else 'target_in']
+            target_preds = kwargs.get('target' if self.use_target_gt else 'target_pred')
             return LiTwoShotModule.Output(target_preds=target_preds,
                                           stance_preds=torch.argmax(stance_logits, dim=1),
                                           loss=loss)
@@ -137,7 +137,6 @@ class LiTwoShotModule(TwoShotModule):
                                         max_length=self.module.max_length,
                                         padding='max_length',
                                         return_attention_mask=True)
-                encoding['target_in'] = torch.tensor(self.module.targets.index(sample.target_input))
             elif predict_task == PredictTask.TARGET:
                 encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                           truncation=True, max_length=self.module.max_length, padding='max_length',
@@ -146,6 +145,8 @@ class LiTwoShotModule(TwoShotModule):
                 raise ValueError(f"Invalid task ID {predict_task}")
             assert sample.target_label is not None
             encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
+            if sample.target_pred is not None:
+                encoding['target_pred'] = torch.tensor(self.module.targets.index(sample.target_pred))
             encoding['stance'] = torch.tensor(sample.stance)
             encoding['task'] = torch.tensor(predict_task, dtype=torch.long)
             return encoding
@@ -156,7 +157,7 @@ class LiTwoShotModule(TwoShotModule):
             rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
             for scalar_key in ['target', 'stance']:
                 rdict[scalar_key] = keyed_scalar_stack(samples, scalar_key)
-            for scalar_key in filter(lambda k: k in samples[0], ['target_in']):
+            for scalar_key in filter(lambda k: k in samples[0], ['target_pred']):
                 rdict[scalar_key] = keyed_scalar_stack(samples, scalar_key)
             rdict['task'] = tasks[0]
             return rdict
