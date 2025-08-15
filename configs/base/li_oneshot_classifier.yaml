@@ -41,12 +41,12 @@ data:
         init_args:
           path: data/li_tse/raw_train_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
 
     # corpora:
