@@ -31,6 +31,10 @@ class OneShotModule(BaseModule):
         return len(self.targets)
 
 class LiOneShotModule(OneShotModule):
+    """
+    One-shot module designed to be as close as possible to Li et al.'s
+    individual target and stance models
+    """
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
     NON_BERT_KEYS = {'target', 'stance'}
@@ -105,7 +109,7 @@ class LiOneShotModule(OneShotModule):
         def encode(self, sample: Sample, inference=False):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                     truncation=True, max_length=128)
-            encoding['target'] = torch.tensor(self.module.targets.index(sample.target))
+            encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
         def collate(self, samples):

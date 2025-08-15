@@ -19,7 +19,7 @@ trainer:
       init_args:
         monitor: val/tse/f1
         mode: max
-        filename: "epoch={epoch:02d}-bimacro_f1={val/tse/f1:.3f}"
+        filename: "epoch={epoch:02d}-tse_f1={val/tse/f1:.3f}"
         auto_insert_metric_name: false
 
 
