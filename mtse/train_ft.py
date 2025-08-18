@@ -25,7 +25,9 @@ def main(raw_args=None):
     model = FastText(vector_size=128, seed=args.seed)
     model.build_vocab(corpus_iterable=contexts)
     model.train(corpus_iterable=contexts, total_examples=len(contexts), epochs=10)
-    model.save(str(args.o))
+    out_path = str(args.o)
+    model.save(out_path)
+    print(f"Saved FastText embeddings to {out_path}")
 
 if __name__ == "__main__":
     main(sys.argv[1:])
