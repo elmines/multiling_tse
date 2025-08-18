@@ -10,8 +10,8 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 112 343}
 
-SAVE_DIR=./lightning_logs
-EXP_NAME=MultiLi
+SAVE_DIR=${SAVE_DIR:-./lightning_logs}
+EXP_NAME=${EXP_NAME:-MultiLi}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
@@ -73,6 +73,7 @@ then
         python -m mtse fit \
             -c configs/base/li_stance_classifier.yaml \
             $LOGGER_ARGS \
+            --data.val_corpus.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.0.txt \
             --trainer.logger.version $(v_stance_train $seed) \
             --seed_everything $seed
     done
@@ -84,9 +85,11 @@ if [ $STANCE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
+        # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/$(v_stance_train $seed)/config.yaml \
             --data configs/data/li_stance_test.yaml \
+            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version $(v_stance_train $seed)_test \
             --ckpt_path $LOGS_ROOT/$(v_stance_train $seed)/checkpoints/*ckpt
     done
@@ -103,25 +106,7 @@ then
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.0.txt \
-            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
-            --trainer.callbacks.full_metrics true \
-            --trainer.logger.version LiTse_seed${seed}
-    done
-else
-    echo "Skipping tse testing"
-fi
-
-if [ $TSE_TEST -eq 1 ]
-then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/$(v_stance_train $seed)
-        python -m mtse test \
-            -c $train_dir/config.yaml \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.0.txt \
+            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.1.txt \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version LiTse_seed${seed}
