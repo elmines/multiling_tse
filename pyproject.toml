@@ -10,6 +10,7 @@ dependencies = [
     "jsonargparse[signatures]",
     "wordninja",
     "tweet-preprocessor",
+    "gensim"
 ]
 [tool.setuptools.packages.find]
 include =["mtse*"]
