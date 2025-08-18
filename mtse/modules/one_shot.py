@@ -3,8 +3,10 @@ import pathlib
 import dataclasses
 from typing import Optional
 # 3rd Party
+import numpy as np
 import torch
-from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer
+from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartModel, BartTokenizerFast
+from gensim.models import FastText
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
@@ -118,4 +120,42 @@ class LiOneShotModule(OneShotModule):
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')
             return rdict
 
-__all__ = ["OneShotModule", "LiOneShotModule"]
+class TGOneShotModule(OneShotModule):
+
+    PRETRAINED_MODEL = "facebook/bart-base"
+
+    def __init__(self,
+                 embeddings_path: pathlib.Path,
+                 related_threshold: float = 0.2,
+                 **parent_kwargs):
+        super().__init__(**parent_kwargs)
+        self.related_threshold = related_threshold
+
+        self.bart = BartModel.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
+        self.tokenizer = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
+
+        config = self.bart.config
+        hidden_size = config.hidden_size
+        self.stance_classifier = torch.nn.Sequential(
+            torch.nn.Linear(hidden_size, hidden_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_size, len(self.stance_type))
+        )
+
+        self.fast_text = FastText.load(str(embeddings_path))
+
+        unstacked = []
+        for target in self.targets:
+            if target == UNRELATED_TARGET:
+                # Will never match with the unrelated target, because no vector X can have
+                # a nonzero cosine similarity with the zero vector
+                unstacked.append(np.zeros([self.fast_text.vector_size], dtype=np.float32))
+            else:
+                unstacked.append(self.fast_text.wv[target.lower()])
+        stacked = np.stack(unstacked)
+
+        self.target_embeddings: torch.Tensor # Only have this so the IDE knows this variable exists
+        self.register_buffer("target_embeddings", torch.tensor(stacked), persistent=False)
+
+
+__all__ = ["OneShotModule", "LiOneShotModule", "TGOneShotModule"]
