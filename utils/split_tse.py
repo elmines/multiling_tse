@@ -9,17 +9,42 @@ import csv
 
 ENCODING = 'ISO-8859-1'
 
-def part_corpus(source_path, corpus_slices):
+def part_corpus(source_path, corpora_inds):
     with open(source_path, 'r', encoding=ENCODING) as r:
         reader = csv.DictReader(r)
         fieldnames = reader.fieldnames
         all_rows = list(reader)
-    for filename, corpus_slice in corpus_slices.items():
-        rowset = all_rows[corpus_slice]
+    for filename, corpus_inds in corpora_inds.items():
+        rowset = [all_rows[i] for i in corpus_inds]
         with open(filename, 'w', encoding=ENCODING) as w:
             writer = csv.DictWriter(w, fieldnames=fieldnames, lineterminator='\n')
             writer.writeheader()
             writer.writerows(rowset)
+
+def extract_indices(corpus_path):
+    semeval = []
+    am = []
+    covid = []
+    ps = []
+    unrel = []
+
+    target_map = [
+       ({"Joe Biden", "Bernie Sanders", "Donald Trump"}, ps) ,
+       ({"Unrelated"}, unrel),
+       ({'abortion', 'cloning', 'death penalty', 'gun control', 'marijuana legalization', 'minimum wage', 'nuclear energy', 'school uniforms'}, am),
+       ({'face masks', 'fauci', 'stay at home orders', 'school closures'}, covid)
+    ]
+
+    with open(corpus_path, 'r', encoding=ENCODING) as r:
+        reader = csv.DictReader(r)
+        for i, row in enumerate(reader):
+            target = row['Target']
+            if '#SemST' in row['Tweet']:
+                semeval.append(i)
+            else:
+                _, index_arr = next(filter(lambda pair: target in pair[0], target_map))
+                index_arr.append(i)
+    return semeval, am, covid, ps, unrel
 
 
 if __name__ == "__main__":
@@ -27,11 +52,9 @@ if __name__ == "__main__":
     data_dir = os.path.join("data", "li_tse")
     add_dir_prefix = lambda slices: {os.path.join(data_dir, k):v for k,v in slices.items()}
 
-    test_slices = {
-        "test_semeval.csv": slice(None, 1080),
-        "test_covid.csv": slice(1080,1880),
-        "test_am.csv": slice(1880,6989),
-        "test_pstance.csv": slice(6989,9146),
-        "test_unrelated.csv": slice(9146, None)
-    }
-    part_corpus(os.path.join(data_dir, 'raw_test_all_onecol.csv'), add_dir_prefix(test_slices))
+    test_source_path = os.path.join(data_dir, 'raw_test_all_onecol.csv')
+    test_corpora_inds = dict(zip(
+        ['test_semeval.csv', 'test_am.csv', 'test_covid.csv', 'test_pstance.csv', 'test_unrelated.csv'],
+        extract_indices(test_source_path)
+    ))
+    part_corpus(test_source_path, add_dir_prefix(test_corpora_inds))
