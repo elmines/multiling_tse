@@ -1,7 +1,19 @@
 import dataclasses
-from typing import List, Optional
+from typing import Optional
+import enum
 # Local
 from .stance import BaseStance
+
+class SampleType(enum.IntEnum):
+    SD = 0
+    """
+    Stance detection
+    """
+
+    KG = 1
+    """
+    Keyword generation
+    """
 
 @dataclasses.dataclass
 class Sample:
@@ -27,5 +39,7 @@ class Sample:
 
     lang: Optional[str] = None
 
+    sample_type: SampleType = SampleType.SD
 
-__all__ = ["Sample"]
+
+__all__ = ["Sample", "SampleType"]

@@ -9,7 +9,7 @@ from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenize
 from gensim.models import FastText
 # 
 from .base_module import BaseModule
-from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
+from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import DEFAULT_HF_MODEL, UNRELATED_TARGET
 
 class OneShotModule(BaseModule):
@@ -123,12 +123,18 @@ class LiOneShotModule(OneShotModule):
 class TGOneShotModule(OneShotModule):
 
     @dataclasses.dataclass
-    class Output:
+    class TrainOutput:
+        lm_loss: torch.Tensor
+        stance_loss: torch.Tensor
+
+    @dataclasses.dataclass
+    class InferOutput:
         target_preds: torch.Tensor
         stance_preds: torch.Tensor
-        loss: Optional[torch.Tensor] = None
 
     PRETRAINED_MODEL = "facebook/bart-base"
+
+    EXCLUDE_KWARGS = {'target', 'stance', 'stype'}
 
     def __init__(self,
                  embeddings_path: pathlib.Path,
@@ -177,8 +183,19 @@ class TGOneShotModule(OneShotModule):
     def __detokenize(self, id_seq):
         return self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
 
-    def training_step(self, *args, **kwargs):
-        return 0.0
+    def training_step(self, batch, batch_idx):
+        bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
+        bart_output = self.bart(**bart_kwargs, output_hidden_states=True)
+        lm_loss = bart_output.loss
+        self.log('train/loss/lm', lm_loss)
+        loss = lm_loss
+        if batch['stype'] == SampleType.SD:
+            encoder_hidden_state = bart_output.encoder_hidden_states[-1][:, 0]
+            stance_logits = self.stance_classifier(encoder_hidden_state)
+            stance_loss = torch.nn.functional.cross_entropy(stance_logits, batch['stance'])
+            loss += stance_loss
+        self.log('train/loss', loss)
+        return loss
 
     def _infer_step(self, batch):
         generate_output = self.bart.generate(batch['input_ids'],
@@ -219,11 +236,17 @@ class TGOneShotModule(OneShotModule):
             encoding['target'] = torch.tensor(
                 [self.module.targets.index(sample.target_label)],
                 dtype=torch.long)
+            encoding['stance'] = torch.tensor([sample.stance])
+            encoding['stype'] = torch.tensor(sample.sample_type)
             return encoding
 
         def collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
             encoding['target'] = keyed_scalar_stack(samples, 'target')
+            encoding['stance'] = keyed_scalar_stack(samples, 'stance')
+            first_type = samples[0]['stype']
+            assert all(s['stype'] == first_type for s in samples)
+            encoding['stype'] = first_type
             return encoding
 
 __all__ = ["OneShotModule", "LiOneShotModule", "TGOneShotModule"]
