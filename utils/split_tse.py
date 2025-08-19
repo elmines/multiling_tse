@@ -32,7 +32,8 @@ def extract_indices(corpus_path):
        ({"Joe Biden", "Bernie Sanders", "Donald Trump"}, ps) ,
        ({"Unrelated"}, unrel),
        ({'abortion', 'cloning', 'death penalty', 'gun control', 'marijuana legalization', 'minimum wage', 'nuclear energy', 'school uniforms'}, am),
-       ({'face masks', 'fauci', 'stay at home orders', 'school closures'}, covid)
+       ({'face masks', 'fauci', 'stay at home orders', 'school closures'}, covid),
+       ({"Hillary Clinton"}, semeval) # There's a SemEval sample without the hashtag but still has the Hillary Clinton target to identify it
     ]
 
     with open(corpus_path, 'r', encoding=ENCODING) as r:
@@ -52,9 +53,10 @@ if __name__ == "__main__":
     data_dir = os.path.join("data", "li_tse")
     add_dir_prefix = lambda slices: {os.path.join(data_dir, k):v for k,v in slices.items()}
 
-    test_source_path = os.path.join(data_dir, 'raw_test_all_onecol.csv')
-    test_corpora_inds = dict(zip(
-        ['test_semeval.csv', 'test_am.csv', 'test_covid.csv', 'test_pstance.csv', 'test_unrelated.csv'],
-        extract_indices(test_source_path)
-    ))
-    part_corpus(test_source_path, add_dir_prefix(test_corpora_inds))
+    for part in ['val', 'train', 'test']:
+        source_path = os.path.join(data_dir, f'raw_{part}_all_onecol.csv')
+        test_corpora_inds = dict(zip(
+            [f'{part}_semeval.csv', f'{part}_am.csv', f'{part}_covid.csv', f'{part}_pstance.csv', f'{part}_unrelated.csv'],
+            extract_indices(source_path)
+        ))
+        part_corpus(source_path, add_dir_prefix(test_corpora_inds))
