@@ -1,10 +1,11 @@
 from typing import Generator, Dict, Literal, Callable
+import json
 import sys
 import os
 import csv
 
 from .stance import TriStance
-from .sample import Sample
+from .sample import Sample, SampleType
 
 def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
     str2strance = {
@@ -54,7 +55,25 @@ def parse_nlpcc(corpus_path: os.PathLike):
     if discarded:
         print(f"Discarded {discarded} samples from {corpus_path}", file=sys.stderr)
 
-DetCorpusType = Literal['nlpcc', 'cstance', 'li']
+def parse_kptimes(corpus_path: os.PathLike):
+    with open(corpus_path, 'r', encoding='utf-8') as r:
+        for i, line in enumerate(r):
+            if i > 1024:
+                break
+            json_doc = json.loads(line)
+            # FIXME: Break up this context into smaller chunks?
+            context = json_doc['abstract']
+            targets = json_doc['keyphrases']
+            for target in targets:
+                yield Sample(
+                    context=context,
+                    target_label=target,
+                    stance=TriStance.neutral,
+                    lang='en',
+                    sample_type=SampleType.KG
+                )
+
+DetCorpusType = Literal['nlpcc', 'cstance', 'li', 'kptimes']
 
 StanceParser = Callable[[os.PathLike], Generator[Sample, None, None]]
 """
@@ -64,5 +83,6 @@ Function taking a file path and returning a generator of samples
 CORPUS_PARSERS: Dict[DetCorpusType, StanceParser] = {
     "nlpcc": parse_nlpcc,
     "cstance": parse_cstance,
-    "li": parse_yingjie
+    "li": parse_yingjie,
+    "kptimes": parse_kptimes
 }

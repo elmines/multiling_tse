@@ -7,3 +7,10 @@ Download the `raw_(train|val|test)_all_onecol.csv` files from their [Google Driv
 and copy them to [./data/li_tse](./data/li_tse).
 
 Run `python3 scripts/split_tse.py` to split the merged TSE corpus into its component corpora (SemEval 2016, P-Stance, etc.).
+
+## Keyword Generation Training Data
+
+```bash
+cd data/kp_times
+./download.sh
+```

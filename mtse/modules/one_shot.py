@@ -232,16 +232,18 @@ class TGOneShotModule(OneShotModule):
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt')
-            encoding['target'] = torch.tensor(
-                [self.module.targets.index(sample.target_label)],
-                dtype=torch.long)
             encoding['stance'] = torch.tensor([sample.stance])
             encoding['stype'] = torch.tensor(sample.sample_type)
+            if sample.sample_type == SampleType.SD:
+                encoding['target'] = torch.tensor(
+                    [self.module.targets.index(sample.target_label)],
+                    dtype=torch.long)
             return encoding
 
         def collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
-            encoding['target'] = keyed_scalar_stack(samples, 'target')
+            if 'target' in samples[0]:
+                encoding['target'] = keyed_scalar_stack(samples, 'target')
             encoding['stance'] = keyed_scalar_stack(samples, 'stance')
             first_type = samples[0]['stype']
             assert all(s['stype'] == first_type for s in samples)
