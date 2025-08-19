@@ -5,7 +5,7 @@ from typing import Optional
 # 3rd Party
 import numpy as np
 import torch
-from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartModel, BartTokenizerFast
+from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartForConditionalGeneration, BartTokenizerFast
 from gensim.models import FastText
 # 
 from .base_module import BaseModule
@@ -122,6 +122,12 @@ class LiOneShotModule(OneShotModule):
 
 class TGOneShotModule(OneShotModule):
 
+    @dataclasses.dataclass
+    class Output:
+        target_preds: torch.Tensor
+        stance_preds: torch.Tensor
+        loss: Optional[torch.Tensor] = None
+
     PRETRAINED_MODEL = "facebook/bart-base"
 
     def __init__(self,
@@ -131,8 +137,8 @@ class TGOneShotModule(OneShotModule):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold
 
-        self.bart = BartModel.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
-        self.tokenizer = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
+        self.bart = BartForConditionalGeneration.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
+        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
 
         config = self.bart.config
         hidden_size = config.hidden_size
@@ -151,11 +157,73 @@ class TGOneShotModule(OneShotModule):
                 # a nonzero cosine similarity with the zero vector
                 unstacked.append(np.zeros([self.fast_text.vector_size], dtype=np.float32))
             else:
-                unstacked.append(self.fast_text.wv[target.lower()])
-        stacked = np.stack(unstacked)
+                vec = self.fast_text.wv[target.lower()].copy()
+                # Normalize magnitude to unity--makes computing explicit cosine similarity unnecessary
+                # Just find the target vector that has the highest dot product with the predicted target
+                vec = vec / np.linalg.norm(vec) 
+                unstacked.append(vec)
+        # (embedding_size, n_targets)
+        stacked = np.stack(unstacked).transpose()
 
         self.target_embeddings: torch.Tensor # Only have this so the IDE knows this variable exists
         self.register_buffer("target_embeddings", torch.tensor(stacked), persistent=False)
 
+        self.__encoder = self.Encoder(self)
+
+    @property
+    def encoder(self):
+        return self.__encoder
+
+    def __detokenize(self, id_seq):
+        return self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
+
+    def training_step(self, *args, **kwargs):
+        return 0.0
+
+    def _infer_step(self, batch):
+        generate_output = self.bart.generate(batch['input_ids'],
+                                             return_dict_in_generate=True,
+                                             output_hidden_states=True,
+                                             max_length=5)
+        # last layer, first token
+        encoder_hidden_state = generate_output.encoder_hidden_states[-1][:, 0]
+        stance_logits = self.stance_classifier(encoder_hidden_state)
+        stance_preds = torch.argmax(stance_logits, axis=-1)
+
+        output_ids = generate_output.sequences.detach().cpu().tolist()
+        output_texts = [self.__detokenize(id_seq) for id_seq in output_ids]
+
+        output_embeddings = np.stack([self.fast_text.wv[text] for text in output_texts])
+        output_embeddings = torch.tensor(output_embeddings).to(encoder_hidden_state.device)
+
+        target_scores = output_embeddings @ self.target_embeddings
+        min_res = torch.min(target_scores, axis=-1)
+        sim_scores = min_res.values
+        sim_inds = min_res.indices
+        target_preds = torch.where(sim_scores >= self.related_threshold, sim_inds, 0)
+
+        return TGOneShotModule.Output(
+            target_preds=target_preds,
+            stance_preds=stance_preds
+        )
+
+    class Encoder(Encoder):
+        def __init__(self, module: TGOneShotModule):
+            self.module = module
+            self.tokenizer = module.tokenizer
+
+        def encode(self, sample: Sample, inference=False, predict_task = None):
+            encoding = self.tokenizer(text=sample.context.lower(),
+                                      text_target=sample.target_label.lower(),
+                                      return_tensors='pt')
+            encoding['target'] = torch.tensor(
+                [self.module.targets.index(sample.target_label)],
+                dtype=torch.long)
+            return encoding
+
+        def collate(self, samples):
+            encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
+            encoding['target'] = keyed_scalar_stack(samples, 'target')
+            return encoding
 
 __all__ = ["OneShotModule", "LiOneShotModule", "TGOneShotModule"]

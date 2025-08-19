@@ -52,4 +52,6 @@ def collate_ids(tokenizer: PreTrainedTokenizerFast,
         rdict['position_ids'] = keyed_pad(samples, 'position_ids')
     if 'token_type_ids' in samples[0]:
         rdict['token_type_ids'] = keyed_pad(samples, 'token_type_ids', padding_value=tokenizer.pad_token_type_id)
+    if 'labels' in samples[0]:
+        rdict['labels'] = keyed_pad(samples, 'labels', padding_value=token_padding)
     return rdict
