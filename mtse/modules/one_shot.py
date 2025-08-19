@@ -212,11 +212,10 @@ class TGOneShotModule(OneShotModule):
 
         output_embeddings = np.stack([self.fast_text.wv[text] for text in output_texts])
         output_embeddings = torch.tensor(output_embeddings).to(encoder_hidden_state.device)
+        output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
 
         target_scores = output_embeddings @ self.target_embeddings
-        min_res = torch.min(target_scores, axis=-1)
-        sim_scores = min_res.values
-        sim_inds = min_res.indices
+        sim_scores, sim_inds = torch.max(target_scores, axis=-1)
         target_preds = torch.where(sim_scores >= self.related_threshold, sim_inds, 0)
 
         return TGOneShotModule.Output(
