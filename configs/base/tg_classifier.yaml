@@ -8,6 +8,18 @@ trainer:
   # No early stopping-- Li just does 5 epochs
   max_epochs: 5 
 
+  callbacks:
+    - class_path: mtse.callbacks.TSEStatsCallback
+
+    # Monitor the stance F1
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/tse/f1
+        mode: max
+        filename: "epoch={epoch:02d}-tse_f1={val/tse/f1:.3f}"
+        auto_insert_metric_name: false
+
+
 model:
   class_path: mtse.modules.TGOneShotModule
   init_args:
@@ -36,5 +48,5 @@ data:
     #     init_args:
     #       path: data/li_tse/raw_val_all_onecol.csv
     #       corpus_type: li
-    #       transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+    #       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     # ratios: [ [0.8, 0.2, 0.0] ]
