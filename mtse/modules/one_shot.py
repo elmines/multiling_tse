@@ -152,6 +152,11 @@ class TGOneShotModule(OneShotModule):
 
         config = self.bart.config
         hidden_size = config.hidden_size
+
+        self.cross_att = torch.nn.MultiheadAttention(embed_dim=hidden_size,
+                                                     num_heads=1,
+                                                     batch_first=True)
+
         self.stance_classifier = torch.nn.Sequential(
             torch.nn.Linear(hidden_size, hidden_size),
             torch.nn.ReLU(),
@@ -192,6 +197,7 @@ class TGOneShotModule(OneShotModule):
             {"params": lm_head_params, "lr": self.backbone_lr},
             {"params": backbone_params, "lr": self.head_lr},
             {"params": self.stance_classifier.parameters(), "lr": self.head_lr},
+            {"params": self.cross_att.parameters(), "lr": self.head_lr},
         ])
 
     @property
@@ -222,17 +228,41 @@ class TGOneShotModule(OneShotModule):
         generate_output = self.bart.generate(batch['input_ids'],
                                              return_dict_in_generate=True,
                                              output_hidden_states=True,
-                                             max_length=5)
-        # last layer, first token
-        encoder_hidden_state = generate_output.encoder_hidden_states[-1][:, 0]
-        stance_logits = self.stance_classifier(encoder_hidden_state)
+                                             max_length=5,
+                                             num_beams=3)
+
+        # (beam_width * batch_size, seq_length, hidden_size)
+        allbeam_states = torch.concatenate(
+            [tok_states[-1] for tok_states in generate_output.decoder_hidden_states],
+        dim=-2)
+
+        # Have to duplicate that last dimension for .gather to work
+        # (batch_size, seq_length, hidden_size)
+        beam_indices = torch.unsqueeze(generate_output.beam_indices, -1).expand(-1, -1, allbeam_states.shape[-1])
+        beam_indices = beam_indices.to(torch.int64)
+
+        decoder_hidden_states = torch.gather(allbeam_states, 0, beam_indices)
+
+        output_ids = generate_output.sequences
+        # The "1:" is to chop off the BOS token that doesn't have a hidden state
+        decoder_weights = (output_ids[:, 1:] != self.tokenizer.pad_token_id).to(decoder_hidden_states.dtype)
+        decoder_weights = torch.unsqueeze(decoder_weights, -1)
+        num = torch.sum(decoder_weights * decoder_hidden_states, dim=-2)
+        denom = torch.sum(decoder_weights, dim=-2)
+        target_features = num / denom
+
+        query_vec = torch.unsqueeze(target_features, dim=1)
+        encoder_hidden_states = generate_output.encoder_hidden_states[-1]
+        key_vec = value_vec = encoder_hidden_states
+        att_out, _ = self.cross_att(query_vec, key_vec, value_vec, key_padding_mask=batch['attention_mask'])
+        stance_feature_vec = torch.squeeze(att_out, dim=1)
+
+        stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
-        output_ids = generate_output.sequences.detach().cpu().tolist()
-        output_texts = [self.__detokenize(id_seq) for id_seq in output_ids]
-
+        output_texts = [self.__detokenize(id_seq) for id_seq in output_ids.detach().cpu().tolist()]
         output_embeddings = np.stack([self.fast_text.wv[text] for text in output_texts])
-        output_embeddings = torch.tensor(output_embeddings).to(encoder_hidden_state.device)
+        output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
         output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
 
         target_scores = output_embeddings @ self.target_embeddings
