@@ -213,16 +213,35 @@ class TGOneShotModule(OneShotModule):
 
         lm_loss = bart_output.loss
         if batch['stype'] == SampleType.SD:
-            encoder_hidden_state = bart_output.encoder_hidden_states[-1][:, 0]
-            stance_logits = self.stance_classifier(encoder_hidden_state)
+            encoder_hidden_states = bart_output.encoder_hidden_states[-1]
+            decoder_hidden_states = bart_output.decoder_hidden_states[-1]
+            target_features = self._pool_decoder_states(decoder_hidden_states, batch['labels'] != self.tokenizer.pad_token_id)
+            stance_features = self._forward_att(encoder_hidden_states, target_features, batch['attention_mask'])
+            stance_logits = self.stance_classifier(stance_features)
             stance_loss = torch.nn.functional.cross_entropy(stance_logits, batch['stance'])
-            self.count_stance += 1
             self.log('train/loss/stance', stance_loss)
             return stance_loss
         else:
-            self.count_kw += 1
             self.log('train/loss/lm', lm_loss)
             return lm_loss
+
+    def _forward_att(self, encoder_hidden_states, target_features, key_padding_mask):
+        att_out, _ = self.cross_att(
+            query=torch.unsqueeze(target_features, dim=1),
+            key=encoder_hidden_states,
+            value=encoder_hidden_states,
+            key_padding_mask=key_padding_mask)
+        feature_vec = torch.squeeze(att_out, dim=1)
+        return feature_vec
+
+    @staticmethod
+    def _pool_decoder_states(decoder_hidden_states, is_padding):
+        decoder_weights = is_padding.to(decoder_hidden_states.dtype)
+        decoder_weights = torch.unsqueeze(decoder_weights, -1)
+        num = torch.sum(decoder_weights * decoder_hidden_states, dim=-2)
+        denom = torch.sum(decoder_weights, dim=-2)
+        target_features = num / denom
+        return target_features
 
     def _infer_step(self, batch):
         generate_output = self.bart.generate(batch['input_ids'],
@@ -245,17 +264,11 @@ class TGOneShotModule(OneShotModule):
 
         output_ids = generate_output.sequences
         # The "1:" is to chop off the BOS token that doesn't have a hidden state
-        decoder_weights = (output_ids[:, 1:] != self.tokenizer.pad_token_id).to(decoder_hidden_states.dtype)
-        decoder_weights = torch.unsqueeze(decoder_weights, -1)
-        num = torch.sum(decoder_weights * decoder_hidden_states, dim=-2)
-        denom = torch.sum(decoder_weights, dim=-2)
-        target_features = num / denom
+        target_features = self._pool_decoder_states(decoder_hidden_states, output_ids[:, 1:] != self.tokenizer.pad_token_id)
 
-        query_vec = torch.unsqueeze(target_features, dim=1)
-        encoder_hidden_states = generate_output.encoder_hidden_states[-1]
-        key_vec = value_vec = encoder_hidden_states
-        att_out, _ = self.cross_att(query_vec, key_vec, value_vec, key_padding_mask=batch['attention_mask'])
-        stance_feature_vec = torch.squeeze(att_out, dim=1)
+        stance_feature_vec = self._forward_att(generate_output.encoder_hidden_states[-1],
+                                                       target_features,
+                                                       batch['attention_mask'])
 
         stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
