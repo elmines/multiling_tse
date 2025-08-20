@@ -227,11 +227,14 @@ class TGOneShotModule(OneShotModule):
         def __init__(self, module: TGOneShotModule):
             self.module = module
             self.tokenizer = module.tokenizer
+            self.max_length = self.module.bart.config.max_position_embeddings
 
         def encode(self, sample: Sample, inference=False, predict_task = None):
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
-                                      return_tensors='pt')
+                                      return_tensors='pt',
+                                      truncation=True,
+                                      max_length=self.max_length)
             encoding['stance'] = torch.tensor([sample.stance])
             encoding['stype'] = torch.tensor(sample.sample_type)
             if sample.sample_type == SampleType.SD:
