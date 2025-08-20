@@ -44,30 +44,74 @@ class PredictDataModule(BaseDataModule):
 
 class TaskSampler(Sampler):
     def __init__(self,
-                 stance_indices: np.ndarray,
-                 target_indices: np.ndarray,
+                 task_a_indices: np.ndarray,
+                 task_b_indices: np.ndarray,
                  batch_size: int):
-        self.stance_indices = stance_indices
-        self.target_indices = target_indices
+        self.task_a_indices = task_a_indices
+        self.task_b_indices = task_b_indices
         self.batch_size = batch_size
 
-        stance_len = len(self.stance_indices)
-        self.__n_stance_batches = stance_len // batch_size + bool(stance_len % batch_size)
-        target_len = len(self.target_indices)
-        self.__n_target_batches = target_len // batch_size + bool(target_len % batch_size)
+        task_a_len = len(self.task_a_indices)
+        self.__n_stance_batches = task_a_len // batch_size + bool(task_a_len % batch_size)
+        task_b_len = len(self.task_b_indices)
+        self.__n_target_batches = task_b_len // batch_size + bool(task_b_len % batch_size)
 
     def __len__(self):
         return self.__n_stance_batches + self.__n_target_batches
 
     def __iter__(self):
-        permuted_stance_inds = np.random.permutation(self.stance_indices)
-        permuted_target_inds = np.random.permutation(self.target_indices)
+        permuted_stance_inds = np.random.permutation(self.task_a_indices)
+        permuted_target_inds = np.random.permutation(self.task_b_indices)
         mixed_batches = np.array_split(permuted_stance_inds, self.__n_stance_batches) + np.array_split(permuted_target_inds, self.__n_target_batches)
         random.shuffle(mixed_batches)
         mixed_batches = [torch.tensor(inds) for inds in mixed_batches]
         return iter(mixed_batches)
 
 class MixedTrainingDataModule(BaseDataModule):
+    def __init__(self,
+                 keyword_corpus: StanceCorpus,
+                 stance_train_corpora: List[StanceCorpus],
+                 stance_val_corpora: List[StanceCorpus],
+                 batch_size: int = DEFAULT_BATCH_SIZE
+                 ):
+        super().__init__()
+        self.encoder: Encoder = None
+        self.keyword_corpus = keyword_corpus
+        self.stance_train_corpora = stance_train_corpora
+        self.stance_val_corpora = stance_val_corpora
+        self.batch_size = batch_size
+
+        self.__train_ds: Dataset = None
+        self.__n_keyword: int = None
+        self.__val_ds: Dataset = None
+
+    def setup(self, stage):
+        if self.__train_ds and self.__val_ds and self.__n_keyword is not None:
+            return
+
+        keyword_samples = list(self.keyword_corpus)
+        keyword_samples = [self.encoder.encode(s, inference=False) for s in tqdm(keyword_samples, desc='Encoding keyword samples')]
+        self.__n_keyword = len(keyword_samples)
+
+        train_stance_samples = [s for corp in self.stance_train_corpora for s in corp]
+        train_stance_samples = [self.encoder.encode(s, inference=False) for s in tqdm(train_stance_samples, desc='Encoding train stance samples')]
+        self.__train_ds = MapDataset(keyword_samples + train_stance_samples)
+
+        val_stance_samples = [s for corp in self.stance_val_corpora for s in corp]
+        self.__val_ds = MapDataset([self.encoder.encode(s, inference=False) for s in tqdm(val_stance_samples, desc='Encoding val stance samples')])
+
+    def train_dataloader(self):
+        sampler = TaskSampler(np.arange(self.__n_keyword), np.arange(self.__n_keyword, len(self.__train_ds)), self.batch_size)
+        return DataLoader(self.__train_ds, shuffle=False, batch_sampler=sampler, collate_fn=self.encoder.collate)
+    def val_dataloader(self):
+        return DataLoader(self.__val_ds, shuffle=False, batch_size=self.batch_size, collate_fn=self.encoder.collate)
+
+class LiMultiTaskTrainingDataModule(BaseDataModule):
+    """
+    Datamodule for modelled from Li et al.'s approach of 
+    training a BERT model to predict stance with an auxiliary
+    target prediction objective
+    """
     def __init__(self,
                  stance_train_corpus: StanceCorpus,
                  target_train_corpus: StanceCorpus,

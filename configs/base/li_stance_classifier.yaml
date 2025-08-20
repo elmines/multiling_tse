@@ -36,7 +36,7 @@ model:
     targets_path: static/li_merged_targets.txt
     stance_type: tri
 data:
-  class_path: mtse.data.MixedTrainingDataModule
+  class_path: mtse.data.LiMultiTaskTrainingDataModule
   init_args:
     # He cut the batch size down to 64 for the stance training
     batch_size: 64
