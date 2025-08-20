@@ -139,13 +139,13 @@ class TGOneShotModule(OneShotModule):
     def __init__(self,
                  embeddings_path: pathlib.Path,
                  related_threshold: float = 0.2,
-                 stance_lm_weight: float = 100.0,
-                 stance_class_weight: float = 10.0,
+                 backbone_lr: float = 1e-5,
+                 head_lr: float = 4e-5,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold
-        self.stance_lm_weight = stance_lm_weight
-        self.stance_class_weight = stance_class_weight
+        self.backbone_lr = backbone_lr
+        self.head_lr = head_lr
 
         self.bart = BartForConditionalGeneration.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
         self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
@@ -180,6 +180,20 @@ class TGOneShotModule(OneShotModule):
 
         self.__encoder = self.Encoder(self)
 
+        self.count_stance = 0
+        self.count_kw = 0
+
+    def configure_optimizers(self):
+        lm_head_params = set(self.bart.lm_head.parameters())
+        # One overlapping parameter forces me to do this
+        backbone_params = [p for p in self.bart.model.parameters() if p not in lm_head_params]
+        lm_head_params = list(lm_head_params)
+        return torch.optim.AdamW([
+            {"params": lm_head_params, "lr": self.backbone_lr},
+            {"params": backbone_params, "lr": self.head_lr},
+            {"params": self.stance_classifier.parameters(), "lr": self.head_lr},
+        ])
+
     @property
     def encoder(self):
         return self.__encoder
@@ -191,21 +205,18 @@ class TGOneShotModule(OneShotModule):
         bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
         bart_output = self.bart(**bart_kwargs, output_hidden_states=True)
 
-        # (batch, seq_len)
-        lm_logits = bart_output.logits.transpose(1, 2)
-        lm_losses = torch.nn.functional.cross_entropy(lm_logits, batch['labels'], reduction='none')
-        lm_losses = torch.unsqueeze(batch['lm_weight'], 1) * lm_losses
-        lm_loss = torch.mean(lm_losses)
-
-        self.log('train/loss/lm', lm_loss)
-        loss = lm_loss
+        lm_loss = bart_output.loss
         if batch['stype'] == SampleType.SD:
             encoder_hidden_state = bart_output.encoder_hidden_states[-1][:, 0]
             stance_logits = self.stance_classifier(encoder_hidden_state)
             stance_loss = torch.nn.functional.cross_entropy(stance_logits, batch['stance'])
-            loss += self.stance_class_weight * stance_loss
-        self.log('train/loss', loss)
-        return loss
+            self.count_stance += 1
+            self.log('train/loss/stance', stance_loss)
+            return stance_loss
+        else:
+            self.count_kw += 1
+            self.log('train/loss/lm', lm_loss)
+            return lm_loss
 
     def _infer_step(self, batch):
         generate_output = self.bart.generate(batch['input_ids'],
@@ -251,9 +262,6 @@ class TGOneShotModule(OneShotModule):
                 encoding['target'] = torch.tensor(
                     [self.module.targets.index(sample.target_label)],
                     dtype=torch.long)
-                encoding['lm_weight'] = torch.tensor([self.module.stance_lm_weight])
-            else:
-                encoding['lm_weight'] = torch.tensor([1.0])
             return encoding
 
         def collate(self, samples):
@@ -261,7 +269,6 @@ class TGOneShotModule(OneShotModule):
             if 'target' in samples[0]:
                 encoding['target'] = keyed_scalar_stack(samples, 'target')
             encoding['stance'] = keyed_scalar_stack(samples, 'stance')
-            encoding['lm_weight'] = keyed_scalar_stack(samples, 'lm_weight')
             first_type = samples[0]['stype']
             assert all(s['stype'] == first_type for s in samples)
             encoding['stype'] = first_type
