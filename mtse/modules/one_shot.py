@@ -139,8 +139,8 @@ class TGOneShotModule(OneShotModule):
     def __init__(self,
                  embeddings_path: pathlib.Path,
                  related_threshold: float = 0.2,
-                 stance_lm_weight: float = 10.0,
-                 stance_class_weight: float = 1.0,
+                 stance_lm_weight: float = 100.0,
+                 stance_class_weight: float = 10.0,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold

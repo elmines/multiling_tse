@@ -57,9 +57,7 @@ def parse_nlpcc(corpus_path: os.PathLike):
 
 def parse_kptimes(corpus_path: os.PathLike):
     with open(corpus_path, 'r', encoding='utf-8') as r:
-        for i, line in enumerate(r):
-            if i > 1024:
-                break
+        for line in r:
             json_doc = json.loads(line)
             # FIXME: Break up this context into smaller chunks?
             context = json_doc['abstract']

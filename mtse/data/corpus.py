@@ -3,6 +3,7 @@ import csv
 from typing import Optional, List, Literal
 import functools
 import copy
+from itertools import islice
 # 3rd Party
 from tqdm import tqdm
 # Local
@@ -31,11 +32,13 @@ class StanceCorpus:
                  path: pathlib.Path,
                  target_preds_path: Optional[pathlib.Path] = None,
                  transforms: List[Transform] = [],
-                 target_input: TargetInputType = 'label'):
+                 target_input: TargetInputType = 'label',
+                 limit_n: Optional[int] = None):
         self._parse_fn = CORPUS_PARSERS[corpus_type]
         self._path = path
         self._target_preds_path = target_preds_path
         self._transforms = [StanceCorpus.SetTargetInput(target_input)] + transforms
+        self._limit_n = limit_n
 
         # Combine those transforms into one function
         self._transform = lambda s: functools.reduce(lambda accum, t: t(accum), transforms, s)
@@ -71,4 +74,6 @@ class StanceCorpus:
             raw_iter = sample_iter
             desc = f"Parsing {self._path}"
         trans_iter = map(self._apply_transforms, raw_iter)
+        if self._limit_n is not None:
+            trans_iter = islice(trans_iter, self._limit_n)
         return iter(tqdm(trans_iter, desc=desc))
