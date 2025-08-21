@@ -235,8 +235,8 @@ class TGOneShotModule(OneShotModule):
         return feature_vec
 
     @staticmethod
-    def _pool_decoder_states(decoder_hidden_states, is_padding):
-        decoder_weights = is_padding.to(decoder_hidden_states.dtype)
+    def _pool_decoder_states(decoder_hidden_states, not_padding):
+        decoder_weights = not_padding.to(decoder_hidden_states.dtype)
         decoder_weights = torch.unsqueeze(decoder_weights, -1)
         num = torch.sum(decoder_weights * decoder_hidden_states, dim=-2)
         denom = torch.sum(decoder_weights, dim=-2)
@@ -257,7 +257,14 @@ class TGOneShotModule(OneShotModule):
 
         # Have to duplicate that last dimension for .gather to work
         # (batch_size, seq_length, hidden_size)
-        beam_indices = torch.unsqueeze(generate_output.beam_indices, -1).expand(-1, -1, allbeam_states.shape[-1])
+
+        beam_indices = generate_output.beam_indices
+        # .generate returns a -1 beam index for padding tokens
+        # torch.gather does not accept negative indices
+        # We arbitrarily replace them with 0, because ultimately those output token positions
+        # will get ignored by _pool_decoder_states
+        beam_indices = torch.where(beam_indices < 0, 0, beam_indices)
+        beam_indices = torch.unsqueeze(beam_indices, -1).expand(-1, -1, allbeam_states.shape[-1])
         beam_indices = beam_indices.to(torch.int64)
 
         decoder_hidden_states = torch.gather(allbeam_states, 0, beam_indices)
