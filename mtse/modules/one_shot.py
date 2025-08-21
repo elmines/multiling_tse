@@ -225,12 +225,12 @@ class TGOneShotModule(OneShotModule):
             self.log('train/loss/lm', lm_loss)
             return lm_loss
 
-    def _forward_att(self, encoder_hidden_states, target_features, key_padding_mask):
+    def _forward_att(self, encoder_hidden_states, target_features, attention_mask):
         att_out, _ = self.cross_att(
             query=torch.unsqueeze(target_features, dim=1),
             key=encoder_hidden_states,
             value=encoder_hidden_states,
-            key_padding_mask=key_padding_mask)
+            key_padding_mask=torch.logical_not(attention_mask))
         feature_vec = torch.squeeze(att_out, dim=1)
         return feature_vec
 
