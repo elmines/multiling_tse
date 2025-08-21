@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pathlib
 import dataclasses
-from typing import Optional
+from typing import List
 # 3rd Party
 import numpy as np
 import torch
@@ -163,30 +163,11 @@ class TGOneShotModule(OneShotModule):
             torch.nn.Linear(hidden_size, len(self.stance_type))
         )
 
-        self.fast_text = FastText.load(str(embeddings_path))
-
-        unstacked = []
-        for target in self.targets:
-            if target == UNRELATED_TARGET:
-                # Will never match with the unrelated target, because no vector X can have
-                # a nonzero cosine similarity with the zero vector
-                unstacked.append(np.zeros([self.fast_text.vector_size], dtype=np.float32))
-            else:
-                vec = self.fast_text.wv[target.lower()].copy()
-                # Normalize magnitude to unity--makes computing explicit cosine similarity unnecessary
-                # Just find the target vector that has the highest dot product with the predicted target
-                vec = vec / np.linalg.norm(vec) 
-                unstacked.append(vec)
-        # (embedding_size, n_targets)
-        stacked = np.stack(unstacked).transpose()
-
         self.target_embeddings: torch.Tensor # Only have this so the IDE knows this variable exists
-        self.register_buffer("target_embeddings", torch.tensor(stacked), persistent=False)
+        self.register_buffer("target_embeddings", torch.zeros([len(self.targets), hidden_size]), persistent=False)
 
         self.__encoder = self.Encoder(self)
 
-        self.count_stance = 0
-        self.count_kw = 0
 
     def configure_optimizers(self):
         lm_head_params = set(self.bart.lm_head.parameters())
@@ -206,6 +187,27 @@ class TGOneShotModule(OneShotModule):
 
     def __detokenize(self, id_seq):
         return self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
+
+    def on_validation_epoch_start(self):
+        self._on_infer_epoch_start()
+    def on_test_epoch_start(self):
+        self._on_infer_epoch_start()
+
+    def _simple_embed(self, texts: List[str]):
+        unstacked = []
+        weight_matrix = self.bart.model.get_input_embeddings().weight
+        for text in texts:
+            token_ids = self.tokenizer(text=text, add_special_tokens=False)['input_ids']
+            embeddings = weight_matrix[token_ids]
+            meaned = torch.mean(embeddings, dim=0)
+            unstacked.append(meaned)
+        stacked = torch.stack(unstacked, dim=0)
+        normalized = stacked / torch.linalg.norm(stacked, dim=-1, keepdim=True)
+        return normalized
+    def _on_infer_epoch_start(self):
+        self.eval()
+        with torch.no_grad():
+            self.target_embeddings[1:, :] = self._simple_embed(self.targets[1:])
 
     def training_step(self, batch, batch_idx):
         bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
@@ -281,11 +283,9 @@ class TGOneShotModule(OneShotModule):
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
         output_texts = [self.__detokenize(id_seq) for id_seq in output_ids.detach().cpu().tolist()]
-        output_embeddings = np.stack([self.fast_text.wv[text] for text in output_texts])
-        output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
-        output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
+        output_embeddings = self._simple_embed(output_texts)
 
-        target_scores = output_embeddings @ self.target_embeddings
+        target_scores = output_embeddings @ self.target_embeddings.transpose(1, 0)
         sim_scores, sim_inds = torch.max(target_scores, axis=-1)
         target_preds = torch.where(sim_scores >= self.related_threshold, sim_inds, 0)
 
