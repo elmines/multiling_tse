@@ -137,7 +137,6 @@ class TGOneShotModule(OneShotModule):
     EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight'}
 
     def __init__(self,
-                 embeddings_path: pathlib.Path,
                  related_threshold: float = 0.2,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
