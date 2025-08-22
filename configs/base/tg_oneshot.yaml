@@ -1,0 +1,29 @@
+seed_everything: 0 # Li's seeds were 0,112,343
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: ./
+
+  # No early stopping-- Li just does 5 epochs
+  max_epochs: 5 
+
+  callbacks:
+    - class_path: mtse.callbacks.TSEStatsCallback
+      init_args:
+        full_metrics: true
+
+    # Monitor the stance F1
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/tse/f1
+        mode: max
+        filename: "epoch={epoch:02d}-tse_f1={val/tse/f1:.3f}"
+        auto_insert_metric_name: false
+
+
+model:
+  class_path: mtse.modules.TGOneShotModule
+  init_args:
+    targets_path: static/li_merged_targets.txt
+    stance_type: tri
