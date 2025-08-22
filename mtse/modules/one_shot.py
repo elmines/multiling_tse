@@ -32,7 +32,7 @@ class OneShotModule(BaseModule):
     def n_targets(self):
         return len(self.targets)
 
-class ClassfierOneShotModule(OneShotModule):
+class ClassifierOneShotModule(OneShotModule):
     """
     One-shot module designed to be as close as possible to Li et al.'s
     individual target and stance models
@@ -43,8 +43,8 @@ class ClassfierOneShotModule(OneShotModule):
 
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = RobertaModel.from_pretrained(ClassfierOneShotModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(ClassfierOneShotModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         hidden_size = config.hidden_size
 
@@ -80,7 +80,7 @@ class ClassfierOneShotModule(OneShotModule):
 
 
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k not in ClassfierOneShotModule.NON_BERT_KEYS}
+        bert_kwargs = {k:v for k,v in kwargs.items() if k not in ClassifierOneShotModule.NON_BERT_KEYS}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
         target_logits = self.target_classifier(cls_hidden_state)
@@ -105,7 +105,7 @@ class ClassfierOneShotModule(OneShotModule):
         )
 
     class Encoder(Encoder):
-        def __init__(self, module: ClassfierOneShotModule):
+        def __init__(self, module: ClassifierOneShotModule):
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
         def encode(self, sample: Sample, inference=False):
@@ -324,4 +324,4 @@ class TGOneShotModule(OneShotModule):
             encoding['stype'] = first_type
             return encoding
 
-__all__ = ["OneShotModule", "ClassfierOneShotModule", "TGOneShotModule"]
+__all__ = ["OneShotModule", "ClassifierOneShotModule", "TGOneShotModule"]
