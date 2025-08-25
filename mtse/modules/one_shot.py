@@ -247,7 +247,7 @@ class TGOneShotModule(OneShotModule):
         generate_output = self.bart.generate(batch['input_ids'],
                                              return_dict_in_generate=True,
                                              output_hidden_states=True,
-                                             max_length=5,
+                                             max_length=10,
                                              num_beams=3)
 
         # (beam_width * batch_size, seq_length, hidden_size)
