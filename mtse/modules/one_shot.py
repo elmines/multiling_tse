@@ -141,11 +141,13 @@ class TGOneShotModule(OneShotModule):
                  related_threshold: float = 0.2,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
+                 max_length: int = 10,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
+        self.max_length = max_length
 
         self.bart = BartForConditionalGeneration.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
         self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
@@ -247,7 +249,7 @@ class TGOneShotModule(OneShotModule):
         generate_output = self.bart.generate(batch['input_ids'],
                                              return_dict_in_generate=True,
                                              output_hidden_states=True,
-                                             max_length=10,
+                                             max_length=self.max_length,
                                              num_beams=3)
 
         # (beam_width * batch_size, seq_length, hidden_size)
