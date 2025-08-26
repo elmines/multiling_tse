@@ -20,7 +20,7 @@ class StanceCLI(LightningCLI):
             # TODO: Just make the uesr specify these callbacks in the YAML config
             self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
             self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
-        elif isinstance(self.model, TwoShotModule):
+        elif isinstance(self.model, (TwoShotModule, BartKeyphraseModule)):
             pass
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")

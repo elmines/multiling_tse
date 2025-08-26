@@ -1,0 +1,49 @@
+seed_everything: 0 # Li's seeds were 0,112,343
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: ./
+
+  callbacks:
+
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/loss
+        patience: 5
+        mode: min
+
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/loss
+        mode: min
+        filename: "epoch={epoch:02d}-loss={val/loss:.3f}"
+        auto_insert_metric_name: false
+
+  val_check_interval: 500
+
+model:
+  class_path: mtse.modules.BartKeyphraseModule
+
+data:
+  class_path: mtse.data.SplitDataModule
+  init_args:
+    batch_size: 32
+
+    corpora:
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/kptimes/train.jsonl
+          corpus_type: kptimes2
+          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          # limit_n: 128
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/kptimes/dev.jsonl
+          corpus_type: kptimes2
+          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          # limit_n: 128
+    ratios:
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+
