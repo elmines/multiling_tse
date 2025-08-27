@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartForConditionalGeneration, BartTokenizerFast
 from gensim.models import FastText
+from torch_scatter import segment_max_coo
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
@@ -300,36 +301,33 @@ class TGOneShotModule(OneShotModule):
         stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
-        group_sizes = []
+        sample_inds = []
         all_texts = []
-        for id_seq in output_ids.detach().cpu().tolist():
+        for i, id_seq in enumerate(output_ids.detach().cpu().tolist()):
             sample_targets = self.__detokenize(id_seq)
             all_texts.extend(sample_targets)
-            group_sizes.append(len(sample_targets))
+            sample_inds.extend(i for _ in sample_targets)
+        sample_inds = torch.tensor(sample_inds, dtype=torch.long, device=stance_preds.device)
         output_embeddings = self.fast_text.wv[all_texts]
         output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
         output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
 
+
+        # For a given sample, we want to pick the fixed target that had the highest similarity score,
+        # across any predicted target for that sample
+
+        # 1. Calculate the similarity scores
+        # (n_predicted_targets, n_fixed_targets)
         all_scores = output_embeddings @ self.target_embeddings
-        best_class_scores, best_class_inds = torch.max(all_scores, dim=-1)
-
-        trimmed_scores = []
-        trimmed_inds = []
-        group_start = 0
-        for group_size in group_sizes:
-            group_end = group_start + group_size
-            group_scores = best_class_scores[group_start:group_end]
-            group_class_inds = best_class_inds[group_start:group_end]
-
-            best_target_ind = torch.argmax(group_scores)
-            trimmed_scores.append(group_scores[best_target_ind])
-            trimmed_inds.append(group_class_inds[best_target_ind])
-
-            group_start += group_size
-        trimmed_scores = torch.tensor(trimmed_scores, device=all_scores.device)
-        trimmed_inds = torch.tensor(trimmed_inds, device=trimmed_scores.device, dtype=torch.long)
-
-        target_preds = torch.where(trimmed_scores >= self.related_threshold, trimmed_inds, 0)
+        # 2. Calculate the highest score for a given fixed target across the predicted targets for a sample
+        # Different samples can have different numbers of targets predicted, so we have to use a sparse operation here
+        # (n_samples, n_fixed_targets)
+        sample_scores, _ = segment_max_coo(all_scores, sample_inds)
+        # 3. Take the max across the fixed targets
+        # (n_samples,) and (n_samples,)
+        class_scores, class_inds = torch.max(sample_scores, dim=-1)
+        # 4. Pick the UNRELATED target if the class score doesn't meet the similarity threshold
+        target_preds = torch.where(class_scores >= self.related_threshold, class_inds, 0)
 
         return TGOneShotModule.Output(
             target_preds=target_preds,
