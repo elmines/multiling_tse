@@ -2,6 +2,7 @@ from __future__ import annotations
 import pathlib
 import dataclasses
 from typing import Optional
+import re
 # 3rd Party
 import numpy as np
 import torch
@@ -135,6 +136,15 @@ class TGOneShotModule(OneShotModule):
     DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
     EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight'}
+
+    __POSTPROC_PATT_1 = re.compile(r'[;,\.]|\s')
+    __POSTPROC_PATT_2 = re.compile(r'  +')
+
+    @classmethod
+    def _postprocess(cls, keyphrase):
+        k1 = cls.__POSTPROC_PATT_1.sub(' ', keyphrase)
+        k2 = cls.__POSTPROC_PATT_2.sub(' ', k1)
+        return k2
 
     def __init__(self,
                  embeddings_path: pathlib.Path,
