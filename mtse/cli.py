@@ -1,5 +1,6 @@
 # 3rd Party
 from lightning.pytorch.cli import LightningCLI
+import pathlib
 # Local
 from .modules import *
 from .data import *
@@ -10,6 +11,7 @@ class StanceCLI(LightningCLI):
         """
         I frequently use this, but don't need it for this project yet.
         """
+        parser.add_argument("--weight_ckpt", type=pathlib.Path, required=False)
 
     def after_instantiate_classes(self):
         model = self.model
@@ -24,6 +26,9 @@ class StanceCLI(LightningCLI):
             pass
         else:
             raise ValueError(f"Unknown module type {type(self.model)}")
+        if self.config_dump.get('weight_ckpt'):
+            state_dict =  torch.load(self.config_dump['weight_ckpt'])['state_dict']
+            self.model.load_state_dict(state_dict, strict=False)
 
 def cli_main(**cli_kwargs):
     return StanceCLI(

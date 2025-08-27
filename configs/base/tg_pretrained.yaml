@@ -31,7 +31,6 @@ model:
     embeddings_path: ./lightning_logs/FT_500epochs_256embed/ft_seed0.model
     related_threshold: 0.25
     fixed_lm: true
-    pretrained_model: ankur310794/bart-base-keyphrase-generation-kpTimes
     max_length: 75
 
 data:
