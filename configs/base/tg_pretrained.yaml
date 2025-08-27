@@ -8,7 +8,7 @@ trainer:
   # No early stopping-- Li just does 5 epochs
   max_epochs: 5 
 
-  val_check_interval: 10
+  val_check_interval: 500
 
   callbacks:
     - class_path: mtse.callbacks.TSEStatsCallback
@@ -32,6 +32,7 @@ model:
     related_threshold: 0.25
     fixed_lm: true
     pretrained_model: ankur310794/bart-base-keyphrase-generation-kpTimes
+    max_length: 75
 
 data:
   class_path: mtse.data.MixedTrainingDataModule
