@@ -1,0 +1,51 @@
+seed_everything: 0 # Li's seeds were 0,112,343
+trainer:
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: ./
+
+  # No early stopping-- Li just does 5 epochs
+  max_epochs: 5 
+
+  val_check_interval: 10
+
+  callbacks:
+    - class_path: mtse.callbacks.TSEStatsCallback
+      init_args:
+        full_metrics: true
+
+    # Monitor the stance F1
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: val/tse/f1
+        mode: max
+        filename: "epoch={epoch:02d}-tse_f1={val/tse/f1:.3f}"
+        auto_insert_metric_name: false
+
+model:
+  class_path: mtse.modules.TGOneShotModule
+  init_args:
+    targets_path: static/li_merged_targets.txt
+    stance_type: tri
+    embeddings_path: ./lightning_logs/FT_500epochs_256embed/ft_seed0.model
+    related_threshold: 0.25
+    fixed_lm: true
+    pretrained_model: ankur310794/bart-base-keyphrase-generation-kpTimes
+
+data:
+  class_path: mtse.data.MixedTrainingDataModule
+  init_args:
+    batch_size: 32
+    stance_val_corpora:
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/li_tse/raw_val_all_onecol.csv
+          corpus_type: li
+          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
+    stance_train_corpora:
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/li_tse/raw_train_all_onecol.csv
+          corpus_type: li
+          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]

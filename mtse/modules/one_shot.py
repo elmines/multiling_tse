@@ -132,7 +132,7 @@ class TGOneShotModule(OneShotModule):
         target_preds: torch.Tensor
         stance_preds: torch.Tensor
 
-    PRETRAINED_MODEL = "facebook/bart-base"
+    DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
     EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight'}
 
@@ -142,15 +142,18 @@ class TGOneShotModule(OneShotModule):
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
                  max_length: int = 10,
+                 fixed_lm: bool = False,
+                 pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
         self.max_length = max_length
+        self.fixed_lm = fixed_lm
 
-        self.bart = BartForConditionalGeneration.from_pretrained(TGOneShotModule.PRETRAINED_MODEL)
-        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(TGOneShotModule.PRETRAINED_MODEL, normalization=True)
+        self.bart = BartForConditionalGeneration.from_pretrained(pretrained_model)
+        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(pretrained_model, normalization=True)
 
         config = self.bart.config
         hidden_size = config.hidden_size
@@ -187,20 +190,23 @@ class TGOneShotModule(OneShotModule):
 
         self.__encoder = self.Encoder(self)
 
-        self.count_stance = 0
-        self.count_kw = 0
+        if self.fixed_lm:
+            for name, param in self.bart.named_parameters():
+                param.requires_grad = False
 
     def configure_optimizers(self):
-        lm_head_params = set(self.bart.lm_head.parameters())
-        # One overlapping parameter forces me to do this
-        backbone_params = [p for p in self.bart.model.parameters() if p not in lm_head_params]
-        lm_head_params = list(lm_head_params)
-        return torch.optim.AdamW([
-            {"params": lm_head_params, "lr": self.backbone_lr},
-            {"params": backbone_params, "lr": self.head_lr},
+        param_groups = [
             {"params": self.stance_classifier.parameters(), "lr": self.head_lr},
             {"params": self.cross_att.parameters(), "lr": self.head_lr},
-        ])
+        ]
+        if not self.fixed_lm:
+            lm_head_params = set(self.bart.lm_head.parameters())
+            # One overlapping parameter forces me to do this
+            backbone_params = [p for p in self.bart.model.parameters() if p not in lm_head_params]
+            lm_head_params = list(lm_head_params)
+            param_groups.append({"params": lm_head_params, "lr": self.backbone_lr})
+            param_groups.append({"params": backbone_params, "lr": self.head_lr})
+        return torch.optim.AdamW(param_groups)
 
     @property
     def encoder(self):

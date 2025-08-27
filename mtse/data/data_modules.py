@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split, Sampler
 import lightning as L
 from tqdm import tqdm
-from typing import Tuple, List, Tuple, Sequence
+from typing import Tuple, List, Tuple, Optional
 # Local
 from .encoder import Encoder, PredictTask
 from .dataset import MapDataset
@@ -62,16 +62,20 @@ class TaskSampler(Sampler):
     def __iter__(self):
         permuted_stance_inds = np.random.permutation(self.task_a_indices)
         permuted_target_inds = np.random.permutation(self.task_b_indices)
-        mixed_batches = np.array_split(permuted_stance_inds, self.__n_stance_batches) + np.array_split(permuted_target_inds, self.__n_target_batches)
+        mixed_batches = []
+        if self.__n_stance_batches:
+            mixed_batches += np.array_split(permuted_stance_inds, self.__n_stance_batches)
+        if self.__n_target_batches:
+            mixed_batches += np.array_split(permuted_target_inds, self.__n_target_batches)
         random.shuffle(mixed_batches)
         mixed_batches = [torch.tensor(inds) for inds in mixed_batches]
         return iter(mixed_batches)
 
 class MixedTrainingDataModule(BaseDataModule):
     def __init__(self,
-                 keyword_corpus: StanceCorpus,
                  stance_train_corpora: List[StanceCorpus],
                  stance_val_corpora: List[StanceCorpus],
+                 keyword_corpus: Optional[StanceCorpus] = None,
                  batch_size: int = DEFAULT_BATCH_SIZE
                  ):
         super().__init__()
@@ -89,13 +93,19 @@ class MixedTrainingDataModule(BaseDataModule):
         if self.__train_ds and self.__val_ds and self.__n_keyword is not None:
             return
 
-        keyword_samples = list(self.keyword_corpus)
-        keyword_samples = [self.encoder.encode(s, inference=False) for s in tqdm(keyword_samples, desc='Encoding keyword samples')]
-        self.__n_keyword = len(keyword_samples)
+        train_samples = []
+        if self.keyword_corpus is not None:
+            keyword_samples = list(self.keyword_corpus)
+            keyword_samples = [self.encoder.encode(s, inference=False) for s in tqdm(keyword_samples, desc='Encoding keyword samples')]
+            self.__n_keyword = len(keyword_samples)
+            train_samples += keyword_samples
+        else:
+            self.__n_keyword = 0
 
         train_stance_samples = [s for corp in self.stance_train_corpora for s in corp]
         train_stance_samples = [self.encoder.encode(s, inference=False) for s in tqdm(train_stance_samples, desc='Encoding train stance samples')]
-        self.__train_ds = MapDataset(keyword_samples + train_stance_samples)
+        train_samples += train_stance_samples
+        self.__train_ds = MapDataset(train_samples)
 
         val_stance_samples = [s for corp in self.stance_val_corpora for s in corp]
         self.__val_ds = MapDataset([self.encoder.encode(s, inference=False) for s in tqdm(val_stance_samples, desc='Encoding val stance samples')])
