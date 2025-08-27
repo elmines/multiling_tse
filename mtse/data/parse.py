@@ -61,22 +61,6 @@ def parse_kptimes(corpus_path: os.PathLike):
             json_doc = json.loads(line)
             # FIXME: Break up this context into smaller chunks?
             context = json_doc['abstract']
-            targets = json_doc['keyphrases']
-            for target in targets:
-                yield Sample(
-                    context=context,
-                    target_label=target,
-                    stance=TriStance.neutral,
-                    lang='en',
-                    sample_type=SampleType.KG
-                )
-
-def parse_kptimes2(corpus_path: os.PathLike):
-    with open(corpus_path, 'r', encoding='utf-8') as r:
-        for line in r:
-            json_doc = json.loads(line)
-            # FIXME: Break up this context into smaller chunks?
-            context = json_doc['abstract']
             target_phrase = " ".join(json_doc['keyphrases'])
             yield Sample(
                 context=context,
@@ -86,7 +70,7 @@ def parse_kptimes2(corpus_path: os.PathLike):
                 sample_type=SampleType.KG
             )
 
-DetCorpusType = Literal['nlpcc', 'cstance', 'li', 'kptimes', 'kptimes2']
+DetCorpusType = Literal['nlpcc', 'cstance', 'li', 'kptimes']
 
 StanceParser = Callable[[os.PathLike], Generator[Sample, None, None]]
 """
@@ -97,6 +81,5 @@ CORPUS_PARSERS: Dict[DetCorpusType, StanceParser] = {
     "nlpcc": parse_nlpcc,
     "cstance": parse_cstance,
     "li": parse_yingjie,
-    "kptimes": parse_kptimes,
-    "kptimes2": parse_kptimes2
+    "kptimes": parse_kptimes
 }
