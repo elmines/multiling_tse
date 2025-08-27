@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pathlib
 import dataclasses
-from typing import Optional
+from typing import List
 import re
 # 3rd Party
 import numpy as np
@@ -11,7 +11,7 @@ from gensim.models import FastText
 # 
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
-from ..constants import DEFAULT_HF_MODEL, UNRELATED_TARGET
+from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
 
 class OneShotModule(BaseModule):
 
@@ -151,7 +151,7 @@ class TGOneShotModule(OneShotModule):
                  related_threshold: float = 0.2,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
-                 max_length: int = 10,
+                 max_length: int = 75,
                  fixed_lm: bool = False,
                  pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
                  **parent_kwargs):
@@ -222,8 +222,10 @@ class TGOneShotModule(OneShotModule):
     def encoder(self):
         return self.__encoder
 
-    def __detokenize(self, id_seq):
-        return self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
+    def __detokenize(self, id_seq) -> List[str]:
+        full_string = self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
+        target_names = full_string.split(TARGET_DELIMITER)
+        return target_names
 
     def training_step(self, batch, batch_idx):
         bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
@@ -298,14 +300,36 @@ class TGOneShotModule(OneShotModule):
         stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
-        output_texts = [self.__detokenize(id_seq) for id_seq in output_ids.detach().cpu().tolist()]
-        output_embeddings = np.stack([self.fast_text.wv[text] for text in output_texts])
+        group_sizes = []
+        all_texts = []
+        for id_seq in output_ids.detach().cpu().tolist():
+            sample_targets = self.__detokenize(id_seq)
+            all_texts.extend(sample_targets)
+            group_sizes.append(len(sample_targets))
+        output_embeddings = self.fast_text.wv[all_texts]
         output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
         output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
 
-        target_scores = output_embeddings @ self.target_embeddings
-        sim_scores, sim_inds = torch.max(target_scores, axis=-1)
-        target_preds = torch.where(sim_scores >= self.related_threshold, sim_inds, 0)
+        all_scores = output_embeddings @ self.target_embeddings
+        best_class_scores, best_class_inds = torch.max(all_scores, dim=-1)
+
+        trimmed_scores = []
+        trimmed_inds = []
+        group_start = 0
+        for group_size in group_sizes:
+            group_end = group_start + group_size
+            group_scores = best_class_scores[group_start:group_end]
+            group_class_inds = best_class_inds[group_start:group_end]
+
+            best_target_ind = torch.argmax(group_scores)
+            trimmed_scores.append(group_scores[best_target_ind])
+            trimmed_inds.append(group_class_inds[best_target_ind])
+
+            group_start += group_size
+        trimmed_scores = torch.tensor(trimmed_scores, device=all_scores.device)
+        trimmed_inds = torch.tensor(trimmed_inds, device=trimmed_scores.device, dtype=torch.long)
+
+        target_preds = torch.where(trimmed_scores >= self.related_threshold, trimmed_inds, 0)
 
         return TGOneShotModule.Output(
             target_preds=target_preds,

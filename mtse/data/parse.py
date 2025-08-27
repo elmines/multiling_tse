@@ -6,6 +6,7 @@ import csv
 
 from .stance import TriStance
 from .sample import Sample, SampleType
+from ..constants import TARGET_DELIMITER
 
 def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
     str2strance = {
@@ -59,9 +60,8 @@ def parse_kptimes(corpus_path: os.PathLike):
     with open(corpus_path, 'r', encoding='utf-8') as r:
         for line in r:
             json_doc = json.loads(line)
-            # FIXME: Break up this context into smaller chunks?
             context = json_doc['abstract']
-            target_phrase = " ".join(json_doc['keyphrases'])
+            target_phrase = TARGET_DELIMITER.join(json_doc['keyphrases'])
             yield Sample(
                 context=context,
                 target_label=target_phrase,

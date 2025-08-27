@@ -3,3 +3,5 @@ DEFAULT_BATCH_SIZE = 32
 DEFAULT_HF_MODEL = "vinai/bertweet-base"
 
 UNRELATED_TARGET = "Unrelated"
+
+TARGET_DELIMITER = ";"
