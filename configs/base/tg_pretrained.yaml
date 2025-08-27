@@ -28,7 +28,6 @@ model:
   init_args:
     targets_path: static/li_merged_targets.txt
     stance_type: tri
-    embeddings_path: ./lightning_logs/FT_500epochs_256embed/ft_seed0.model
     related_threshold: 0.25
     fixed_lm: true
     max_length: 75
