@@ -11,7 +11,7 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 SEEDS=${@:- 0 112 343}
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiLi}
+EXP_NAME=${EXP_NAME:-MultiLiTc}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
