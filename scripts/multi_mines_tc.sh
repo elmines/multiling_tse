@@ -1,9 +1,8 @@
 #!/bin/bash
 ALL=${ALL:-0}
-TARGET_FIT=${TARGET_FIT:-$ALL}
+FIT=${FIT:-$ALL}
+
 TARGET_TEST=${TARGET_TEST:-$ALL}
-TARGET_PRED=${TARGET_PRED:-$ALL}
-STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
@@ -14,26 +13,21 @@ SAVE_DIR=${SAVE_DIR:-./lightning_logs}
 EXP_NAME=${EXP_NAME:-MultiLiTc}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
-WITH_SE_BUG=${WITH_SE_BUG:-0}
-SCRUB_TARGETS=${SCRUB_TARGETS:-0}
+SCRUB_TARGETS=${KEEP_TARGETS:-1}
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
-function v_target_train { echo LiTargetClassifier_seed${1}; }
+function v_target_train { echo MinesTargetClassifier_seed${1}; }
 
 function v_target_predict { echo $(v_target_train $1)_predict; }
 
-function v_stance_train { echo LiStanceClassifier_seed${1}; }
+function v_stance_train { echo MinesStanceClassifier_seed${1}; }
 
 
-if [ $TARGET_FIT -eq 1 ]
+if [ $FIT -eq 1 ]
 then
     EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
-    fi
     if [ $SCRUB_TARGETS -eq 1 ]
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
@@ -59,9 +53,9 @@ then
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
     fi
-    if [ $SCRUB_TARGETS -eq 1 ]
+    if [ $KEEP_TARGETS -eq 1 ]
     then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets false"
     fi
 
     for seed in $SEEDS
@@ -75,56 +69,6 @@ then
     done
 else
     echo "Skipping target testing"
-fi
-
-if [ $TARGET_PRED -eq 1 ]
-then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
-    fi
-
-    for seed in $SEEDS
-    do
-        python -m mtse predict \
-            -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
-            --data configs/data/li_tc_predict.yaml \
-            --trainer.logger.version $(v_target_predict $seed) \
-            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
-            $EXTRA_ARGS
-    done
-else
-    echo "Skipping target prediction"
-fi
-
-if [ $STANCE_FIT -eq 1 ]
-then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.scrub_targets true"
-    fi
-
-    for seed in $SEEDS
-    do
-        python -m mtse fit \
-            -c configs/base/li_stance_classifier.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version $(v_stance_train $seed) \
-            --seed_everything $seed \
-            $EXTRA_ARGS
-    done
-else
-    echo "Skipping stance fitting"
 fi
 
 if [ $STANCE_TEST -eq 1 ]

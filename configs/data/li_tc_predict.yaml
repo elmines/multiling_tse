@@ -1,6 +1,6 @@
 class_path: mtse.data.PredictDataModule
 init_args:
-  transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
+  transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
   corpora:
     - class_path: mtse.data.StanceCorpus
       init_args:

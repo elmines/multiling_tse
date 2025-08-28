@@ -15,8 +15,6 @@ trainer:
     # Calculate the stance F1
     - class_path: mtse.callbacks.StanceClassificationStatsCallback
 
-    - class_path: mtse.callbacks.TSEStatsCallback
-
     # Monitor the stance F1
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -46,12 +44,12 @@ data:
     stance_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]
+      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
     target_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
+      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
     val_corpus:
       path: data/li_tse/raw_val_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": false}} ]
+      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
