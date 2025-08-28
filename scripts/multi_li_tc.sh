@@ -14,6 +14,8 @@ SAVE_DIR=${SAVE_DIR:-./lightning_logs}
 EXP_NAME=${EXP_NAME:-MultiLiTc}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
+WITH_SE_BUG=${WITH_SE_BUG:-0}
+
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
@@ -26,13 +28,20 @@ function v_stance_train { echo LiStanceClassifier_seed${1}; }
 
 if [ $TARGET_FIT -eq 1 ]
 then
+    EXTRA_ARGS=""
+    if [ $WITH_SE_BUG -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
+    fi
+
     for seed in $SEEDS
     do
         python -m mtse fit \
             -c configs/base/li_target_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version $(v_target_train $seed) \
-            --seed_everything $seed
+            --seed_everything $seed \
+            $EXTRA_ARGS
     done
 else
     echo "Skipping target fitting"
@@ -40,13 +49,20 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
+    EXTRA_ARGS=""
+    if [ $WITH_SE_BUG -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
+    fi
+
     for seed in $SEEDS
     do
         python -m mtse test \
             -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
             --data configs/data/li_tc_test.yaml \
             --trainer.logger.version $(v_target_train $seed)_test \
-            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt
+            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
+            $EXTRA_ARGS
     done
 else
     echo "Skipping target testing"
@@ -54,13 +70,19 @@ fi
 
 if [ $TARGET_PRED -eq 1 ]
 then
+    EXTRA_ARGS=""
+    if [ $WITH_SE_BUG -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
+    fi
     for seed in $SEEDS
     do
         python -m mtse predict \
             -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $(v_target_predict $seed) \
-            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt
+            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
+            $EXTRA_ARGS
     done
 else
     echo "Skipping target prediction"

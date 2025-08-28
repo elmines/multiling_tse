@@ -73,9 +73,12 @@ class LiPreprocess(Transform):
 
     PHRASE_PATTERN = re.compile(r"[A-Za-z#@]+|[,.!?&/\<>=$]|[0-9]+")
 
-    def __init__(self, scrub_targets: bool = False):
+    def __init__(self,
+                 scrub_targets: bool = False,
+                 remove_se_hashtag: bool = True):
         self._keyword_dict = LiPreprocess.get_keyword_dict()
         self.scrub_targets = scrub_targets
+        self.remove_se_hashtag = remove_se_hashtag
 
     @classmethod
     def get_keyword_dict(cls) -> Dict[str, str]:
@@ -98,7 +101,8 @@ class LiPreprocess(Transform):
         # 3. Use tweet-preprocessor
         context = twp.clean(context)
         # 4. Remove SemEval hashtags
-        context = _remove_semeval_tag(context)
+        if self.remove_se_hashtag:
+            context = _remove_semeval_tag(context)
         # 5. Normalize slang and split hashtags/mentions
         converted = []
         for phrase in LiPreprocess.PHRASE_PATTERN.findall(context):
