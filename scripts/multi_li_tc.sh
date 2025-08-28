@@ -15,6 +15,7 @@ EXP_NAME=${EXP_NAME:-MultiLiTc}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 WITH_SE_BUG=${WITH_SE_BUG:-0}
+KEEP_TARGETS=${KEEP_TARGETS:-0}
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
@@ -32,6 +33,10 @@ then
     if [ $WITH_SE_BUG -eq 1 ]
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
+    fi
+    if [ $KEEP_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets false"
     fi
 
     for seed in $SEEDS
@@ -54,6 +59,10 @@ then
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
     fi
+    if [ $KEEP_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets false"
+    fi
 
     for seed in $SEEDS
     do
@@ -75,6 +84,11 @@ then
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
     fi
+    if [ $KEEP_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets false"
+    fi
+
     for seed in $SEEDS
     do
         python -m mtse predict \
