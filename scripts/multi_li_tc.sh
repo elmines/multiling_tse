@@ -44,7 +44,7 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
-            --data configs/data/li_target_test.yaml \
+            --data configs/data/li_tc_test.yaml \
             --trainer.logger.version $(v_target_train $seed)_test \
             --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt
     done
@@ -58,7 +58,7 @@ then
     do
         python -m mtse predict \
             -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
-            --data configs/data/li_target_predict.yaml \
+            --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $(v_target_predict $seed) \
             --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt
     done

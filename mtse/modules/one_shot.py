@@ -108,9 +108,10 @@ class ClassifierOneShotModule(OneShotModule):
 
     class Encoder(Encoder):
         def __init__(self, module: ClassifierOneShotModule):
+            super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
-        def encode(self, sample: Sample, inference=False):
+        def _encode(self, sample: Sample, inference=False):
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                     truncation=True, max_length=128)
             encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
@@ -336,11 +337,12 @@ class TGOneShotModule(OneShotModule):
 
     class Encoder(Encoder):
         def __init__(self, module: TGOneShotModule):
+            super().__init__()
             self.module = module
             self.tokenizer = module.tokenizer
             self.max_length = self.module.bart.config.max_position_embeddings
 
-        def encode(self, sample: Sample, inference=False, predict_task = None):
+        def _encode(self, sample: Sample, inference=False, predict_task = None):
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',

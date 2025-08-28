@@ -1,5 +1,6 @@
 class_path: mtse.data.PredictDataModule
 init_args:
+  transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
   corpora:
     - class_path: mtse.data.StanceCorpus
       init_args:
@@ -7,4 +8,3 @@ init_args:
         target_input: pred
         # target_preds_path: Must specify yourself depending on the seed
         corpus_type: 'li'
-        transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]

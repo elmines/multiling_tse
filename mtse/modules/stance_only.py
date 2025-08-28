@@ -65,9 +65,10 @@ class StanceOnlyModule(BaseModule):
 
     class Encoder(Encoder):
         def __init__(self, module: StanceOnlyModule):
+            super().__init__()
             self.module = module
             self.tokenizer = module.tokenizer
-        def encode(self, sample: Sample, inference=False):
+        def _encode(self, sample: Sample, inference=False):
             target_text = sample.target if sample.target else 'unknown'
             encoding = self.tokenizer(text=sample.context, text_pair=target_text, return_tensors='pt')
             # +1 to handle the nontarget-0

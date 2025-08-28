@@ -48,9 +48,10 @@ class TargetModule(BaseModule):
 
     class Encoder(Encoder):
         def __init__(self, module: TargetModule):
+            super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
-        def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
+        def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
             encoding = self.tokenizer(text=sample.context, return_tensors='pt',
                                       truncation=True, max_length=self.module.max_length)
@@ -86,7 +87,7 @@ class LiTargetModule(TargetModule):
         self.__encoder = self.Encoder(self)
 
     class Encoder(TargetModule.Encoder):
-        def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
+        def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
             assert sample.target_label is not None
             # This looks clunky, but trying to imitate Li's original code

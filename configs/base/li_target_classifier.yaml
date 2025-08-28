@@ -32,17 +32,16 @@ data:
   class_path: mtse.data.SplitDataModule
   init_args:
     batch_size: 128
+    transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/li_tse/raw_train_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
 
     # corpora:
@@ -50,5 +49,4 @@ data:
     #     init_args:
     #       path: data/li_tse/raw_val_all_onecol.csv
     #       corpus_type: li
-    #       transforms: [ {"class_path": "mtse.data.LiPreprocess", "init_args": {"scrub_targets": true}} ]
     # ratios: [ [0.8, 0.2, 0.0] ]

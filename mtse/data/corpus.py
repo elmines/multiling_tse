@@ -44,10 +44,14 @@ class StanceCorpus:
         self._transform = lambda s: functools.reduce(lambda accum, t: t(accum), transforms, s)
 
     def _apply_transforms(self, sample: Sample):
-        # This is why transforms are in-place: we don't have to make a copy for each transform
-        s = copy.deepcopy(sample)
-        for t in self._transforms:
-            t(s)
+        if self._transforms:
+            # Only waste resources making a copy if we have transforms to apply
+            # This is why transforms are in-place: we don't have to make a copy for each transform
+            s = copy.deepcopy(sample)
+            for t in self._transforms:
+                t(s)
+        else:
+            s = sample
         return s
 
     def __str__(self):

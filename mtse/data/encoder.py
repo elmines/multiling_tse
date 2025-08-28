@@ -2,11 +2,14 @@
 from typing import List, Dict, Optional
 import enum
 import abc
+import copy
 # 3rd party
 import torch
 from transformers import PreTrainedTokenizerFast
 # Local
 from ..types import TensorDict
+from .transforms import Transform
+from .sample import Sample
 
 PoolIndices = Dict[int, List[int]]
 
@@ -18,8 +21,26 @@ class PredictTask(enum.IntEnum):
 
 class Encoder(abc.ABC):
 
+    def __init__(self):
+        self._transforms: List[Transform] = []
+
+    def add_transform(self, t: Transform):
+        self._transforms.append(t)
+
+    def encode(self, sample: Sample, *args, **kwargs):
+        """
+        DO NOT OVERRIDE THIS. Rather, override _encode
+        """
+        if self._transforms:
+            s = copy.deepcopy(sample)
+            for t in self._transforms:
+                t(s)
+        else:
+            s = sample
+        return self._encode(s, *args, **kwargs)
+
     @abc.abstractmethod
-    def encode(self, sample, inference=False, predict_task: Optional[PredictTask] = None) -> TensorDict:
+    def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None) -> TensorDict:
         pass
 
     @abc.abstractmethod

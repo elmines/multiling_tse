@@ -59,7 +59,7 @@ class BartKeyphraseModule(BaseModule):
             self.module = module
             self.tokenizer = module.tokenizer
             self.max_length = self.module.bart.config.max_position_embeddings
-        def encode(self, sample: Sample, inference=False, predict_task = None):
+        def _encode(self, sample: Sample, inference=False, predict_task = None):
             return self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',

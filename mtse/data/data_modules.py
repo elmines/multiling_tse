@@ -12,6 +12,7 @@ from typing import Tuple, List, Tuple, Optional
 # Local
 from .encoder import Encoder, PredictTask
 from .dataset import MapDataset
+from .transforms import Transform
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
 from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
@@ -21,10 +22,30 @@ class BaseDataModule(L.LightningDataModule):
     Dummy placeholder, just to constrain what classes the CLI permits
     """
 
-class PredictDataModule(BaseDataModule):
-    def __init__(self, corpora: List[StanceCorpus], batch_size: int = DEFAULT_BATCH_SIZE):
+    def __init__(self,
+                 transforms: List[Transform] = []):
         super().__init__()
-        self.encoder: Encoder = None
+        self.transforms = transforms
+        self._encoder: Encoder = None
+
+    @property
+    def encoder(self) -> Encoder:
+        return self._encoder
+
+    @encoder.setter
+    def encoder(self, enc: Encoder):
+        assert self._encoder is None
+        self._encoder = enc
+        for t in self.transforms:
+            self._encoder.add_transform(t)
+
+class PredictDataModule(BaseDataModule):
+    def __init__(self,
+                 corpora: List[StanceCorpus],
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 **parent_kwargs
+                 ):
+        super().__init__(**parent_kwargs)
         self.batch_size = batch_size
         self.corpora = corpora
         self.__datasets: List[Dataset] = []
@@ -76,10 +97,10 @@ class MixedTrainingDataModule(BaseDataModule):
                  stance_train_corpora: List[StanceCorpus],
                  stance_val_corpora: List[StanceCorpus],
                  keyword_corpus: Optional[StanceCorpus] = None,
-                 batch_size: int = DEFAULT_BATCH_SIZE
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 **parent_kwargs,
                  ):
-        super().__init__()
-        self.encoder: Encoder = None
+        super().__init__(**parent_kwargs)
         self.keyword_corpus = keyword_corpus
         self.stance_train_corpora = stance_train_corpora
         self.stance_val_corpora = stance_val_corpora
@@ -126,9 +147,9 @@ class LiMultiTaskTrainingDataModule(BaseDataModule):
                  stance_train_corpus: StanceCorpus,
                  target_train_corpus: StanceCorpus,
                  val_corpus: StanceCorpus,
-                 batch_size: int = DEFAULT_BATCH_SIZE):
-        super().__init__()
-        self.encoder: Encoder = None
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 **parent_kwargs):
+        super().__init__(**parent_kwargs)
 
         self.stance_train_corpus = stance_train_corpus
         self.target_train_corpus = target_train_corpus
@@ -164,11 +185,10 @@ class SplitDataModule(BaseDataModule):
     def __init__(self,
                  corpora: List[StanceCorpus],
                  ratios: List[Tuple[float, float, float]],
-                 batch_size: int = DEFAULT_BATCH_SIZE
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 **parent_kwargs
                 ):
-        super().__init__()
-        # Has to be set explicitly (see cli.py for an example)
-        self.encoder: Encoder = None
+        super().__init__(**parent_kwargs)
         self.batch_size = batch_size
         self._corpora = corpora
         self._ratios = ratios

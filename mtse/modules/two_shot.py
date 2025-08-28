@@ -120,10 +120,11 @@ class LiTwoShotModule(TwoShotModule):
 
     class Encoder(Encoder):
         def __init__(self, module: LiTwoShotModule):
+            super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
 
-        def encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
+        def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             if predict_task is None:
                 predict_task = PredictTask.STANCE
 

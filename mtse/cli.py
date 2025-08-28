@@ -1,6 +1,8 @@
+# STL
+import typing
+import pathlib
 # 3rd Party
 from lightning.pytorch.cli import LightningCLI
-import pathlib
 # Local
 from .modules import *
 from .data import *
@@ -15,7 +17,7 @@ class StanceCLI(LightningCLI):
 
     def after_instantiate_classes(self):
         model = self.model
-        self.datamodule.encoder = model.encoder
+        typing.cast(BaseDataModule, self.datamodule).encoder = model.encoder
         if isinstance(self.model, OneShotModule):
             pass
         elif isinstance(self.model, TargetModule):
