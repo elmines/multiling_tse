@@ -10,12 +10,26 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 1 2}
 
-SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiLiTc}
-LOGS_ROOT=$SAVE_DIR/$EXP_NAME
-
 WITH_SE_BUG=${WITH_SE_BUG:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
+
+if [ $WITH_SE_BUG -eq 1 -a $SCRUB_TARGETS -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiLiTClsWithBugWithScrub
+elif [ $WITH_SE_BUG -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiLiTClsWithBug
+elif [ $SCRUB_TARGETS -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiLiTClsWithScrub
+else
+    DEFAULT_EXP_NAME=MultiLiTCls
+fi
+
+
+SAVE_DIR=${SAVE_DIR:-./lightning_logs}
+EXP_NAME=${EXP_NAME:-$DEFAULT_EXP_NAME}
+LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
