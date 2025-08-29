@@ -17,7 +17,7 @@ LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
-function v_train { echo MinesTGenOneShot_seed${1}; }
+function v_train { echo MinesTGen_seed${1}; }
 
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
 
