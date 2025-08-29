@@ -8,7 +8,7 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0 112 343}
+SEEDS=${@:- 0 1 2}
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
 EXP_NAME=${EXP_NAME:-MultiLiTc}
