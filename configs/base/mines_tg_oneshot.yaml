@@ -41,7 +41,11 @@ data:
         path: data/kptimes/train.jsonl
         corpus_type: kptimes
         transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-        limit_n: 30000
+
+        # About 51,000 samples in the stance train corpus,
+        # so we roughly match that here
+        limit_n: 51000
+
     stance_val_corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:

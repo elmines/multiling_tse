@@ -160,6 +160,7 @@ class TGOneShotModule(OneShotModule):
                  max_length: int = 75,
                  fixed_lm: bool = False,
                  pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
+                 use_target_gt: bool = False,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.related_threshold = related_threshold
@@ -167,6 +168,7 @@ class TGOneShotModule(OneShotModule):
         self.head_lr = head_lr
         self.max_length = max_length
         self.fixed_lm = fixed_lm
+        self.use_target_gt = use_target_gt
 
         self.bart = BartForConditionalGeneration.from_pretrained(pretrained_model)
         self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(pretrained_model, normalization=True)
@@ -305,6 +307,12 @@ class TGOneShotModule(OneShotModule):
 
         stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
+
+        if self.use_target_gt:
+            return TGOneShotModule.InferOutput(
+                target_preds=batch['target'],
+                stance_preds=stance_preds
+            )
 
         sample_inds = []
         all_texts = []
