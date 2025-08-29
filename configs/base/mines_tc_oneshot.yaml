@@ -13,6 +13,8 @@ trainer:
   callbacks:
 
     - class_path: mtse.callbacks.TSEStatsCallback
+      init_args:
+        full_metrics: true
 
     # Monitor the stance F1
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
