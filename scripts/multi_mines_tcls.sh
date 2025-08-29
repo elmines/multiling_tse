@@ -8,12 +8,18 @@ TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 112 343}
+SCRUB_TARGETS=${SCRUB_TARGETS:-0}
+
+if [ $SCRUB_TARGETS -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiMinesTClsWithScrub
+else
+    DEFAULT_EXP_NAME=MultiMinesTCls
+fi
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiMinesTCls}
+EXP_NAME=${EXP_NAME:-$DEFAULT_EXP_NAME}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
-
-SCRUB_TARGETS=${SCRUB_TARGETS:-0}
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
