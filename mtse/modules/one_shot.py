@@ -43,8 +43,11 @@ class ClassifierOneShotModule(OneShotModule):
 
     NON_BERT_KEYS = {'target', 'stance'}
 
-    def __init__(self, **parent_kwargs):
+    def __init__(self,
+                 use_target_gt: bool = False,
+                 **parent_kwargs):
         super().__init__(**parent_kwargs)
+        self.use_target_gt = use_target_gt
         self.bert = RobertaModel.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL)
         self.tokenizer = BertweetTokenizer.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
@@ -101,8 +104,9 @@ class ClassifierOneShotModule(OneShotModule):
 
     def _infer_step(self, batch):
         target_logits, stance_logits = self(**batch)
+        target_preds = batch['target'] if self.use_target_gt else torch.argmax(target_logits, dim=-1)
         return OneShotModule.Output(
-            target_preds=torch.argmax(target_logits, dim=-1),
+            target_preds=target_preds,
             stance_preds=torch.argmax(stance_logits, dim=-1)
         )
 

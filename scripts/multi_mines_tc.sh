@@ -109,3 +109,27 @@ then
 else
     echo "Skipping tse testing"
 fi
+
+if [ $GT_TSE_TEST -eq 1 ]
+then
+    EXTRA_ARGS=""
+    if [ $SCRUB_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
+    fi
+
+    # Scrub targets here
+    for seed in $SEEDS
+    do
+        train_dir=$LOGS_ROOT/$(v_train $seed)
+        python -m mtse test \
+            -c $train_dir/config.yaml \
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --data configs/data/li_tse_test.yaml \
+            --trainer.logger.version $(v_train)_tse_test_gt \
+            --model.use_target_gt true \
+            $EXTRA_ARGS
+    done
+else
+    echo "Skipping gt tse testing"
+fi
