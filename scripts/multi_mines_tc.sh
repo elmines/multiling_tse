@@ -5,11 +5,12 @@ FIT=${FIT:-$ALL}
 TARGET_TEST=${TARGET_TEST:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
+GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 112 343}
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiMinesTc}
+EXP_NAME=${EXP_NAME:-MultiMinesTCls}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
@@ -17,7 +18,7 @@ SCRUB_TARGETS=${SCRUB_TARGETS:-0}
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
-function v_train { echo MinesTcOneShot_seed${1}; }
+function v_train { echo MinesTClsOneShot_seed${1}; }
 
 
 if [ $FIT -eq 1 ]
