@@ -23,6 +23,12 @@ trainer:
         filename: "epoch={epoch:02d}-tse_f1={val/tse/f1:.3f}"
         auto_insert_metric_name: false
 
+    - class_path: lightning.pytorch.callbacks.EarlyStopping
+      init_args:
+        monitor: val/tse/f1
+        patience: 5
+        mode: min
+
 
 model:
   class_path: mtse.modules.TGOneShotModule
