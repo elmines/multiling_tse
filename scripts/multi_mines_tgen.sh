@@ -17,8 +17,6 @@ LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
-function v_train { echo MinesTGen_seed${1}; }
-
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
 
 if [ $FT_EMBED -eq 1 ]
@@ -46,9 +44,8 @@ then
             -c configs/base/mines_tg_oneshot.yaml \
             --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
-            --trainer.logger.version $(v_train $seed) \
-            --seed_everything $seed \
-            --trainer.max_epochs 1
+            --trainer.logger.version seed${seed} \
+            --seed_everything $seed
     done
 else
     echo "Skipping fitting"
@@ -59,12 +56,12 @@ then
     for seed in $SEEDS
     do
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_train $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}/config.yaml \
             --data configs/data/li_tc_test.yaml \
-            --trainer.logger.version $(v_train $seed)_target_test \
+            --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
-            --ckpt_path $LOGS_ROOT/$(v_train $seed)/checkpoints/*ckpt 
+            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
     done
 else
     echo "Skipping target testing"
@@ -76,11 +73,11 @@ then
     do
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_train $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}/config.yaml \
             --data configs/data/li_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version $(v_train $seed)_stance_test \
-            --ckpt_path $LOGS_ROOT/$(v_train $seed)/checkpoints/*ckpt 
+            --trainer.logger.version seed${seed}_stance_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
     done
 else
     echo "Skipping stance testing"
@@ -90,12 +87,12 @@ if [ $TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_train $seed)
+        train_dir=$LOGS_ROOT/seed${seed}
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --trainer.logger.version $(v_train $seed)_tse_test 
+            --trainer.logger.version seed${seed}_tse_test 
     done
 else
     echo "Skipping tse testing"
@@ -105,12 +102,12 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_train $seed)
+        train_dir=$LOGS_ROOT/seed${seed}
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --trainer.logger.version $(v_train $seed)_tse_test_gt \
+            --trainer.logger.version seed${seed}_tse_test_gt \
             --model.use_target_gt true 
     done
 else
