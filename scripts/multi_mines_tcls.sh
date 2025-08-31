@@ -110,7 +110,7 @@ then
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --trainer.logger.version $(v_train)_tse_test \
+            --trainer.logger.version $(v_train $seed)_tse_test \
             $EXTRA_ARGS
     done
 else
@@ -133,7 +133,7 @@ then
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --trainer.logger.version $(v_train)_tse_test_gt \
+            --trainer.logger.version $(v_train $seed)_tse_test_gt \
             --model.use_target_gt true \
             $EXTRA_ARGS
     done
