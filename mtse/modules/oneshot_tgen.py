@@ -1,18 +1,16 @@
 from __future__ import annotations
 import pathlib
 import dataclasses
-from typing import List
 import re
 # 3rd Party
-import numpy as np
 import torch
-from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartForConditionalGeneration, BartTokenizerFast
+from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration, BartTokenizerFast
 from gensim.models import FastText
-from torch_scatter import segment_max_coo
 # 
 from .base_module import BaseModule
+from .target_generator import make_target_embeddings, pick_targets
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
-from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
+from ..constants import UNRELATED_TARGET
 
 class OneShotModule(BaseModule):
 
@@ -94,24 +92,8 @@ class TGOneShotModule(BaseModule, OneShotModule):
         )
 
         self.fast_text = FastText.load(str(embeddings_path))
-
-        unstacked = []
-        for target in self.targets:
-            if target == UNRELATED_TARGET:
-                # Will never match with the unrelated target, because no vector X can have
-                # a nonzero cosine similarity with the zero vector
-                unstacked.append(np.zeros([self.fast_text.vector_size], dtype=np.float32))
-            else:
-                vec = self.fast_text.wv[target.lower()].copy()
-                # Normalize magnitude to unity--makes computing explicit cosine similarity unnecessary
-                # Just find the target vector that has the highest dot product with the predicted target
-                vec = vec / np.linalg.norm(vec) 
-                unstacked.append(vec)
-        # (embedding_size, n_targets)
-        stacked = np.stack(unstacked).transpose()
-
         self.target_embeddings: torch.Tensor # Only have this so the IDE knows this variable exists
-        self.register_buffer("target_embeddings", torch.tensor(stacked), persistent=False)
+        self.register_buffer("target_embeddings", torch.tensor(make_target_embeddings(self.targets, self.fast_text)), persistent=False)
 
         self.__encoder = self.Encoder(self)
 
@@ -137,10 +119,6 @@ class TGOneShotModule(BaseModule, OneShotModule):
     def encoder(self):
         return self.__encoder
 
-    def __detokenize(self, id_seq) -> List[str]:
-        full_string = self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
-        target_names = full_string.split(TARGET_DELIMITER)
-        return target_names
 
     def training_step(self, batch, batch_idx):
         bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
@@ -216,40 +194,14 @@ class TGOneShotModule(BaseModule, OneShotModule):
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
         if self.use_target_gt:
-            return TGOneShotModule.InferOutput(
-                target_preds=batch['target'],
-                stance_preds=stance_preds
-            )
-
-        sample_inds = []
-        all_texts = []
-        for i, id_seq in enumerate(output_ids.detach().cpu().tolist()):
-            sample_targets = self.__detokenize(id_seq)
-            all_texts.extend(sample_targets)
-            sample_inds.extend(i for _ in sample_targets)
-        sample_inds = torch.tensor(sample_inds, dtype=torch.long, device=stance_preds.device)
-        output_embeddings = self.fast_text.wv[all_texts]
-        output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
-        output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
-
-
-        # For a given sample, we want to pick the fixed target that had the highest similarity score,
-        # across any predicted target for that sample
-
-        # 1. Calculate the similarity scores
-        # (n_predicted_targets, n_fixed_targets)
-        all_scores = output_embeddings @ self.target_embeddings
-        # 2. Calculate the highest score for a given fixed target across the predicted targets for a sample
-        # Different samples can have different numbers of targets predicted, so we have to use a sparse operation here
-        # (n_samples, n_fixed_targets)
-        sample_scores, _ = segment_max_coo(all_scores, sample_inds)
-        # 3. Take the max across the fixed targets
-        # (n_samples,) and (n_samples,)
-        class_scores, class_inds = torch.max(sample_scores, dim=-1)
-        # 4. Pick the UNRELATED target if the class score doesn't meet the similarity threshold
-        target_preds = torch.where(class_scores >= self.related_threshold, class_inds, 0)
-
-        return TGOneShotModule.Output(
+            target_preds = batch['target']
+        else:
+            target_preds = pick_targets(generate_output,
+                                        self.tokenizer,
+                                        self.fast_text,
+                                        self.target_embeddings,
+                                        self.related_threshold)
+        return TGOneShotModule.InferOutput(
             target_preds=target_preds,
             stance_preds=stance_preds
         )
