@@ -6,7 +6,7 @@ from lightning.pytorch.cli import LightningCLI
 # Local
 from .modules import *
 from .data import *
-from .callbacks import TSEStatsCallback, TargetClassificationStatsCallback, TargetPredictionWriter, StanceClassificationStatsCallback
+from .callbacks import *
 
 class StanceCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
@@ -17,17 +17,7 @@ class StanceCLI(LightningCLI):
 
     def after_instantiate_classes(self):
         model = self.model
-        typing.cast(BaseDataModule, self.datamodule).encoder = model.encoder
-        if isinstance(self.model, OneShotModule):
-            pass
-        elif isinstance(self.model, TargetModule):
-            # TODO: Just make the uesr specify these callbacks in the YAML config
-            self.trainer.callbacks.append(TargetClassificationStatsCallback(len(self.model.targets) + 1))
-            self.trainer.callbacks.append(TargetPredictionWriter(self.trainer.logger.log_dir))
-        elif isinstance(self.model, (TwoShotModule, BartKeyphraseModule)):
-            pass
-        else:
-            raise ValueError(f"Unknown module type {type(self.model)}")
+        typing.cast(BaseDataModule, self.datamodule).encoder = typing.cast(BaseModule, model).encoder
         if self.config_dump.get('weight_ckpt'):
             state_dict =  torch.load(self.config_dump['weight_ckpt'])['state_dict']
             self.model.load_state_dict(state_dict, strict=False)

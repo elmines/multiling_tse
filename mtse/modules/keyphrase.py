@@ -7,7 +7,13 @@ from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, 
 from .base_module import BaseModule
 from ..data import Encoder, Sample, collate_ids
 
-class BartKeyphraseModule(BaseModule):
+class LMKeyphraseModule(BaseModule):
+    """
+    For training a BART model on solely a language modelling task and nothing else.
+
+    We used this for debugging/validation to determine how much pretraining on KPTimes it took
+    to produce good targets. We don't use this code in actual experiments, however.
+    """
 
     @dataclasses.dataclass
     class TrainOutput:
@@ -23,8 +29,8 @@ class BartKeyphraseModule(BaseModule):
         super().__init__(**parent_kwargs)
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
-        self.bart = BartForConditionalGeneration.from_pretrained(BartKeyphraseModule.PRETRAINED_MODEL)
-        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(BartKeyphraseModule.PRETRAINED_MODEL, normalization=True)
+        self.bart = BartForConditionalGeneration.from_pretrained(LMKeyphraseModule.PRETRAINED_MODEL)
+        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LMKeyphraseModule.PRETRAINED_MODEL, normalization=True)
         self.__encoder = self.Encoder(self)
 
     def configure_optimizers(self):
@@ -55,7 +61,7 @@ class BartKeyphraseModule(BaseModule):
         return loss
 
     class Encoder(Encoder):
-        def __init__(self, module: BartKeyphraseModule):
+        def __init__(self, module: LMKeyphraseModule):
             self.module = module
             self.tokenizer = module.tokenizer
             self.max_length = self.module.bart.config.max_position_embeddings

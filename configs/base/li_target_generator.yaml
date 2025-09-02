@@ -20,10 +20,15 @@ trainer:
         filename: "epoch={epoch:02d}-loss={val/loss:.3f}"
         auto_insert_metric_name: false
 
-  val_check_interval: 500
+  # val_check_interval: 500
+  max_time: "00:22:00:00"
 
 model:
-  class_path: mtse.modules.BartKeyphraseModule
+  # We only train the target generation portion
+  class_path: mtse.modules.TGOneShotModule
+  init_args:
+    targets_path: static/li_merged_targets.txt
+    stance_type: tri
 
 data:
   class_path: mtse.data.SplitDataModule
@@ -36,13 +41,13 @@ data:
           path: data/kptimes/train.jsonl
           corpus_type: kptimes
           transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-          # limit_n: 128
+          limit_n: 128
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/kptimes/dev.jsonl
           corpus_type: kptimes
           transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-          # limit_n: 128
+          limit_n: 128
     ratios:
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]

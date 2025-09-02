@@ -4,29 +4,22 @@ import dataclasses
 from typing import Optional
 # 3rd Party
 import torch
-from transformers import AutoModel, AutoTokenizer, PreTrainedTokenizerFast
+from transformers import PreTrainedTokenizerFast
 from transformers import BertweetTokenizer, RobertaModel
 # 
 from .base_module import BaseModule
+from .mixins import TargetMixin
 from ..data import Encoder, PredictTask, Sample, collate_ids, keyed_scalar_stack, try_add_position_ids
-from ..constants import DEFAULT_HF_MODEL, UNRELATED_TARGET
 
-class TargetModule(BaseModule):
+class _TargetClassifierModule(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class Output:
         target_preds: torch.Tensor
 
     def __init__(self, targets_path: pathlib.Path):
-        super().__init__()
-        self.no_target = 0
-        with open(targets_path, 'r') as r:
-            targets = [t.strip() for t in r]
-        self.targets = [UNRELATED_TARGET] + targets
-    
-    @property
-    def n_targets(self):
-        return len(self.targets)
+        BaseModule.__init__(self)
+        TargetMixin.__init__(self, targets_path)
 
     @property
     def max_length(self) -> Optional[int]:
@@ -42,12 +35,12 @@ class TargetModule(BaseModule):
 
     def _infer_step(self, batch):
         target_logits = self(**batch)
-        return TargetModule.Output(
+        return _TargetClassifierModule.Output(
             target_preds=torch.argmax(target_logits, dim=-1),
         )
 
     class Encoder(Encoder):
-        def __init__(self, module: TargetModule):
+        def __init__(self, module: _TargetClassifierModule):
             super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
@@ -64,7 +57,7 @@ class TargetModule(BaseModule):
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             return rdict
 
-class LiTargetModule(TargetModule):
+class LiTargetClassifierModule(_TargetClassifierModule):
     """
     Modelled from code in paper https://aclanthology.org/2023.acl-long.560/
 
@@ -76,8 +69,8 @@ class LiTargetModule(TargetModule):
 
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = RobertaModel.from_pretrained(LiTargetModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiTargetModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(LiTargetClassifierModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(LiTargetClassifierModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.__max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
         hidden_size = config.hidden_size
@@ -86,7 +79,7 @@ class LiTargetModule(TargetModule):
         self.out = torch.nn.Linear(hidden_size, self.n_targets)
         self.__encoder = self.Encoder(self)
 
-    class Encoder(TargetModule.Encoder):
+    class Encoder(_TargetClassifierModule.Encoder):
         def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
             assert sample.target_label is not None
@@ -96,11 +89,6 @@ class LiTargetModule(TargetModule):
                                       return_attention_mask=True)
             encoding = {k:torch.unsqueeze(torch.tensor(v, dtype=torch.long), 0) for k,v in encoding.items()}
             
-            def compare_dicts(a, b):
-                assert set(a.keys()) == set(b.keys())
-                for k,v in a.items():
-                    assert torch.all(v == b[k])
-
             keys = list(encoding)
             for k in keys:
                 if encoding[k].shape[-1] > 128:
@@ -112,30 +100,11 @@ class LiTargetModule(TargetModule):
     def configure_optimizers(self):
         for p in self.bert.embeddings.parameters():
             p.requires_grad = False
-
-        embed_params_a = list(self.bert.embeddings.parameters())
-        embed_params_b = [p for n,p in self.named_parameters() if 'bert.embeddings' in n]
-        assert embed_params_a == embed_params_b
-
-        linear_params_a = list(self.linear.parameters())
-        linear_params_b = [p for n, p in self.named_parameters() if n.startswith('linear')]
-        assert linear_params_a == linear_params_b
-
-        out_params_a = list(self.out.parameters())
-        out_params_b = [p for n, p in self.named_parameters() if n.startswith('out')]
-        assert out_params_a == out_params_b
-
-        pooler_params_a = list(self.bert.pooler.parameters())
-        pooler_params_b = [p for n, p in self.named_parameters() if n.startswith('bert.pooler')] 
-        assert pooler_params_a == pooler_params_b
-
-        encoder_params_a = list(self.bert.encoder.parameters())
-        encoder_params_b = [p for n, p in self.named_parameters() if n.startswith('bert.encoder')] 
-        assert encoder_params_a == encoder_params_b
-
         return torch.optim.AdamW([
            {"params": self.linear.parameters(), "lr": 1e-3},
            {"params": self.out.parameters(), "lr": 1e-3},
+           # Don't think the pooler is actually used,
+           # but just for consistency with Li et al.'s code leaving this
            {"params": self.bert.pooler.parameters(), "lr": 1e-3},
            {"params": self.bert.encoder.parameters(), "lr": 2e-5}
         ])
@@ -167,40 +136,4 @@ class LiTargetModule(TargetModule):
         return target_logits
 
 
-class HFTargetModule(TargetModule):
-    def __init__(self,
-                 pretrained_model: str = DEFAULT_HF_MODEL,
-                 **parent_kwargs):
-        super().__init__(**parent_kwargs)
-        self.bert = AutoModel.from_pretrained(pretrained_model)
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_model, use_fast=True)
-        config = self.bert.config
-
-        self.__max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
-
-        dropout_prob = config.classifier_dropout if config.classifier_dropout is not None else config.hidden_dropout_prob
-        hidden_size = config.hidden_size
-        self.target_classifier = torch.nn.Sequential(
-            torch.nn.Dropout(dropout_prob),
-            torch.nn.Linear(hidden_size, hidden_size, bias=True),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, self.n_targets + 1)
-        )
-        self.__encoder = self.Encoder(self)
-
-    @property
-    def max_length(self):
-        return self.__max_length
-
-    @property
-    def encoder(self):
-        return self.__encoder
-
-    def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k != 'target' and k != 'stance'}
-        bert_output = self.bert(**bert_kwargs)
-        cls_hidden_state = bert_output.last_hidden_state[:, 0]
-        target_logits = self.target_classifier(cls_hidden_state)
-        return target_logits
-
-__all__ = ["TargetModule", "LiTargetModule", "HFTargetModule"]
+__all__ = ["_TargetClassifierModule", "LiTargetClassifierModule"]

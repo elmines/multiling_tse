@@ -105,10 +105,13 @@ then
 
     for seed in $SEEDS
     do
+        version=$(v_target_predict $seed)
         python -m mtse predict \
             -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
             --data configs/data/li_tc_predict.yaml \
-            --trainer.logger.version $(v_target_predict $seed) \
+            --trainer.logger.version $version \
+            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
             $EXTRA_ARGS
     done
