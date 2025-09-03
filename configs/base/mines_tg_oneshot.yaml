@@ -27,7 +27,7 @@ trainer:
       init_args:
         monitor: val/tse/f1
         patience: 5
-        mode: min
+        mode: max
 
 
 model:
