@@ -12,7 +12,7 @@ from torch_scatter import segment_max_coo
 # Local
 from .base_module import BaseModule
 from .mixins import TargetMixin
-from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack
+from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import UNRELATED_TARGET, TARGET_DELIMITER, DEFAULT_RELATED_THRESHOLD
 
 def make_target_embeddings(targets: List[str], fast_text: FastText) -> np.ndarray:
@@ -166,13 +166,15 @@ class LiTargetGenerator(BaseModule, TargetMixin):
                                       return_tensors='pt',
                                       truncation=True,
                                       max_length=self.max_length)
-            encoding['target'] = torch.tensor(
-                [self.module.targets.index(sample.target_label)],
-                dtype=torch.long)
+            if sample.sample_type == SampleType.SD:
+                encoding['target'] = torch.tensor(
+                    [self.module.targets.index(sample.target_label)],
+                    dtype=torch.long)
             return encoding
         def collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
-            encoding['target'] = keyed_scalar_stack(samples, 'target')
+            if "target" in samples[0]:
+                encoding['target'] = keyed_scalar_stack(samples, 'target')
             return encoding
 
 __all__ = ["make_target_embeddings", "detokenize", "pick_targets", "LiTargetGenerator"]
