@@ -46,10 +46,3 @@ data:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
-
-    # corpora:
-    #   - class_path: mtse.data.StanceCorpus
-    #     init_args:
-    #       path: data/li_tse/raw_val_all_onecol.csv
-    #       corpus_type: li
-    # ratios: [ [0.8, 0.2, 0.0] ]

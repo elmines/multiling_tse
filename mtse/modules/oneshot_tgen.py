@@ -1,3 +1,4 @@
+# STL
 from __future__ import annotations
 import pathlib
 import dataclasses
@@ -6,33 +7,13 @@ import re
 import torch
 from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration, BartTokenizerFast
 from gensim.models import FastText
-# 
+# Local 
+from .mixins import TargetMixin
 from .base_module import BaseModule
 from .target_generator import make_target_embeddings, pick_targets
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
-from ..constants import UNRELATED_TARGET
 
-class OneShotModule(BaseModule):
-
-    @dataclasses.dataclass
-    class Output:
-        target_preds: torch.Tensor
-        stance_preds: torch.Tensor
-
-    def __init__(self,
-                 targets_path: pathlib.Path,
-                 stance_type: StanceType):
-        super().__init__()
-        self.stance_type = STANCE_TYPE_MAP[stance_type]
-        with open(targets_path, 'r') as r:
-            targets = [t.strip() for t in r]
-        self.targets = [UNRELATED_TARGET] + targets
-    
-    @property
-    def n_targets(self):
-        return len(self.targets)
-
-class TGOneShotModule(BaseModule, OneShotModule):
+class TGOneShotModule(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class TrainOutput:
@@ -59,6 +40,8 @@ class TGOneShotModule(BaseModule, OneShotModule):
 
     def __init__(self,
                  embeddings_path: pathlib.Path,
+                 targets_path: pathlib.Path,
+                 stance_type: StanceType,
                  related_threshold: float = 0.2,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
@@ -67,7 +50,10 @@ class TGOneShotModule(BaseModule, OneShotModule):
                  pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
                  use_target_gt: bool = False,
                  **parent_kwargs):
-        super().__init__(**parent_kwargs)
+        BaseModule.__init__(self, **parent_kwargs)
+        TargetMixin.__init__(self, targets_path)
+
+        self.stance_type = STANCE_TYPE_MAP[stance_type]
         self.related_threshold = related_threshold
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
@@ -237,4 +223,4 @@ class TGOneShotModule(BaseModule, OneShotModule):
             encoding['stype'] = first_type
             return encoding
 
-__all__ = ["OneShotModule", "ClassifierOneShotModule", "TGOneShotModule"]
+__all__ = ["TGOneShotModule"]
