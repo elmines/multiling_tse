@@ -58,7 +58,7 @@ then
         python -m mtse fit \
             -c configs/base/li_target_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version $(v_target_train $seed) \
+            --trainer.logger.version seed${seed}_target \
             --seed_everything $seed \
             $EXTRA_ARGS
     done
@@ -81,10 +81,10 @@ then
     for seed in $SEEDS
     do
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --data configs/data/li_tc_test.yaml \
-            --trainer.logger.version $(v_target_train $seed)_test \
-            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
+            --trainer.logger.version seed${seed}_target_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
     done
 else
@@ -105,14 +105,14 @@ then
 
     for seed in $SEEDS
     do
-        version=$(v_target_predict $seed)
+        version=seed${seed}_target_predict
         python -m mtse predict \
-            -c $LOGS_ROOT/$(v_target_train $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --ckpt_path $LOGS_ROOT/$(v_target_train $seed)/checkpoints/*ckpt \
+            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
     done
 else
@@ -136,7 +136,7 @@ then
         python -m mtse fit \
             -c configs/base/li_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version $(v_stance_train $seed) \
+            --trainer.logger.version seed${seed}_stance \
             --seed_everything $seed \
             $EXTRA_ARGS
     done
@@ -150,11 +150,11 @@ then
     do
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_stance_train $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
             --data configs/data/li_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version $(v_stance_train $seed)_test \
-            --ckpt_path $LOGS_ROOT/$(v_stance_train $seed)/checkpoints/*ckpt
+            --trainer.logger.version seed${seed}_stance_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
     done
 else
     echo "Skipping stance testing"
@@ -164,15 +164,15 @@ if [ $TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_stance_train $seed)
+        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.1.txt \
+            --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version LiTse_seed${seed}
+            --trainer.logger.version seed${seed}_tse_test
     done
 else
     echo "Skipping tse testing"
@@ -182,14 +182,14 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_stance_train $seed)
+        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version LiGtTse_seed${seed} \
+            --trainer.logger.version seed${seed}_tse_test_gt \
             --data.corpora.target_input label \
             --model.use_target_gt true
     done

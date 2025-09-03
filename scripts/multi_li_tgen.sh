@@ -19,12 +19,6 @@ LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
 
-function v_target { echo target_seed${1}; }
-
-function v_target_predict { echo $($v_target $1)_predict; }
-
-function v_stance { echo stance_seed${1}; }
-
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
 
 if [ $FT_EMBED -eq 1 ]
@@ -53,7 +47,7 @@ then
             -c configs/base/li_target_generator.yaml \
             --model.embeddings_path /home/ethanlmines/blue_dir/lightning_logs/MultiMinesTGen/ft_seed0.model \
             $LOGGER_ARGS \
-            --trainer.logger.version $(v_target $seed) \
+            --trainer.logger.version seed${seed}_target \
             --seed_everything $seed \
             --trainer.max_time 00:00:01:00
     done
@@ -66,10 +60,10 @@ then
     for seed in $SEEDS
     do
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_target $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --data configs/data/li_tc_test.yaml \
-            --trainer.logger.version $(v_target $seed)_test \
-            --ckpt_path $LOGS_ROOT/$(v_target $seed)/checkpoints/*ckpt \
+            --trainer.logger.version seed${seed}_target_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
     done
 else
@@ -81,10 +75,10 @@ then
     for seed in $SEEDS
     do
         python -m mtse predict \
-            -c $LOGS_ROOT/$(v_target $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --data configs/data/li_tc_predict.yaml \
-            --trainer.logger.version $(v_target_predict $seed) \
-            --ckpt_path $LOGS_ROOT/$(v_target $seed)/checkpoints/*ckpt
+            --trainer.logger.version seed${seed}_target_predict \
+            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
     echo "Skipping target prediction"
@@ -97,7 +91,7 @@ then
         python -m mtse fit \
             -c configs/base/li_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version $(v_stance $seed) \
+            --trainer.logger.version seed${seed}_stance \
             --seed_everything $seed
     done
 else
@@ -110,11 +104,11 @@ then
     do
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/$(v_stance $seed)/config.yaml \
+            -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
             --data configs/data/li_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version $(v_stance $seed)_test \
-            --ckpt_path $LOGS_ROOT/$(v_stance $seed)/checkpoints/*ckpt
+            --trainer.logger.version seed${seed}_stance_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
     done
 else
     echo "Skipping stance testing"
@@ -124,12 +118,12 @@ if [ $TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_stance $seed)
+        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/$(v_target_predict $seed)/target_preds.1.txt \
+            --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test
@@ -142,7 +136,7 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/$(v_stance $seed)
+        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
