@@ -33,14 +33,6 @@ LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
-
-function v_target_train { echo LiTargetClassifier_seed${1}; }
-
-function v_target_predict { echo $(v_target_train $1)_predict; }
-
-function v_stance_train { echo LiStanceClassifier_seed${1}; }
-
-
 if [ $TARGET_FIT -eq 1 ]
 then
     EXTRA_ARGS=""
