@@ -10,7 +10,7 @@ from .base_module import BaseModule
 from ..data import StanceType, STANCE_TYPE_MAP, Encoder, PredictTask, Sample, collate_ids, keyed_scalar_stack
 from ..constants import UNRELATED_TARGET
 
-class TwoShotModule(BaseModule):
+class _StanceClassifierModule(BaseModule):
     @dataclasses.dataclass
     class Output:
         target_preds: Optional[torch.Tensor] = None
@@ -28,7 +28,7 @@ class TwoShotModule(BaseModule):
         self.targets = [UNRELATED_TARGET] + targets
         self.use_target_gt = use_target_gt
 
-class LiTwoShotModule(TwoShotModule):
+class LiStanceClassifierModule(_StanceClassifierModule):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
@@ -43,8 +43,8 @@ class LiTwoShotModule(TwoShotModule):
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
 
-        self.bert = RobertaModel.from_pretrained(LiTwoShotModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiTwoShotModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(LiStanceClassifierModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(LiStanceClassifierModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.max_length: int = 128
         hidden_size = config.hidden_size
@@ -87,7 +87,7 @@ class LiTwoShotModule(TwoShotModule):
         return self.__encoder
 
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k not in LiTwoShotModule.NON_BERT_KEYS}
+        bert_kwargs = {k:v for k,v in kwargs.items() if k not in LiStanceClassifierModule.NON_BERT_KEYS}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
 
@@ -100,13 +100,13 @@ class LiTwoShotModule(TwoShotModule):
             loss = torch.nn.functional.cross_entropy(stance_logits, kwargs['stance'])
 
             target_preds = kwargs.get('target' if self.use_target_gt else 'target_pred')
-            return LiTwoShotModule.Output(target_preds=target_preds,
+            return LiStanceClassifierModule.Output(target_preds=target_preds,
                                           stance_preds=torch.argmax(stance_logits, dim=1),
                                           loss=loss)
         else:
             target_logits = self.target_classifier(cls_hidden_state)
             loss = torch.nn.functional.cross_entropy(target_logits, kwargs['target'])
-            return LiTwoShotModule.Output(target_preds=torch.argmax(target_logits, dim=1),
+            return LiStanceClassifierModule.Output(target_preds=torch.argmax(target_logits, dim=1),
                                           loss=loss)
 
     def training_step(self, batch, batch_idx):
@@ -119,7 +119,7 @@ class LiTwoShotModule(TwoShotModule):
         return self(**batch)
 
     class Encoder(Encoder):
-        def __init__(self, module: LiTwoShotModule):
+        def __init__(self, module: LiStanceClassifierModule):
             super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer

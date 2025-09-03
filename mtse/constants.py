@@ -5,3 +5,5 @@ DEFAULT_HF_MODEL = "vinai/bertweet-base"
 UNRELATED_TARGET = "Unrelated"
 
 TARGET_DELIMITER = ";"
+
+DEFAULT_RELATED_THRESHOLD = 0.2

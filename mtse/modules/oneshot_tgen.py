@@ -1,133 +1,20 @@
+# STL
 from __future__ import annotations
 import pathlib
 import dataclasses
-from typing import List
 import re
 # 3rd Party
-import numpy as np
 import torch
-from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartForConditionalGeneration, BartTokenizerFast
+from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration, BartTokenizerFast
 from gensim.models import FastText
-from torch_scatter import segment_max_coo
-# 
+# Local 
+from .mixins import TargetMixin
 from .base_module import BaseModule
+from .target_generator import make_target_embeddings, pick_targets
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
-from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
+from ..constants import DEFAULT_RELATED_THRESHOLD
 
-class OneShotModule(BaseModule):
-
-    @dataclasses.dataclass
-    class Output:
-        target_preds: torch.Tensor
-        stance_preds: torch.Tensor
-
-    def __init__(self,
-                 targets_path: pathlib.Path,
-                 stance_type: StanceType):
-        super().__init__()
-        self.stance_type = STANCE_TYPE_MAP[stance_type]
-        with open(targets_path, 'r') as r:
-            targets = [t.strip() for t in r]
-        self.targets = [UNRELATED_TARGET] + targets
-    
-    @property
-    def n_targets(self):
-        return len(self.targets)
-
-class ClassifierOneShotModule(OneShotModule):
-    """
-    One-shot module designed to be as close as possible to Li et al.'s
-    individual target and stance models
-    """
-    PRETRAINED_MODEL = "vinai/bertweet-base"
-
-    NON_BERT_KEYS = {'target', 'stance'}
-
-    def __init__(self,
-                 use_target_gt: bool = False,
-                 **parent_kwargs):
-        super().__init__(**parent_kwargs)
-        self.use_target_gt = use_target_gt
-        self.bert = RobertaModel.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(ClassifierOneShotModule.PRETRAINED_MODEL, normalization=True)
-        config = self.bert.config
-        hidden_size = config.hidden_size
-
-        self.stance_classifier = torch.nn.Sequential(
-            torch.nn.Linear(hidden_size, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, len(self.stance_type))
-        )
-        self.target_classifier = torch.nn.Sequential(
-            torch.nn.Linear(hidden_size, hidden_size),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_size, len(self.targets))
-        )
-
-        self.__encoder = self.Encoder(self)
-
-    @property
-    def encoder(self):
-        return self.__encoder
-
-    def configure_optimizers(self):
-        for p in self.bert.embeddings.parameters():
-            p.requires_grad = False
-        return torch.optim.AdamW([
-           {"params": self.stance_classifier.parameters(), "lr": 1e-3},
-           {"params": self.target_classifier.parameters(), "lr": 1e-3},
-           {"params": self.bert.encoder.parameters(), "lr": 2e-5},
-        ])
-
-    def configure_gradient_clipping(self, optimizer, gradient_clip_val = None, gradient_clip_algorithm = None):
-        assert gradient_clip_val is None and gradient_clip_algorithm is None
-        return super().configure_gradient_clipping(optimizer, 1.0, 'norm')
-
-
-    def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k not in ClassifierOneShotModule.NON_BERT_KEYS}
-        bert_output = self.bert(**bert_kwargs)
-        cls_hidden_state = bert_output.last_hidden_state[:, 0]
-        target_logits = self.target_classifier(cls_hidden_state)
-        stance_logits = self.stance_classifier(cls_hidden_state)
-        return target_logits, stance_logits
-
-    def training_step(self, batch, batch_idx):
-        target_logits, stance_logits = self(**batch)
-        target_loss = torch.nn.functional.cross_entropy(target_logits, batch['target'])
-        stance_loss = torch.nn.functional.cross_entropy(stance_logits, batch['stance'])
-        loss = target_loss + stance_loss
-        self.log('loss/target', target_loss)
-        self.log('loss/stance', stance_loss)
-        self.log('loss', loss)
-        return loss
-
-    def _infer_step(self, batch):
-        target_logits, stance_logits = self(**batch)
-        target_preds = batch['target'] if self.use_target_gt else torch.argmax(target_logits, dim=-1)
-        return OneShotModule.Output(
-            target_preds=target_preds,
-            stance_preds=torch.argmax(stance_logits, dim=-1)
-        )
-
-    class Encoder(Encoder):
-        def __init__(self, module: ClassifierOneShotModule):
-            super().__init__()
-            self.module = module
-            self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
-        def _encode(self, sample: Sample, inference=False):
-            encoding = self.tokenizer(text=sample.context, return_tensors='pt',
-                                    truncation=True, max_length=128)
-            encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
-            encoding['stance'] = torch.tensor(sample.stance)
-            return encoding
-        def collate(self, samples):
-            rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
-            rdict['target'] = keyed_scalar_stack(samples, 'target')
-            rdict['stance'] = keyed_scalar_stack(samples, 'stance')
-            return rdict
-
-class TGOneShotModule(OneShotModule):
+class TGOneShotModule(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class TrainOutput:
@@ -154,7 +41,9 @@ class TGOneShotModule(OneShotModule):
 
     def __init__(self,
                  embeddings_path: pathlib.Path,
-                 related_threshold: float = 0.2,
+                 targets_path: pathlib.Path,
+                 stance_type: StanceType,
+                 related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
                  max_length: int = 75,
@@ -162,7 +51,10 @@ class TGOneShotModule(OneShotModule):
                  pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
                  use_target_gt: bool = False,
                  **parent_kwargs):
-        super().__init__(**parent_kwargs)
+        BaseModule.__init__(self, **parent_kwargs)
+        TargetMixin.__init__(self, targets_path)
+
+        self.stance_type = STANCE_TYPE_MAP[stance_type]
         self.related_threshold = related_threshold
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
@@ -187,24 +79,8 @@ class TGOneShotModule(OneShotModule):
         )
 
         self.fast_text = FastText.load(str(embeddings_path))
-
-        unstacked = []
-        for target in self.targets:
-            if target == UNRELATED_TARGET:
-                # Will never match with the unrelated target, because no vector X can have
-                # a nonzero cosine similarity with the zero vector
-                unstacked.append(np.zeros([self.fast_text.vector_size], dtype=np.float32))
-            else:
-                vec = self.fast_text.wv[target.lower()].copy()
-                # Normalize magnitude to unity--makes computing explicit cosine similarity unnecessary
-                # Just find the target vector that has the highest dot product with the predicted target
-                vec = vec / np.linalg.norm(vec) 
-                unstacked.append(vec)
-        # (embedding_size, n_targets)
-        stacked = np.stack(unstacked).transpose()
-
         self.target_embeddings: torch.Tensor # Only have this so the IDE knows this variable exists
-        self.register_buffer("target_embeddings", torch.tensor(stacked), persistent=False)
+        self.register_buffer("target_embeddings", torch.tensor(make_target_embeddings(self.targets, self.fast_text)), persistent=False)
 
         self.__encoder = self.Encoder(self)
 
@@ -230,10 +106,6 @@ class TGOneShotModule(OneShotModule):
     def encoder(self):
         return self.__encoder
 
-    def __detokenize(self, id_seq) -> List[str]:
-        full_string = self.tokenizer.convert_tokens_to_string(self.tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
-        target_names = full_string.split(TARGET_DELIMITER)
-        return target_names
 
     def training_step(self, batch, batch_idx):
         bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
@@ -309,40 +181,14 @@ class TGOneShotModule(OneShotModule):
         stance_preds = torch.argmax(stance_logits, axis=-1)
 
         if self.use_target_gt:
-            return TGOneShotModule.InferOutput(
-                target_preds=batch['target'],
-                stance_preds=stance_preds
-            )
-
-        sample_inds = []
-        all_texts = []
-        for i, id_seq in enumerate(output_ids.detach().cpu().tolist()):
-            sample_targets = self.__detokenize(id_seq)
-            all_texts.extend(sample_targets)
-            sample_inds.extend(i for _ in sample_targets)
-        sample_inds = torch.tensor(sample_inds, dtype=torch.long, device=stance_preds.device)
-        output_embeddings = self.fast_text.wv[all_texts]
-        output_embeddings = torch.tensor(output_embeddings).to(stance_preds.device)
-        output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)
-
-
-        # For a given sample, we want to pick the fixed target that had the highest similarity score,
-        # across any predicted target for that sample
-
-        # 1. Calculate the similarity scores
-        # (n_predicted_targets, n_fixed_targets)
-        all_scores = output_embeddings @ self.target_embeddings
-        # 2. Calculate the highest score for a given fixed target across the predicted targets for a sample
-        # Different samples can have different numbers of targets predicted, so we have to use a sparse operation here
-        # (n_samples, n_fixed_targets)
-        sample_scores, _ = segment_max_coo(all_scores, sample_inds)
-        # 3. Take the max across the fixed targets
-        # (n_samples,) and (n_samples,)
-        class_scores, class_inds = torch.max(sample_scores, dim=-1)
-        # 4. Pick the UNRELATED target if the class score doesn't meet the similarity threshold
-        target_preds = torch.where(class_scores >= self.related_threshold, class_inds, 0)
-
-        return TGOneShotModule.Output(
+            target_preds = batch['target']
+        else:
+            target_preds = pick_targets(generate_output,
+                                        self.tokenizer,
+                                        self.fast_text,
+                                        self.target_embeddings,
+                                        self.related_threshold)
+        return TGOneShotModule.InferOutput(
             target_preds=target_preds,
             stance_preds=stance_preds
         )
@@ -378,4 +224,4 @@ class TGOneShotModule(OneShotModule):
             encoding['stype'] = first_type
             return encoding
 
-__all__ = ["OneShotModule", "ClassifierOneShotModule", "TGOneShotModule"]
+__all__ = ["TGOneShotModule"]

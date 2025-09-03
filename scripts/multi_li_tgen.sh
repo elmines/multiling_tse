@@ -1,5 +1,6 @@
 #!/bin/bash
 ALL=${ALL:-0}
+FT_EMBED=${FT_EMBED:-$ALL}
 TARGET_FIT=${TARGET_FIT:-$ALL}
 TARGET_TEST=${TARGET_TEST:-$ALL}
 TARGET_PRED=${TARGET_PRED:-$ALL}
@@ -10,49 +11,45 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 1 2}
 
-WITH_SE_BUG=${WITH_SE_BUG:-0}
-SCRUB_TARGETS=${SCRUB_TARGETS:-0}
-
-if [ $WITH_SE_BUG -eq 1 -a $SCRUB_TARGETS -eq 1 ]
-then
-    DEFAULT_EXP_NAME=MultiLiTClsWithBugWithScrub
-elif [ $WITH_SE_BUG -eq 1 ]
-then
-    DEFAULT_EXP_NAME=MultiLiTClsWithBug
-elif [ $SCRUB_TARGETS -eq 1 ]
-then
-    DEFAULT_EXP_NAME=MultiLiTClsWithScrub
-else
-    DEFAULT_EXP_NAME=MultiLiTCls
-fi
-
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-$DEFAULT_EXP_NAME}
+EXP_NAME=${EXP_NAME:-MultiLiTGen}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
+
+function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
+
+if [ $FT_EMBED -eq 1 ]
+then
+    mkdir -p $LOGS_ROOT
+    for seed in $SEEDS
+    do
+        python -m mtse.train_ft \
+            --corpus_type li \
+            -i data/li_tse/raw_train_all_onecol.csv \
+            --seed $seed \
+            --embed 256 \
+            -o $(embed_path $seed) \
+            --epochs 500 
+    done
+else
+    echo "Skipping FastText embedding"
+fi
+
 if [ $TARGET_FIT -eq 1 ]
 then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
-    fi
-
+    # FIXME: Use the proper embeddings path
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_target_classifier.yaml \
+            -c configs/base/li_target_generator.yaml \
+            --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
             --seed_everything $seed \
-            $EXTRA_ARGS
+            --trainer.max_time 00:00:01:00
     done
 else
     echo "Skipping target fitting"
@@ -60,20 +57,11 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
-    fi
-
     for seed in $SEEDS
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --model.predict_targets true \
             --data configs/data/li_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
@@ -85,27 +73,17 @@ fi
 
 if [ $TARGET_PRED -eq 1 ]
 then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
-    fi
-
     for seed in $SEEDS
     do
         version=seed${seed}_target_predict
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --model.predict_targets true \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
-            $EXTRA_ARGS
+            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
     echo "Skipping target prediction"
@@ -113,24 +91,13 @@ fi
 
 if [ $STANCE_FIT -eq 1 ]
 then
-    EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.remove_se_hashtag false"
-    fi
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.scrub_targets true"
-    fi
-
     for seed in $SEEDS
     do
         python -m mtse fit \
             -c configs/base/li_stance_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_stance \
-            --seed_everything $seed \
-            $EXTRA_ARGS
+            --seed_everything $seed
     done
 else
     echo "Skipping stance fitting"

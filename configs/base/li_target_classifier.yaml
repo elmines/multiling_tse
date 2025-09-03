@@ -16,6 +16,9 @@ trainer:
         mode: max
         filename: "epoch={epoch:02d}-micro_f1={val/target/micro_f1:.3f}"
         auto_insert_metric_name: false
+    - class_path: mtse.callbacks.TargetClassificationStatsCallback
+      init_args:
+        n_classes: 19
 
   # Li did gradient norm clipping to 1.
   gradient_clip_val: 1.
@@ -25,7 +28,7 @@ trainer:
   deterministic: null
 
 model:
-  class_path: mtse.modules.LiTargetModule
+  class_path: mtse.modules.LiTargetClassifierModule
   init_args:
     targets_path: static/li_merged_targets.txt
 data:
@@ -43,10 +46,3 @@ data:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
-
-    # corpora:
-    #   - class_path: mtse.data.StanceCorpus
-    #     init_args:
-    #       path: data/li_tse/raw_val_all_onecol.csv
-    #       corpus_type: li
-    # ratios: [ [0.8, 0.2, 0.0] ]

@@ -21,9 +21,14 @@ trainer:
         auto_insert_metric_name: false
 
   val_check_interval: 500
+  max_time: "00:24:00:00"
 
 model:
-  class_path: mtse.modules.BartKeyphraseModule
+  # We only train the target generation portion
+  class_path: mtse.modules.LiTargetGenerator
+  init_args:
+    targets_path: static/li_merged_targets.txt
+    predict_targets: false
 
 data:
   class_path: mtse.data.SplitDataModule
@@ -36,13 +41,11 @@ data:
           path: data/kptimes/train.jsonl
           corpus_type: kptimes
           transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-          # limit_n: 128
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/kptimes/dev.jsonl
           corpus_type: kptimes
           transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-          # limit_n: 128
     ratios:
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]

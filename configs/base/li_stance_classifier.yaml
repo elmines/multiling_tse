@@ -29,7 +29,7 @@ trainer:
   benchmark: false
 
 model:
-  class_path: mtse.modules.LiTwoShotModule
+  class_path: mtse.modules.LiStanceClassifierModule
   init_args:
     targets_path: static/li_merged_targets.txt
     stance_type: tri
