@@ -40,7 +40,6 @@ fi
 
 if [ $TARGET_FIT -eq 1 ]
 then
-    # FIXME: Use the proper embeddings path
     for seed in $SEEDS
     do
         python -m mtse fit \
@@ -48,8 +47,7 @@ then
             --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
-            --seed_everything $seed \
-            --trainer.max_time 00:00:01:00
+            --seed_everything $seed 
     done
 else
     echo "Skipping target fitting"
