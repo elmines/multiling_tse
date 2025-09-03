@@ -115,3 +115,4 @@ class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')
             return rdict
 
+__all__ = ["LiBasedOneShotTClsModule"]

@@ -29,7 +29,7 @@ trainer:
   deterministic: null
 
 model:
-  class_path: mtse.modules.ClassifierOneShotModule
+  class_path: mtse.modules.LiBasedOneShotTClsModule
   init_args:
     targets_path: static/li_merged_targets.txt
     stance_type: tri
