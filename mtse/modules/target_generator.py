@@ -62,7 +62,7 @@ def pick_targets(generate_output: GenerateBeamEncoderDecoderOutput,
 
     # 1. Calculate the similarity scores
     # (n_predicted_targets, n_fixed_targets)
-    all_scores = output_embeddings @ target_embeddings.transpose()
+    all_scores = output_embeddings @ target_embeddings.transpose(1, 0)
     # 2. Calculate the highest score for a given fixed target across the predicted targets for a sample
     # Different samples can have different numbers of targets predicted, so we have to use a sparse operation here
     # (n_samples, n_fixed_targets)
