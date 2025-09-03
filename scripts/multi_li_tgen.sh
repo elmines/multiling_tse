@@ -45,7 +45,7 @@ then
     do
         python -m mtse fit \
             -c configs/base/li_target_generator.yaml \
-            --model.embeddings_path /home/ethanlmines/blue_dir/lightning_logs/MultiMinesTGen/ft_seed0.model \
+            --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
             --seed_everything $seed \
@@ -61,6 +61,7 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --model.predict_targets true \
             --data configs/data/li_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
@@ -74,10 +75,14 @@ if [ $TARGET_PRED -eq 1 ]
 then
     for seed in $SEEDS
     do
+        version=seed${seed}_target_predict
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --model.predict_targets true \
             --data configs/data/li_tc_predict.yaml \
-            --trainer.logger.version seed${seed}_target_predict \
+            --trainer.logger.version $version \
+            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else

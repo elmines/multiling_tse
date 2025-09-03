@@ -12,6 +12,7 @@ from .mixins import TargetMixin
 from .base_module import BaseModule
 from .target_generator import make_target_embeddings, pick_targets
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
+from ..constants import DEFAULT_RELATED_THRESHOLD
 
 class TGOneShotModule(BaseModule, TargetMixin):
 
@@ -42,7 +43,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                  embeddings_path: pathlib.Path,
                  targets_path: pathlib.Path,
                  stance_type: StanceType,
-                 related_threshold: float = 0.2,
+                 related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
                  max_length: int = 75,

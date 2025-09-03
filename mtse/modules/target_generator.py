@@ -12,8 +12,8 @@ from torch_scatter import segment_max_coo
 # Local
 from .base_module import BaseModule
 from .mixins import TargetMixin
-from ..data import Encoder, Sample, collate_ids
-from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
+from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack
+from ..constants import UNRELATED_TARGET, TARGET_DELIMITER, DEFAULT_RELATED_THRESHOLD
 
 def make_target_embeddings(targets: List[str], fast_text: FastText) -> np.ndarray:
     unstacked = []
@@ -79,22 +79,26 @@ class LiTargetGenerator(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class Output:
-        targets: torch.Tensor
+        target_preds: torch.Tensor
 
     PRETRAINED_MODEL = "facebook/bart-base"
 
     def __init__(self,
                  embeddings_path: pathlib.Path,
+                 targets_path: pathlib.Path,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
                  max_length: int = 75,
                  predict_targets: bool = False,
+                 related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  **parent_kwargs):
-        super().__init__(**parent_kwargs)
+        BaseModule.__init__(self, **parent_kwargs)
+        TargetMixin.__init__(self, targets_path)
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
         self.max_length = max_length
         self.predict_targets = predict_targets
+        self.related_threshold = related_threshold
         self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
         self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
         self.__encoder = self.Encoder(self)
@@ -124,32 +128,51 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         loss = res.loss
         self.log('train/loss', loss)
         return loss
+
+    def _predict_targets(self, batch):
+        generate_output = self.bart.generate(batch['input_ids'],
+                                         return_dict_in_generate=True,
+                                         output_hidden_states=True,
+                                         max_length=self.max_length,
+                                         num_beams=3)
+        target_preds = pick_targets(generate_output,
+                                    self.tokenizer,
+                                    self.fast_text,
+                                    self.target_embeddings,
+                                    self.related_threshold)
+        return LiTargetGenerator.Output(target_preds)
+
     def validation_step(self, batch, batch_idx):
         res = self(**batch)
         self.log('val/loss', res.loss)
         if self.predict_targets:
-            res = None # Want that entire forward pass gone to save memory for this
-            # FIXME: Would be much more efficient to use the encoder hidden_states from res
-            generate_output = self.bart.generate(batch['input_ids'],
-                                             return_dict_in_generate=True,
-                                             output_hidden_states=True,
-                                             max_length=self.max_length,
-                                             num_beams=3)
-            target_preds = pick_targets(generate_output, self.tokenizer, self.fast_text, self.target_embeddings)
-            return LiTargetGenerator.Output(target_preds)
+            res = None # Want that entire forward pass gone to save memory for the target predictions
+            # FIXME: Would be much more efficient to use the encoder hidden_states from res in _predict_targets
+            return self._predict_targets(batch)
+
+    def _infer_step(self, batch):
+        if self.predict_targets:
+            return self._predict_targets(batch)
 
     class Encoder(Encoder):
         def __init__(self, module: LiTargetGenerator):
+            super().__init__()
             self.module = module
             self.tokenizer = module.tokenizer
             self.max_length = self.module.bart.config.max_position_embeddings
         def _encode(self, sample: Sample, inference=False, predict_task = None):
-            return self.tokenizer(text=sample.context.lower(),
+            encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',
                                       truncation=True,
                                       max_length=self.max_length)
+            encoding['target'] = torch.tensor(
+                [self.module.targets.index(sample.target_label)],
+                dtype=torch.long)
+            return encoding
         def collate(self, samples):
-            return collate_ids(self.tokenizer, samples, return_attention_mask=True)
+            encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
+            encoding['target'] = keyed_scalar_stack(samples, 'target')
+            return encoding
 
 __all__ = ["make_target_embeddings", "detokenize", "pick_targets", "LiTargetGenerator"]
