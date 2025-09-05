@@ -53,10 +53,20 @@ if __name__ == "__main__":
     data_dir = os.path.join("data", "li_tse")
     add_dir_prefix = lambda slices: {os.path.join(data_dir, k):v for k,v in slices.items()}
 
-    for part in ['val', 'train', 'test']:
+    for part in ['val', 'train']:
         source_path = os.path.join(data_dir, f'raw_{part}_all_onecol.csv')
-        test_corpora_inds = dict(zip(
+        corpora_inds = dict(zip(
             [f'{part}_semeval.csv', f'{part}_am.csv', f'{part}_covid.csv', f'{part}_pstance.csv', f'{part}_unrelated.csv'],
             extract_indices(source_path)
         ))
-        part_corpus(source_path, add_dir_prefix(test_corpora_inds))
+        part_corpus(source_path, add_dir_prefix(corpora_inds))
+
+    # Use the exact indices that Li et al. used here, since we know them explicitly
+    test_inds = {
+       "test_semeval.csv": list(range(1080)),
+       "test_am.csv": list(range(1880, 6989)),
+       "test_covid.csv": list(range(1080, 1880)),
+       "test_pstance.csv": list(range(6989, 9146)),
+       "test_unrelated.csv": list(range(9146, 11026)) # This last one actually had to come up with manually
+    }
+    part_corpus(os.path.join(data_dir, f'raw_test_all_onecol.csv'), add_dir_prefix(test_inds))
