@@ -6,7 +6,7 @@ import pathlib
 from gensim.models import FastText
 import numpy as np
 import torch
-from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast
+from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast, MBart50TokenizerFast, MBartForConditionalGeneration
 from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from torch_scatter import segment_max_coo
 # Local
@@ -83,6 +83,8 @@ class LiTargetGenerator(BaseModule, TargetMixin):
 
     PRETRAINED_MODEL = "facebook/bart-base"
 
+    MULTILING_MODEL = "facebook/mbart-large-50"
+
     def __init__(self,
                  embeddings_path: pathlib.Path,
                  targets_path: pathlib.Path,
@@ -91,6 +93,7 @@ class LiTargetGenerator(BaseModule, TargetMixin):
                  max_length: int = 75,
                  predict_targets: bool = False,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
+                 multilingual: bool = False,
                  **parent_kwargs):
         BaseModule.__init__(self, **parent_kwargs)
         TargetMixin.__init__(self, targets_path)
@@ -99,8 +102,12 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         self.max_length = max_length
         self.predict_targets = predict_targets
         self.related_threshold = related_threshold
-        self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
-        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
+        if multilingual:
+            self.bart = MBartForConditionalGeneration.from_pretrained(LiTargetGenerator.MULTILING_MODEL)
+            self.tokenizer: PreTrainedTokenizerFast = MBart50TokenizerFast.from_pretrained(LiTargetGenerator.MULTILING_MODEL, normalization=True)
+        else:
+            self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
+            self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
         self.__encoder = self.Encoder(self)
 
         self.fast_text = FastText.load(str(embeddings_path))
