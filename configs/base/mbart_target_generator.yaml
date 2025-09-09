@@ -35,7 +35,7 @@ model:
 data:
   class_path: mtse.data.SplitDataModule
   init_args:
-    batch_size: 16
+    batch_size: 32
 
     corpora:
       - class_path: mtse.data.StanceCorpus
