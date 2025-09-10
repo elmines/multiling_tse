@@ -31,6 +31,7 @@ model:
     targets_path: static/li_merged_targets.txt # Doesn't matter here but have to supply it
     predict_targets: false
     embeddings_path: /blue/bonniejdorr/ethanlmines/lightning_logs/MultiMinesTGen/ft_seed0.model
+    multilingual: true
 
 data:
   class_path: mtse.data.SplitDataModule

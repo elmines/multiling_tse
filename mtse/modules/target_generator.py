@@ -6,7 +6,7 @@ import pathlib
 from gensim.models import FastText
 import numpy as np
 import torch
-from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast, MBart50TokenizerFast, MBartForConditionalGeneration
+from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast, MBart50Tokenizer, MBartForConditionalGeneration
 from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from torch_scatter import segment_max_coo
 # Local
@@ -104,7 +104,9 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         self.related_threshold = related_threshold
         if multilingual:
             self.bart = MBartForConditionalGeneration.from_pretrained(LiTargetGenerator.MULTILING_MODEL)
-            self.tokenizer: PreTrainedTokenizerFast = MBart50TokenizerFast.from_pretrained(LiTargetGenerator.MULTILING_MODEL, normalization=True)
+            self.tokenizer: PreTrainedTokenizerFast = MBart50Tokenizer.from_pretrained(LiTargetGenerator.MULTILING_MODEL, normalization=True)
+            self.tokenizer.tgt_lang = "en_XX"
+
         else:
             self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
             self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
