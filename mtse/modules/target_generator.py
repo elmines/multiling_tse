@@ -1,7 +1,9 @@
 from __future__ import annotations
 import dataclasses
+import typing
 from typing import List
 import pathlib
+import functools
 # 3rd Party
 from gensim.models import FastText
 import numpy as np
@@ -102,11 +104,13 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         self.max_length = max_length
         self.predict_targets = predict_targets
         self.related_threshold = related_threshold
-        if multilingual:
+        self.multilingual = multilingual
+        if self.multilingual:
             self.bart = MBartForConditionalGeneration.from_pretrained(LiTargetGenerator.MULTILING_MODEL)
             self.tokenizer: PreTrainedTokenizerFast = MBart50Tokenizer.from_pretrained(LiTargetGenerator.MULTILING_MODEL, normalization=True)
-            self.tokenizer.tgt_lang = "en_XX"
 
+            # FIXME: make non-English targets an option
+            self.tokenizer.tgt_lang = "en_XX"
         else:
             self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
             self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
@@ -169,7 +173,21 @@ class LiTargetGenerator(BaseModule, TargetMixin):
             self.module = module
             self.tokenizer = module.tokenizer
             self.max_length = self.module.bart.config.max_position_embeddings
+
+        @functools.cache
+        def _lang_lookup(self, two_char_code: str):
+            tokenizer = typing.cast(MBart50Tokenizer, self.tokenizer)
+            for lang_code in tokenizer.lang_code_to_id:
+                if lang_code.startswith(two_char_code):
+                    return lang_code
+            raise ValueError(f"Unsupported language {two_char_code}")
+        
         def _encode(self, sample: Sample, inference=False, predict_task = None):
+            if self.module.multilingual:
+                assert sample.lang is not None
+                self.tokenizer.src_lang = self._lang_lookup(sample.lang)
+
+
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',
