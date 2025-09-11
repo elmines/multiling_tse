@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-import pdb
 import sys
 import csv
 import random
 import os
 
-data_dir = sys.argv[1]
+in_dir = sys.argv[1]
+out_dir = sys.argv[2]
 
-in_path = os.path.join(data_dir, 'raw_et.csv')
+in_path = os.path.join(in_dir, 'et_immigration.csv')
 
 label_map = {'1': 0, '2': 0, '3': 2, '4': 1, '5': 1, 'MH': 2}
 
@@ -37,7 +37,7 @@ out_entries = [
     (test_rows, "et_immigration_test.csv")
 ]
 for row_set, out_path in out_entries:
-    with open(os.path.join(data_dir, out_path), 'w') as w:
+    with open(os.path.join(out_dir, out_path), 'w') as w:
         writer = csv.DictWriter(w, fieldnames=["Context", "Target", "Stance", "StanceType", "Lang"])
         writer.writeheader()
         for row in row_set:

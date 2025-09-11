@@ -5,11 +5,12 @@ import csv
 import random
 import os
 
-data_dir = sys.argv[1]
+in_dir = sys.argv[1]
+out_dir = sys.argv[2]
 to_convert = [
-    ("referendum_it.csv", "lai_referendum_{split}.csv", "2016 Italian Constitution Referendum", "it"),
-    ("lepen_fr.csv", "lai_lepen_{split}.csv", "Marine LePen", "fr"),
-    ("macron_fr.csv", "lai_macron_{split}.csv", "Emmanuel Macron", "fr"),
+    ("it_ref.csv", "it_ref_{split}.csv", "2016 Italian Constitution Referendum", "it"),
+    ("fr_lepen.csv", "fr_lepen_{split}.csv", "Marine LePen", "fr"),
+    ("fr_macron.csv", "fr_macron_{split}.csv", "Emmanuel Macron", "fr"),
 ]
 
 label_map = {
@@ -24,7 +25,7 @@ random.seed(0)
 
 
 for (in_name, out_template, target, lang) in to_convert:
-    with open(os.path.join(data_dir, in_name), 'r') as r:
+    with open(os.path.join(in_dir, in_name), 'r') as r:
         raw_rows = list(csv.DictReader(r))
     favor_samples = []
     against_samples = []
@@ -54,9 +55,9 @@ for (in_name, out_template, target, lang) in to_convert:
                     })
 
         write_rows(
-            os.path.join(data_dir, out_template.format(split='train')),
+            os.path.join(out_dir, out_template.format(split='train')),
             favor_samples[:favor_splindex] + against_samples[:against_splindex]) 
         write_rows(
-            os.path.join(data_dir, out_template.format(split='test')),
+            os.path.join(out_dir, out_template.format(split='test')),
             favor_samples[favor_splindex:] + against_samples[against_splindex:]
         )

@@ -4,7 +4,8 @@ import csv
 import random
 import os
 
-data_dir = sys.argv[1]
+in_dir = sys.argv[1]
+out_dir = sys.argv[2]
 
 def parse_file(path):
     tweet_id = None
@@ -19,8 +20,8 @@ def parse_file(path):
         assert tweet_id is None
         return data
 
-text_entries = parse_file(os.path.join(data_dir, "Notebandi_tweets.txt"))
-stance_entries = parse_file(os.path.join(data_dir, "Notebandi_tweets_stance.txt"))
+text_entries = parse_file(os.path.join(in_dir, "hi_demonetisation_tweets.txt"))
+stance_entries = parse_file(os.path.join(in_dir, "hi_demonetisation_stance.txt"))
 assert len(text_entries) == len(stance_entries)
 
 favor_rows = []
@@ -53,5 +54,5 @@ def write_rows(out_path, rows):
         writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
         writer.writeheader()
         writer.writerows(rows)
-write_rows(os.path.join(data_dir, "demonetisation_train.csv"), favor_rows[:favor_splindex] + against_rows[:against_splindex] )
-write_rows(os.path.join(data_dir, "demonetisation_test.csv"), favor_rows[favor_splindex:] + against_rows[against_splindex:] )
+write_rows(os.path.join(out_dir, "hi_demonetisation_train.csv"), favor_rows[:favor_splindex] + against_rows[:against_splindex] )
+write_rows(os.path.join(out_dir, "hi_demonetisation_test.csv"), favor_rows[favor_splindex:] + against_rows[against_splindex:] )
