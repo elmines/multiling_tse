@@ -28,9 +28,9 @@ model:
   class_path: mtse.modules.LiTargetGenerator
 
   init_args:
-    targets_path: static/li_merged_targets.txt # Doesn't matter here but have to supply it
+    targets_path: static/multiling_targets.txt # Doesn't matter here but have to supply it
     predict_targets: false
-    embeddings_path: /blue/bonniejdorr/ethanlmines/lightning_logs/MultiMinesTGen/ft_seed0.model
+    # Supply embeddings path manually
     multilingual: true
 
 data:
