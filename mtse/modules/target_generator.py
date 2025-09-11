@@ -86,8 +86,6 @@ class LiTargetGenerator(BaseModule, TargetMixin):
 
     PRETRAINED_MODEL = "facebook/bart-base"
 
-    MULTILING_MODEL = "facebook/mbart-large-50"
-
     def __init__(self,
                  embeddings_path: pathlib.Path,
                  targets_path: pathlib.Path,
@@ -107,14 +105,8 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         self.related_threshold = related_threshold
         self.multilingual = multilingual
         if self.multilingual:
-            # self.bart = MBartForConditionalGeneration.from_pretrained(LiTargetGenerator.MULTILING_MODEL)
-            # self.tokenizer: PreTrainedTokenizerFast = MBart50Tokenizer.from_pretrained(LiTargetGenerator.MULTILING_MODEL, normalization=True)
-            # FIXME: make non-English targets an option
-            # self.tokenizer.tgt_lang = "en_XX"
-
             self.bart = MT5ForConditionalGeneration.from_pretrained("google/mt5-base")
             self.tokenizer: PreTrainedTokenizerFast = T5Tokenizer.from_pretrained("google/mt5-base", normalization=True)
-            # self.tokenizer: PreTrainedTokenizerFast = AutoTokenizer.from_pretrained("google/mt5-base", normalization=True, use_fast=True)
         else:
             self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
             self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
@@ -183,20 +175,7 @@ class LiTargetGenerator(BaseModule, TargetMixin):
             config = self.module.bart.config
             self.max_length = getattr(config, "max_position_embeddings", 1024)
 
-        @functools.cache
-        def _lang_lookup(self, two_char_code: str):
-            tokenizer = typing.cast(MBart50Tokenizer, self.tokenizer)
-            for lang_code in tokenizer.lang_code_to_id:
-                if lang_code.startswith(two_char_code):
-                    return lang_code
-            raise ValueError(f"Unsupported language {two_char_code}")
-        
         def _encode(self, sample: Sample, inference=False, predict_task = None):
-            # if self.module.multilingual:
-            #     assert sample.lang is not None
-            #     self.tokenizer.src_lang = self._lang_lookup(sample.lang)
-
-
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',
