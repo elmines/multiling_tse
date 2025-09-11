@@ -1,12 +1,15 @@
 from __future__ import annotations
 import dataclasses
+import typing
 from typing import List
 import pathlib
+import functools
 # 3rd Party
 from gensim.models import FastText
 import numpy as np
 import torch
-from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast
+from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast, MBart50Tokenizer
+from transformers import MT5ForConditionalGeneration, T5Tokenizer
 from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from torch_scatter import segment_max_coo
 # Local
@@ -91,6 +94,7 @@ class LiTargetGenerator(BaseModule, TargetMixin):
                  max_length: int = 75,
                  predict_targets: bool = False,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
+                 multilingual: bool = False,
                  **parent_kwargs):
         BaseModule.__init__(self, **parent_kwargs)
         TargetMixin.__init__(self, targets_path)
@@ -99,8 +103,13 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         self.max_length = max_length
         self.predict_targets = predict_targets
         self.related_threshold = related_threshold
-        self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
-        self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
+        self.multilingual = multilingual
+        if self.multilingual:
+            self.bart = MT5ForConditionalGeneration.from_pretrained("google/mt5-base")
+            self.tokenizer: PreTrainedTokenizerFast = T5Tokenizer.from_pretrained("google/mt5-base", normalization=True)
+        else:
+            self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
+            self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
         self.__encoder = self.Encoder(self)
 
         self.fast_text = FastText.load(str(embeddings_path))
@@ -109,8 +118,12 @@ class LiTargetGenerator(BaseModule, TargetMixin):
 
     def configure_optimizers(self):
         lm_head_params = set(self.bart.lm_head.parameters())
-        # One overlapping parameter forces me to do this
-        backbone_params = [p for p in self.bart.model.parameters() if p not in lm_head_params]
+        if self.multilingual:
+            excluded_params = set(self.bart.shared.parameters()) | lm_head_params
+            backbone_params = [p for p in self.bart.parameters() if p not in excluded_params]
+        else:
+            # One overlapping parameter forces me to do this
+            backbone_params = [p for p in self.bart.model.parameters() if p not in lm_head_params]
         lm_head_params = list(lm_head_params)
         return torch.optim.AdamW([
             {"params": lm_head_params, "lr": self.backbone_lr},
@@ -159,7 +172,9 @@ class LiTargetGenerator(BaseModule, TargetMixin):
             super().__init__()
             self.module = module
             self.tokenizer = module.tokenizer
-            self.max_length = self.module.bart.config.max_position_embeddings
+            config = self.module.bart.config
+            self.max_length = getattr(config, "max_position_embeddings", 1024)
+
         def _encode(self, sample: Sample, inference=False, predict_task = None):
             encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),

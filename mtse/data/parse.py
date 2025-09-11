@@ -4,9 +4,23 @@ import sys
 import os
 import csv
 
-from .stance import TriStance
+from .stance import TriStance, STANCE_TYPE_MAP
 from .sample import Sample, SampleType
 from ..constants import TARGET_DELIMITER
+
+def parse_standard(corpus_path) -> Generator[Sample, None, None]:
+    def f(row):
+        stance_type = STANCE_TYPE_MAP[row['StanceType']]
+        stance_val = stance_type(int(row['Stance']))
+        s = Sample(
+            context=row['Context'],
+            target_label=row['Target'],
+            stance=stance_val,
+            lang=row['Lang']
+        )
+        return s
+    with open(corpus_path, 'r', encoding='utf-8') as r:
+        yield from map(f, csv.DictReader(r, delimiter=','))
 
 def parse_yingjie(corpus_path) -> Generator[Sample, None, None]:
     str2strance = {
@@ -70,7 +84,7 @@ def parse_kptimes(corpus_path: os.PathLike):
                 sample_type=SampleType.KG
             )
 
-DetCorpusType = Literal['nlpcc', 'cstance', 'li', 'kptimes']
+DetCorpusType = Literal['standard', 'nlpcc', 'cstance', 'li', 'kptimes']
 
 StanceParser = Callable[[os.PathLike], Generator[Sample, None, None]]
 """
@@ -78,6 +92,7 @@ Function taking a file path and returning a generator of samples
 """
 
 CORPUS_PARSERS: Dict[DetCorpusType, StanceParser] = {
+    "standard": parse_standard,
     "nlpcc": parse_nlpcc,
     "cstance": parse_cstance,
     "li": parse_yingjie,
