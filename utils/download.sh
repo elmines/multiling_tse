@@ -7,6 +7,10 @@ then
 fi
 cd $store_dir
 
+# cs, Smoking & President Zeman dataset
+curl -L https://corpora.kiv.zcu.cz/sentiment/CzechStanceDetection-v2.0.zip -o temp.zip
+unzip -o temp.zip 'smoking-gold.*' 'zeman.*' 
+rm temp.zip
 # zh, NLPCC 2016
 wget -O zh_nlpcc.tsv http://tcci.ccf.org.cn/conference/2016/dldoc/evasampledata4-TaskAA.txt
 # ca, Catalonian Independence
