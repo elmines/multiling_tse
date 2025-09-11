@@ -7,6 +7,8 @@ then
 fi
 cd $store_dir
 
+# zh, NLPCC 2016
+wget -O zh_nlpcc.tsv http://tcci.ccf.org.cn/conference/2016/dldoc/evasampledata4-TaskAA.txt
 # ca, Catalonian Independence
 wget -O ca_independence_train.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_test.csv
 wget -O ca_independence_val.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_train.csv
