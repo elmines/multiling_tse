@@ -45,22 +45,29 @@ test_rows = []
 
 random.seed(0)
 for (text_list, label_list, target) in entries:
-    cleaned = []
+    favor_samples = []
+    against_samples = []
     for (text, label) in filter(lambda tl: tl[1] != 'NIC', zip(text_list, label_list)):
-        cleaned.append({
+        stance = label_map[label]
+        sample = {
             "Context": text,
             "Target": target,
             "StanceType": "bi",
-            "Stance": label_map[label],
+            "Stance": stance,
             "Lang": "cs"
-        })
-    random.shuffle(cleaned)
-    train_splindex = int(.7 * len(cleaned))
-    val_splindex = int(.8 * len(cleaned))
-    train_rows.extend(cleaned[:train_splindex])
-    val_rows.extend(cleaned[train_splindex:val_splindex])
-    test_rows.extend(cleaned[val_splindex:])
-
+        }
+        if stance == 0:
+            against_samples.append(sample)
+        else:
+            favor_samples.append(sample)
+    random.shuffle(favor_samples)
+    random.shuffle(against_samples)
+    for class_data in [favor_samples, against_samples]:
+        train_splindex = int(.7 * len(class_data))
+        val_splindex = int(.8 * len(class_data))
+        train_rows.extend(class_data[:train_splindex])
+        val_rows.extend(class_data[train_splindex:val_splindex])
+        test_rows.extend(class_data[val_splindex:])
 
 def write_rows(out_path, rows):
     with open(out_path, 'w') as w:
