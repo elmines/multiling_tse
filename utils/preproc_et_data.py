@@ -26,14 +26,20 @@ random.seed(0)
 random.shuffle(favor_rows)
 random.shuffle(against_rows)
 
-favor_splindex = int(len(favor_rows) * 0.8)
-against_splindex = int(len(against_rows) * 0.8)
 
-train_rows = favor_rows[:favor_splindex] + against_rows[:against_splindex]
-test_rows = favor_rows[favor_splindex:] + against_rows[against_splindex:]
+train_rows = []
+val_rows = []
+test_rows = []
+for class_data in [favor_rows, against_rows]:
+    train_splindex = int(.7 * len(class_data))
+    val_splindex = int(.8 * len(class_data))
+    train_rows.extend(class_data[:train_splindex])
+    val_rows.extend(class_data[train_splindex:val_splindex])
+    test_rows.extend(class_data[val_splindex:])
 
 out_entries = [
     (train_rows, "et_immigration_train.csv"),
+    (val_rows, "et_immigration_val.csv"),
     (test_rows, "et_immigration_test.csv")
 ]
 for row_set, out_path in out_entries:

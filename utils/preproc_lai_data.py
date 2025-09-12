@@ -38,8 +38,15 @@ for (in_name, out_template, target, lang) in to_convert:
         random.shuffle(favor_samples)
         random.shuffle(against_samples)
 
-        favor_splindex = int(.8 * len(favor_samples))
-        against_splindex = int(.8 * len(against_samples))
+        train_rows = []
+        val_rows = []
+        test_rows = []
+        for class_data in [favor_samples, against_samples]:
+            train_splindex = int(.7 * len(class_data))
+            val_splindex = int(.8 * len(class_data))
+            train_rows.extend(class_data[:train_splindex])
+            val_rows.extend(class_data[train_splindex:val_splindex])
+            test_rows.extend(class_data[val_splindex:])
 
         def write_rows(out_path, rows):
             with open(out_path, 'w') as w:
@@ -56,8 +63,13 @@ for (in_name, out_template, target, lang) in to_convert:
 
         write_rows(
             os.path.join(out_dir, out_template.format(split='train')),
-            favor_samples[:favor_splindex] + against_samples[:against_splindex]) 
+            train_rows
+        )
+        write_rows(
+            os.path.join(out_dir, out_template.format(split='val')),
+            val_rows
+        )
         write_rows(
             os.path.join(out_dir, out_template.format(split='test')),
-            favor_samples[favor_splindex:] + against_samples[against_splindex:]
+            test_rows
         )

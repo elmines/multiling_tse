@@ -46,13 +46,22 @@ for ((id_a, text), (id_b, stance)) in zip(text_entries, stance_entries):
 random.seed(0)
 random.shuffle(favor_rows)
 random.shuffle(against_rows)
-favor_splindex = int(.8 * len(favor_rows))
-against_splindex = int(.8 * len(against_rows))
+
+train_rows = []
+val_rows = []
+test_rows = []
+for class_data in [favor_rows, against_rows]:
+    train_splindex = int(.7 * len(class_data))
+    val_splindex = int(.8 * len(class_data))
+    train_rows.extend(class_data[:train_splindex])
+    val_rows.extend(class_data[train_splindex:val_splindex])
+    test_rows.extend(class_data[val_splindex:])
 
 def write_rows(out_path, rows):
     with open(out_path, 'w') as w:
         writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
         writer.writeheader()
         writer.writerows(rows)
-write_rows(os.path.join(out_dir, "hi_demonetisation_train.csv"), favor_rows[:favor_splindex] + against_rows[:against_splindex] )
-write_rows(os.path.join(out_dir, "hi_demonetisation_test.csv"), favor_rows[favor_splindex:] + against_rows[against_splindex:] )
+write_rows(os.path.join(out_dir, "hi_demonetisation_train.csv"), train_rows)
+write_rows(os.path.join(out_dir, "hi_demonetisation_val.csv"), val_rows)
+write_rows(os.path.join(out_dir, "hi_demonetisation_test.csv"), test_rows)

@@ -40,13 +40,16 @@ for row in filter(lambda row: row['STANCE'] not in exclude_labels, raw_rows):
 
 random.seed(0)
 train_rows = []
+val_rows = []
 test_rows = []
 for target in targets:
     target_samples = samples_by_target[target]
     random.shuffle(target_samples)
-    splindex = int(.8 * len(target_samples))
-    train_rows.extend(target_samples[:splindex])
-    test_rows.extend(target_samples[splindex:])
+    train_splindex = int(.7 * len(target_samples))
+    val_splindex = int(.8 * len(target_samples))
+    train_rows.extend(target_samples[:train_splindex])
+    val_rows.extend(target_samples[train_splindex:val_splindex])
+    test_rows.extend(target_samples[val_splindex:])
 
 def write_corpus(path, rows):
     with open(os.path.join(out_dir, path), 'w') as w:
@@ -56,4 +59,5 @@ def write_corpus(path, rows):
         writer.writeheader()
         writer.writerows(rows)
 write_corpus("zh_nlpcc_train.csv", train_rows)
+write_corpus("zh_nlpcc_val.csv", train_rows)
 write_corpus("zh_nlpcc_test.csv", test_rows)

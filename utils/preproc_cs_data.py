@@ -40,6 +40,7 @@ entries = [
 ]
 
 train_rows = []
+val_rows = []
 test_rows = []
 
 random.seed(0)
@@ -54,9 +55,11 @@ for (text_list, label_list, target) in entries:
             "Lang": "cs"
         })
     random.shuffle(cleaned)
-    splindex = int(.8 * len(cleaned))
-    train_rows.extend(cleaned[:splindex])
-    test_rows.extend(cleaned[splindex:])
+    train_splindex = int(.7 * len(cleaned))
+    val_splindex = int(.8 * len(cleaned))
+    train_rows.extend(cleaned[:train_splindex])
+    val_rows.extend(cleaned[train_splindex:val_splindex])
+    test_rows.extend(cleaned[val_splindex:])
 
 
 def write_rows(out_path, rows):
@@ -65,4 +68,5 @@ def write_rows(out_path, rows):
         writer.writeheader()
         writer.writerows(rows)
 write_rows(os.path.join(out_dir, "cs_train.csv"), train_rows)
+write_rows(os.path.join(out_dir, "cs_val.csv"), val_rows)
 write_rows(os.path.join(out_dir, "cs_test.csv"), test_rows)
