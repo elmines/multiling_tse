@@ -2,6 +2,7 @@
 import sys
 import os
 import csv
+import re
 
 in_dir = sys.argv[1]
 out_dir = sys.argv[2]
@@ -12,12 +13,14 @@ entries.extend((f"es_independence_{part}.csv", "es") for part in ['train', 'val'
 
 stance_map = {'AGAINST': 0, 'FAVOR': 1, 'NONE': 2}
 
+URI_REGEX = re.compile(r'https://t.co/[a-zA-Z0-9]*')
+
 for (filename, lang) in entries:
     with open(os.path.join(in_dir, filename), 'r') as r:
         raw_rows = list(csv.DictReader(r, delimiter='\t'))
     clean_rows = [
         {
-            "Context": row["TWEET"],
+            "Context": URI_REGEX.sub("", row["TWEET"]),
             "Target": "Catalonian Independence",
             "StanceType": "bi",
             "Stance": stance_map[row['LABEL']],

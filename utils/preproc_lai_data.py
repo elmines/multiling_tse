@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import pdb
+import re
 import sys
 import csv
 import random
@@ -12,6 +13,8 @@ to_convert = [
     ("fr_lepen.csv", "fr_lepen_{split}.csv", "Marine LePen", "fr"),
     ("fr_macron.csv", "fr_macron_{split}.csv", "Emmanuel Macron", "fr"),
 ]
+
+URI_REGEX = re.compile(r'https://t.co/[a-zA-Z0-9]*')
 
 label_map = {
     'favor': 1,
@@ -53,8 +56,10 @@ for (in_name, out_template, target, lang) in to_convert:
                 writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
                 writer.writeheader()
                 for row in rows:
+                    old_text = row['Tweet']
+                    new_text = URI_REGEX.sub("", old_text)
                     writer.writerow({
-                        "Context": row['Tweet'],
+                        "Context": new_text,
                         "Target": target,
                         "Stance": row['Stance'],
                         "StanceType": "bi",
