@@ -1,12 +1,35 @@
-from typing import Generator, Dict, Literal, Callable
+from typing import Generator, Dict, Literal, Callable, Iterable
 import json
 import sys
 import os
 import csv
 
-from .stance import TriStance, STANCE_TYPE_MAP
+from .stance import TriStance, STANCE_TYPE_MAP, get_stance_type_str
 from .sample import Sample, SampleType
 from ..constants import TARGET_DELIMITER
+
+def write_standard(out_path, samples: Iterable[Sample]):
+    def f(s: Sample):
+        return {
+            "Context": s.context,
+            "Target": s.target_label,
+            "StanceType": get_stance_type_str(type(s.stance)),
+            "Stance": int(s.stance),
+            "Lang": s.lang if s.lang else ""
+        }
+
+    with open(out_path, 'w') as w:
+        writer = csv.DictWriter(w, fieldnames=[
+            "Context",
+            "Target",
+            "StanceType",
+            "Stance",
+            "Lang"
+        ],
+        lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(map(f, samples))
+        pass
 
 def parse_standard(corpus_path) -> Generator[Sample, None, None]:
     def f(row):

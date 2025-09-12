@@ -35,3 +35,10 @@ STANCE_TYPE_MAP: Dict[StanceType, BaseStance] = {
     'bi': BiStance
 }
 
+def get_stance_type_str(stype: type[BaseStance]):
+    if stype is TriStance:
+        return 'tri'
+    if stype is BiStance:
+        return 'bi'
+    raise ValueError(f"{stype} is not a stance class")
+
