@@ -62,6 +62,8 @@ then
             --model.predict_targets true \
             --data configs/data/li_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
+            --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
     done
