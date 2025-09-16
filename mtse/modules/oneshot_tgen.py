@@ -12,6 +12,7 @@ from .mixins import TargetMixin
 from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import DEFAULT_RELATED_THRESHOLD
+from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
 
 class TGOneShotModule(BaseModule, TargetMixin):
 
@@ -182,11 +183,14 @@ class TGOneShotModule(BaseModule, TargetMixin):
         if self.use_target_gt:
             target_preds = batch['target']
         else:
-            target_preds = pick_targets(generate_output,
-                                        self.tokenizer,
-                                        self.fast_text,
-                                        self.target_embeddings,
-                                        self.related_threshold)
+            all_texts, sample_inds = detokenize_generated_targets(generate_output, self.tokenizer)
+            target_preds, _ = map_targets(
+                self.fast_text,
+                self.target_embeddings,
+                all_texts,
+                sample_inds,
+                self.related_threshold
+            )
         return TGOneShotModule.InferOutput(
             target_preds=target_preds,
             stance_preds=stance_preds
