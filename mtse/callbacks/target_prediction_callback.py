@@ -14,13 +14,12 @@ from torch_scatter import segment_max_coo
 # Local
 from ..modules.mixins import TargetMixin
 from ..constants import TARGET_DELIMITER, UNRELATED_TARGET, DEFAULT_RELATED_THRESHOLD
-from .utils import detokenize_generated_targets
 
 @enum.unique
-class TargetLevel(enum.Enum):
-    NONE = 'none'
-    GENERATED = 'generated'
-    MAPPED = 'mapped'
+class TargetLevel(enum.IntEnum):
+    none = 0
+    generated = 1
+    mapped = 2
 
 def make_target_embeddings(targets: List[str], fast_text: FastText) -> np.ndarray:
     unstacked = []
@@ -61,17 +60,16 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                  out_dir: os.PathLike,
                  embeddings_path: os.PathLike,
                  targets_path: os.PathLike,
-                 map_generated: bool = False,
+                 target_level: TargetLevel = TargetLevel.generated,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  ):
         BasePredictionWriter.__init__(self, write_interval='batch')
         TargetMixin.__init__(self, targets_path)
         self.out_dir = out_dir
-        self.map_generated = map_generated
+        self.target_level = target_level
 
-        if self.map_generated:
-            self.related_threshold = related_threshold
-            self.fast_text = FastText.load(str(embeddings_path))
+        self.related_threshold = related_threshold
+        self.fast_text = FastText.load(str(embeddings_path))
         self.__target_embeddings = torch.tensor(make_target_embeddings(self.targets, self.fast_text), device='cpu')
 
         self.__device: Optional[str] = None
@@ -109,7 +107,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         target_preds = torch.where(class_scores >= related_threshold, arg_class_scores, 0)
 
         # Get the string-based free-form targets as well
-        all_text_inds = torch.gather(arg_sample_scores, arg_class_scores.unsqueeze(1), dim=1).squeeze(1)
+        all_text_inds = torch.gather(arg_sample_scores, 1, arg_class_scores.unsqueeze(1)).squeeze(1)
         freeform_preds = [all_texts[i] for i in all_text_inds]
 
         return target_preds, freeform_preds
@@ -120,15 +118,16 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         return csv.DictWriter(file_handle, fieldnames=fieldnames, lineterminator='\n')
 
     @contextmanager
-    def __get_writer(self, out_path, fieldnames, dataloader_idx):
-        if dataloader_idx in self.__started_file:
+    def __get_writer(self, out_path, fieldnames, dataloader_idx, task):
+        k = (dataloader_idx, task)
+        if k in self.__started_file:
             try:
                 with open(out_path, 'a') as w:
                     yield self.__cons_writer(w, fieldnames)
             finally:
                 pass
         else:
-            self.__started_file.add(dataloader_idx)
+            self.__started_file.add(k)
             try:
                 with open(out_path, 'w') as w:
                     writer = self.__cons_writer(w, fieldnames)
@@ -141,36 +140,56 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         return self.__get_writer(
             os.path.join(self.out_dir, f"target_gens.{dataloader_idx}.txt"),
             self.__gen_fieldnames,
-            dataloader_idx
+            dataloader_idx,
+            "target_gen"
         )
 
     def __get_map_writer(self, dataloader_idx):
         return self.__get_writer(
             os.path.join(self.out_dir, f"target_preds.{dataloader_idx}.txt"),
             self.__map_fieldnames,
-            dataloader_idx
+            dataloader_idx,
+            "target_pred"
         )
 
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
-        if self.target_level <= TargetLevel.NONE:
+        if self.target_level <= TargetLevel.none:
             return
         if self.__device is None:
             self.__device = pl_module.device
             self.__target_embeddings = self.__target_embeddings.to(self.__device)
 
         target_labels = batch['target'].flatten().detach().cpu().tolist()
-        str_labels = [target_lookup[t] for t in target_labels]
+        str_labels = [self.targets[t] for t in target_labels]
 
-        all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+        gen_rows = None
+        map_rows = None
+        if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
+            all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+            gen_rows = [{"Sample": i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
 
-        row_dicts = [{"Sample": i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(all_texts, sample_inds) ]
-        with self.__get_gen_writer(dataloader_idx) as writer:
-            writer.writerows(row_dicts)
-
-
-        target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
-        target_lookup = pl_module.targets
-        str_preds = [target_lookup[t] for t in target_preds]
-        row_dicts = [{"Mapped Target": pred, "GT Target": label} for pred, label in zip(str_preds, str_labels)]
-        with self.__get_writer(dataloader_idx) as writer:
-            writer.writerows(row_dicts)
+            if self.target_level >= TargetLevel.mapped:
+                target_preds, freeform_preds = self._map_targets(all_texts, sample_inds)
+                map_rows = [{"Sample": i,
+                    "Generated Target": freeform_pred,
+                    "Mapped Target": self.targets[target_pred],
+                    "GT Target": str_labels[i]
+                    } for i, (freeform_pred, target_pred) in enumerate(zip(freeform_preds, target_preds))
+                ]
+        else:
+            assert hasattr(prediction, "target_preds")
+            target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
+            # Pretend like we "generated" the targets, even though we actually only classified them
+            gen_rows = [{"Sample": i,
+                "Generated Target": pred,
+                "GT Target": str_labels[i]} for i, pred in enumerate(str_labels)
+            ]
+            if self.target_level >= TargetLevel.mapped:
+                # For TC, just copypaste the 
+                map_rows = [{"Mapped Target": row["Generated Target"], **row} for row in gen_rows]
+        if gen_rows is not None:
+            with self.__get_gen_writer(dataloader_idx) as writer:
+                writer.writerows(gen_rows)
+        if map_rows is not None:
+            with self.__get_map_writer(dataloader_idx) as writer:
+                writer.writerows(map_rows)

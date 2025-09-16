@@ -10,7 +10,6 @@ from gensim.models import FastText
 # Local 
 from .mixins import TargetMixin
 from .base_module import BaseModule
-from .target_generator import make_target_embeddings, pick_targets
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import DEFAULT_RELATED_THRESHOLD
 

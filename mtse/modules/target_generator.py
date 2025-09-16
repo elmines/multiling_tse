@@ -1,25 +1,28 @@
 from __future__ import annotations
+import pathlib
 # 3rd Party
 import torch
 from transformers import BartForConditionalGeneration, PreTrainedTokenizerFast, BartTokenizerFast, MBart50Tokenizer
 from transformers import MT5ForConditionalGeneration, T5Tokenizer
 # Local
 from .base_module import BaseModule
+from .mixins import TargetMixin
 from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, SampleType
 
-class LiTargetGenerator(BaseModule):
+class LiTargetGenerator(BaseModule, TargetMixin):
 
     PRETRAINED_MODEL = "facebook/bart-base"
 
     def __init__(self,
+                 targets_path: pathlib.Path,
                  backbone_lr: float = 1e-5,
                  head_lr: float = 4e-5,
                  max_length: int = 75,
-                 # TODO: Remove this silly type union needed for backwards compatibility
                  predict_targets: bool = False,
                  multilingual: bool = False,
                  **parent_kwargs):
-        super().__init__(**parent_kwargs)
+        BaseModule.__init__(self, **parent_kwargs)
+        TargetMixin.__init__(self, targets_path)
         self.backbone_lr = backbone_lr
         self.head_lr = head_lr
         self.max_length = max_length
@@ -87,12 +90,20 @@ class LiTargetGenerator(BaseModule):
             self.max_length = getattr(config, "max_position_embeddings", 1024)
 
         def _encode(self, sample: Sample, inference=False, predict_task = None):
-            return self.tokenizer(text=sample.context.lower(),
+            encoding = self.tokenizer(text=sample.context.lower(),
                                       text_target=sample.target_label.lower(),
                                       return_tensors='pt',
                                       truncation=True,
                                       max_length=self.max_length)
+            if sample.sample_type == SampleType.SD:
+                encoding['target'] = torch.tensor(
+                    [self.module.targets.index(sample.target_label)],
+                    dtype=torch.long)
+            return encoding
         def collate(self, samples):
-            return collate_ids(self.tokenizer, samples, return_attention_mask=True)
+            encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
+            if "target" in samples[0]:
+                encoding['target'] = keyed_scalar_stack(samples, 'target')
+            return encoding
 
 __all__ = ["LiTargetGenerator"]
