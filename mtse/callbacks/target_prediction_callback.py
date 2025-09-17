@@ -2,17 +2,16 @@ import os
 import enum
 import csv
 from contextlib import contextmanager
-from typing import List, Optional, Tuple
+from typing import Optional
 from collections import defaultdict
 # 3rd Party
 import torch
-import numpy as np
 from lightning.pytorch.callbacks import BasePredictionWriter
 from gensim.models import FastText
 from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 # Local
 from ..modules.mixins import TargetMixin
-from ..constants import TARGET_DELIMITER, UNRELATED_TARGET, DEFAULT_RELATED_THRESHOLD
+from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
 
 @enum.unique
@@ -25,8 +24,8 @@ class TargetLevel(enum.IntEnum):
 class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __init__(self,
                  out_dir: os.PathLike,
-                 embeddings_path: os.PathLike,
                  targets_path: os.PathLike,
+                 embeddings_path: Optional[os.PathLike] = None,
                  target_level: TargetLevel = TargetLevel.mapped,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  ):
@@ -36,8 +35,12 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.target_level = target_level
 
         self.related_threshold = related_threshold
-        self.fast_text = FastText.load(str(embeddings_path))
-        self.__target_embeddings = torch.tensor(make_target_embeddings(self.targets, self.fast_text), device='cpu')
+        if embeddings_path is not None:
+            self.fast_text = FastText.load(str(embeddings_path))
+            self.__target_embeddings = torch.tensor(make_target_embeddings(self.targets, self.fast_text), device='cpu')
+        else:
+            self.fast_text = None
+            self.__target_embeddings = None
 
         self.__device: Optional[str] = None
 
@@ -90,9 +93,6 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
         if self.target_level <= TargetLevel.none:
             return
-        if self.__device is None:
-            self.__device = pl_module.device
-            self.__target_embeddings = self.__target_embeddings.to(self.__device)
 
         target_labels = batch['target'].flatten().detach().cpu().tolist()
         str_labels = [self.targets[t] for t in target_labels]
@@ -105,6 +105,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             gen_rows = [{"Sample": index_start + i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
 
             if self.target_level >= TargetLevel.mapped:
+                if self.fast_text is None or self.__target_embeddings is None:
+                    raise ValueError(f"You need to instantiate {self.__class__} with `embeddings_path` set")
+
+                if self.__device is None:
+                    self.__device = pl_module.device
+                    self.__target_embeddings = self.__target_embeddings.to(self.__device)
+
                 target_preds, freeform_preds = map_targets(self.fast_text,
                                                            self.__target_embeddings,
                                                            all_texts,
