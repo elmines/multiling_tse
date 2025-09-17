@@ -100,6 +100,7 @@ then
         version=seed${seed}_target_predict
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --return_predictions false \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
