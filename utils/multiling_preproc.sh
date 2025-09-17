@@ -1,5 +1,6 @@
 #!/bin/bash
 
+utils/preproc_sardi_data.py data/multiling/raw data/multiling/
 utils/preproc_cs_data.py data/multiling/raw data/multiling/
 utils/preproc_nlpcc_data.py data/multiling/raw data/multiling/
 utils/preproc_cic_data.py data/multiling/raw data/multiling/
