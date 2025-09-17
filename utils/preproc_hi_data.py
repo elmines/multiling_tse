@@ -59,7 +59,7 @@ for class_data in [favor_rows, against_rows]:
 
 def write_rows(out_path, rows):
     with open(out_path, 'w') as w:
-        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
+        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"], lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows)
 write_rows(os.path.join(out_dir, "hi_demonetisation_train.csv"), train_rows)

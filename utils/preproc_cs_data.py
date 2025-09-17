@@ -71,7 +71,7 @@ for (text_list, label_list, target) in entries:
 
 def write_rows(out_path, rows):
     with open(out_path, 'w') as w:
-        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
+        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"], lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows)
 write_rows(os.path.join(out_dir, "cs_train.csv"), train_rows)

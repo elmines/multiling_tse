@@ -29,7 +29,7 @@ for (filename, lang) in entries:
         for row in raw_rows if row['LABEL'] != 'NONE'
     ]
     with open(os.path.join(out_dir, filename), 'w') as w:
-        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
+        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"], lineterminator='\n')
         writer.writeheader()
         writer.writerows(clean_rows)
     

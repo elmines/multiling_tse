@@ -44,7 +44,7 @@ out_entries = [
 ]
 for row_set, out_path in out_entries:
     with open(os.path.join(out_dir, out_path), 'w') as w:
-        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "Stance", "StanceType", "Lang"])
+        writer = csv.DictWriter(w, fieldnames=["Context", "Target", "Stance", "StanceType", "Lang"], lineterminator='\n')
         writer.writeheader()
         for row in row_set:
             writer.writerow({

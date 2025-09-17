@@ -53,7 +53,7 @@ for (in_name, out_template, target, lang) in to_convert:
 
         def write_rows(out_path, rows):
             with open(out_path, 'w') as w:
-                writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"])
+                writer = csv.DictWriter(w, fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"], lineterminator='\n')
                 writer.writeheader()
                 for row in rows:
                     old_text = row['Tweet']
