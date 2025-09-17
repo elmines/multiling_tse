@@ -3,6 +3,7 @@ import enum
 import csv
 from contextlib import contextmanager
 from typing import List, Optional, Tuple
+from collections import defaultdict
 # 3rd Party
 import torch
 import numpy as np
@@ -26,7 +27,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                  out_dir: os.PathLike,
                  embeddings_path: os.PathLike,
                  targets_path: os.PathLike,
-                 target_level: TargetLevel = TargetLevel.generated,
+                 target_level: TargetLevel = TargetLevel.mapped,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
                  ):
         BasePredictionWriter.__init__(self, write_interval='batch')
@@ -41,6 +42,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.__device: Optional[str] = None
 
         self.__started_file = set()
+        self.__sample_counter = defaultdict(int)
 
         self.__gen_fieldnames = ["Sample", "Generated Target", "GT Target"]
         self.__map_fieldnames = ["Sample", "Generated Target", "Mapped Target", "GT Target"]
@@ -94,12 +96,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         target_labels = batch['target'].flatten().detach().cpu().tolist()
         str_labels = [self.targets[t] for t in target_labels]
+        index_start = self.__sample_counter[dataloader_idx]
 
         gen_rows = None
         map_rows = None
         if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
             all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
-            gen_rows = [{"Sample": i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
+            gen_rows = [{"Sample": index_start + i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
 
             if self.target_level >= TargetLevel.mapped:
                 target_preds, freeform_preds = map_targets(self.fast_text,
@@ -107,7 +110,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                                                            all_texts,
                                                            sample_inds,
                                                            self.related_threshold)
-                map_rows = [{"Sample": i,
+                map_rows = [{"Sample": i + index_start,
                     "Generated Target": freeform_pred,
                     "Mapped Target": self.targets[target_pred],
                     "GT Target": str_labels[i]
@@ -117,7 +120,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             assert hasattr(prediction, "target_preds")
             target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
             # Pretend like we "generated" the targets, even though we actually only classified them
-            gen_rows = [{"Sample": i,
+            gen_rows = [{"Sample": i + index_start,
                 "Generated Target": pred,
                 "GT Target": str_labels[i]} for i, pred in enumerate(str_labels)
             ]
@@ -130,3 +133,4 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         if map_rows is not None:
             with self.__get_map_writer(dataloader_idx) as writer:
                 writer.writerows(map_rows)
+        self.__sample_counter[dataloader_idx] += len(target_labels)
