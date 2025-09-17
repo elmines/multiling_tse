@@ -44,31 +44,12 @@ then
     do
         python -m mtse fit \
             -c configs/base/li_target_generator.yaml \
-            --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
             --seed_everything $seed 
     done
 else
     echo "Skipping target fitting"
-fi
-
-if [ $TARGET_TEST -eq 1 ]
-then
-    for seed in $SEEDS
-    do
-        python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --model.predict_targets true \
-            --data configs/data/li_tc_test.yaml \
-            --trainer.logger.version seed${seed}_target_test \
-            --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
-            $EXTRA_ARGS
-    done
-else
-    echo "Skipping target testing"
 fi
 
 if [ $TARGET_PRED -eq 1 ]
@@ -78,15 +59,44 @@ then
         version=seed${seed}_target_predict
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --return_predictions false \
             --model.predict_targets true \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+            --trainer.callbacks.embeddings_path $(embed_path $seed) \
+            --trainer.callbacks.targets_path static/li_merged_targets.txt \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
     echo "Skipping target prediction"
+fi
+
+if [ $TARGET_TEST -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        # 2..6 is for the five partitions of the test set we're evaluating (SE, AM, COVID, PStance, Unrelated)
+        csv_paths=$(
+            readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_predict/target_preds.{2..6}.txt);
+            IFS=,;
+            echo "[${preds_array[*]}]"
+        )
+        python -m mtse test \
+            --model mtse.modules.PassthroughModule \
+            --data mtse.data.TargetPredictionDataModule \
+            --data.targets_path static/li_merged_targets.txt \
+            --data.csv_paths $csv_paths \
+            --trainer.logger lightning.pytorch.loggers.CSVLogger \
+            $LOGGER_ARGS \
+            --trainer.logger.version seed${seed}_target_test \
+            --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
+            $EXTRA_ARGS
+    done
+else
+    echo "Skipping target testing"
 fi
 
 if [ $STANCE_FIT -eq 1 ]
