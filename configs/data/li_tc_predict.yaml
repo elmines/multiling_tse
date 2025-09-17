@@ -10,3 +10,23 @@ init_args:
       init_args:
         path: data/li_tse/raw_test_all_onecol.csv
         corpus_type: 'li'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/test_semeval.csv
+        corpus_type: 'li'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/test_am.csv
+        corpus_type: 'li'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/test_covid.csv
+        corpus_type: 'li'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/test_pstance.csv
+        corpus_type: 'li'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/li_tse/test_unrelated.csv
+        corpus_type: 'li'

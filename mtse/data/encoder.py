@@ -47,6 +47,12 @@ class Encoder(abc.ABC):
     def collate(self, samples: List[TensorDict]) -> TensorDict:
         pass
 
+class NoopEncoder(Encoder):
+    def _encode(self, *args, **kwargs):
+        return {}
+    def collate(self, *args, **kwargs):
+        return {}
+
 def try_add_position_ids(encoding: TensorDict):
     if 'position_ids' not in encoding:
         encoding['position_ids'] = torch.arange(encoding['input_ids'].numel()).unsqueeze(0)

@@ -100,10 +100,12 @@ then
         version=seed${seed}_target_predict
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+            --return_predictions false \
             --data configs/data/li_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+            --trainer.callbacks.targets_path static/li_merged_targets.txt \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
     done

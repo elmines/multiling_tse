@@ -1,6 +1,8 @@
 # STL
 from __future__ import annotations
+import pdb
 import pathlib
+import csv
 # 3rd Party
 import random
 import torch
@@ -16,6 +18,7 @@ from .transforms import Transform
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
 from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
+from ..modules.mixins import TargetMixin
 
 class BaseDataModule(L.LightningDataModule):
     """
@@ -38,6 +41,49 @@ class BaseDataModule(L.LightningDataModule):
         self._encoder = enc
         for t in self.transforms:
             self._encoder.add_transform(t)
+
+class TargetPredictionDataModule(BaseDataModule):
+    """
+    Only reads a CSV file of target predictions.
+    Meant for use with the PassthroughModule
+    """
+    def __init__(self,
+                 targets_path: pathlib.Path,
+                 csv_paths: List[pathlib.Path]):
+        super().__init__()
+        # Inheriting from the TargetMixin breaks the super()
+        # calls in L.LightningDataModule and its ancestors
+        # Hence we use composition here instead
+        target_mixin = TargetMixin(targets_path)
+        self.targets = target_mixin.targets
+
+        self.csv_paths = csv_paths
+        self.datasets = []
+
+    def prepare_data(self):
+        self.datasets.clear()
+        for path in self.csv_paths:
+            with open(path, 'r') as r:
+                reader = csv.DictReader(r)
+                rows = list(reader)
+            samples = []
+            for row in rows:
+                samples.append({
+                    "target":      torch.tensor(self.targets.index(row['GT Target'])),
+                    "target_preds": torch.tensor(self.targets.index(row['Mapped Target']))
+                })
+            self.datasets.append(MapDataset(samples))
+    
+    def _dataloaders(self) -> List[torch.utils.data.DataLoader]:
+        return [
+            torch.utils.data.DataLoader(ds,
+                                        batch_size=1024,
+                                        collate_fn=torch.utils.data.default_collate) for ds in self.datasets]
+
+    def predict_dataloader(self):
+        return self._dataloaders()
+    def test_dataloader(self):
+        return self._dataloaders()
 
 class PredictDataModule(BaseDataModule):
     def __init__(self,
