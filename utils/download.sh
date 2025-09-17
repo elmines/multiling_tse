@@ -7,6 +7,18 @@ then
 fi
 cd $store_dir
 
+# it, Sardinia Referendum
+wget -O temp.zip https://github.com/mirkolai/evalita-sardistance/raw/refs/heads/master/sardistance-encrypted.zip
+# Password prompt
+unzip temp.zip development/TRAIN.csv && mv development/TRAIN.csv it_sardinia_train.csv && rm -r development
+rm -r temp.zip
+wget -O it_sardinia_test_labels.csv https://github.com/mirkolai/evalita-sardistance/raw/refs/heads/master/gold/TEST-GOLD.csv
+wget -O temp.zip https://github.com/mirkolai/evalita-sardistance/raw/refs/heads/master/data/TEST.zip
+# Password prompt
+unzip temp.zip
+mv TEST.csv it_sardinia_test.csv
+rm temp.zip
+
 # cs, Smoking & President Zeman dataset
 curl -L https://corpora.kiv.zcu.cz/sentiment/CzechStanceDetection-v2.0.zip -o temp.zip
 unzip -o temp.zip 'smoking-gold.*' 'zeman.*' 
