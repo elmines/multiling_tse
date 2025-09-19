@@ -13,7 +13,8 @@ dependencies = [
     "wordninja",
     "tweet-preprocessor",
     "gensim",
-    "torch-scatter"
+    "torch-scatter",
+    "lingua-language-detector"
 ]
 [tool.setuptools.packages.find]
 include =["mtse*"]
