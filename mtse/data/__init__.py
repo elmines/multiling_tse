@@ -6,3 +6,4 @@ from .corpus import *
 from .encoder import *
 from .dataset import *
 from .data_modules import *
+from .target_pred import *
