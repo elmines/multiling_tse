@@ -1,11 +1,14 @@
 #!/bin/bash
 
-store_dir=data/multiling/raw/ 
+store_dir=$(dirname $0)/../data/multiling/raw/ 
 if [ ! -e $store_dir ] 
 then
     mkdir $store_dir
 fi
 cd $store_dir
+
+# zh, C-Stance (for Unrelated data)
+wget -O zh_cstance.csv https://github.com/chenyez/C-STANCE/raw/refs/heads/main/c_stance_dataset/subtaskA/raw_train_all_onecol.csv
 
 # it, Sardinia Referendum
 wget -O temp.zip https://github.com/mirkolai/evalita-sardistance/raw/refs/heads/master/sardistance-encrypted.zip
