@@ -4,6 +4,7 @@ import csv
 from contextlib import contextmanager
 from typing import Optional
 from collections import defaultdict
+import typing
 from typing import List
 # 3rd Party
 import torch
@@ -14,6 +15,7 @@ from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from ..modules.mixins import TargetMixin
 from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
+from ..data.target_pred import TargetPred
 
 @enum.unique
 class TargetLevel(enum.IntEnum):
@@ -105,8 +107,12 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         gen_rows = None
         map_rows = None
-        if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
-            all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+        if not hasattr(prediction, "target_preds"):
+            if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
+                all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+            else:
+                all_texts: List[str] = prediction.target_gens
+                sample_inds: torch.Tensor = prediction.sample_inds.detach().cpu().tolist()
             gen_rows = [{"Sample": index_start + i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
 
             if self.target_level >= TargetLevel.mapped:
@@ -129,16 +135,20 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                     } for i, (freeform_pred, target_pred) in enumerate(zip(freeform_preds, target_preds))
                 ]
         else:
-            assert hasattr(prediction, "target_preds")
+            # If we have target_preds, the mapping should already be done
             target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
-            # Pretend like we "generated" the targets, even though we actually only classified them
+            if hasattr(prediction, "target_gens"):
+                target_gens = prediction.target_gens
+            else:
+                # Pretend like we "generated" the targets by just copypasting the final predictions
+                target_gens = [self.targets[pred] for pred in target_preds]
             gen_rows = [{"Sample": i + index_start,
-                "Generated Target": pred,
-                "GT Target": str_labels[i]} for i, pred in enumerate(str_labels)
+                "Generated Target": gen,
+                "GT Target": str_labels[i]} for i, gen in enumerate(target_gens)
             ]
             if self.target_level >= TargetLevel.mapped:
-                # For TC, just copypaste the 
-                map_rows = [{"Mapped Target": row["Generated Target"], **row} for row in gen_rows]
+                map_rows = [{"Mapped Target": pred, **row} for pred, row in zip(target_preds, gen_rows)]
+
         if gen_rows is not None:
             with self.__get_gen_writer(dataloader_idx) as writer:
                 writer.writerows(gen_rows)

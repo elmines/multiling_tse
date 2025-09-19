@@ -81,10 +81,10 @@ def main(raw_args=None):
         translator = get_translator()
         for src_lang, in_path, out_path in zip(langs, in_paths, out_paths):
             target_preds = list(tqdm(parse_target_preds(in_path), desc=f"Parsing {in_path}"))
-            texts = [pred.generated_target for pred in target_preds]
+            texts = [pred.generated_targets for pred in target_preds]
             translations = translate(translator, texts, src_lang)
             for (p, translation) in zip(target_preds, translations):
-                p.generated_target = translation
+                p.generated_targets = translation
             write_target_preds(out_path, tqdm(target_preds, desc=f"Writing to {out_path}"))
 
 

@@ -3,7 +3,7 @@ ALL=${ALL:-0}
 FT_EMBED=0
 TARGET_FIT=${TARGET_FIT:-$ALL}
 TARGET_TEST=0
-TARGET_PRED=${TARGET_PRED:-$ALL}
+TARGET_GEN=${TARGET_GEN:-$ALL}
 TARGET_TRANSLATE=0
 STANCE_FIT=0
 STANCE_TEST=0
@@ -53,7 +53,7 @@ else
     echo "Skipping target fitting"
 fi
 
-if [ $TARGET_PRED -eq 1 ]
+if [ $TARGET_GEN -eq 1 ]
 then
     for seed in $SEEDS
     do
@@ -68,7 +68,7 @@ then
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
-    echo "Skipping target prediction"
+    echo "Skipping target generation"
 fi
 
 if [ $TARGET_TEST -eq 1 ]
