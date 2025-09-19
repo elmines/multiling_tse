@@ -1,0 +1,52 @@
+class_path: mtse.data.PredictDataModule
+init_args:
+  corpora:
+
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/ca_unrelated_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/ca_independence_val.csv
+        corpus_type: 'standard'
+
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/es_unrelated_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/es_independence_val.csv
+        corpus_type: 'standard'
+
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/fr_unrelated_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/fr_lepen_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/fr_macron_val.csv
+        corpus_type: 'standard'
+
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/it_unrelated_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/it_sardinia_val.csv
+        corpus_type: 'standard'
+
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/zh_unrelated_val.csv
+        corpus_type: 'standard'
+    - class_path: mtse.data.StanceCorpus
+      init_args:
+        path: data/multiling/zh_nlpcc_val.csv
+        corpus_type: 'standard'
