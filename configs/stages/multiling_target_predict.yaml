@@ -1,0 +1,64 @@
+return_predictions: false
+trainer:
+  callbacks:
+    - class_path: mtse.callbacks.TargetPredictionWriter
+      init_args:
+        targets_path: static/li_merged_targets.txt
+        target_level: generated
+        # Must supply out_dir at CLI
+        # Must supply embeddings_path at CLI
+model:
+  predict_targets: true
+data:
+  class_path: mtse.data.PredictDataModule
+  init_args:
+    corpora:
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/ca_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/ca_independence_val.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/es_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/es_independence_val.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/fr_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/fr_lepen_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/fr_macron_val.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/it_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/it_sardinia_val.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/zh_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/zh_nlpcc_val.csv
+          corpus_type: 'standard'

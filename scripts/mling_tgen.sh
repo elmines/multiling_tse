@@ -58,17 +58,13 @@ then
     for seed in $SEEDS
     do
         version=seed${seed}_target_predict
+
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --return_predictions false \
-            --model.predict_targets true \
-            --data configs/data/multiling_target_predict.yaml \
+            -c configs/stages/multiling_target_predict.yaml \
             --trainer.logger.version $version \
-            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.targets_path static/li_merged_targets.txt \
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --trainer.callbacks.target_level generated \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
