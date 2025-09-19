@@ -7,6 +7,18 @@ trainer:
         target_level: generated
         # Must supply out_dir at CLI
         # Must supply embeddings_path at CLI
+        dataloader_labels:
+          - ca_unrelated
+          - ca_independence
+          - es_unrelated
+          - es_independence
+          - fr_unrelated
+          - fr_lepen
+          - fr_macron
+          - it_unrelated
+          - it_sardinia
+          - zh_unrelated
+          - zh_nlpcc
 model:
   predict_targets: true
 data:

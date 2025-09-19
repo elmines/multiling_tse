@@ -4,6 +4,7 @@ import csv
 from contextlib import contextmanager
 from typing import Optional
 from collections import defaultdict
+from typing import List
 # 3rd Party
 import torch
 from lightning.pytorch.callbacks import BasePredictionWriter
@@ -28,11 +29,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                  embeddings_path: Optional[os.PathLike] = None,
                  target_level: TargetLevel = TargetLevel.mapped,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
+                 dataloader_labels: Optional[List[str]] = None
                  ):
         BasePredictionWriter.__init__(self, write_interval='batch')
         TargetMixin.__init__(self, targets_path)
         self.out_dir = out_dir
         self.target_level = target_level
+        self.dataloader_labels = dataloader_labels or []
 
         self.related_threshold = related_threshold
         if embeddings_path is not None:
@@ -75,16 +78,18 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 pass
 
     def __get_gen_writer(self, dataloader_idx):
+        label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_gens.{dataloader_idx}.txt"),
+            os.path.join(self.out_dir, f"target_gens.{label}.txt"),
             self.__gen_fieldnames,
             dataloader_idx,
             "target_gen"
         )
 
     def __get_map_writer(self, dataloader_idx):
+        label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_preds.{dataloader_idx}.txt"),
+            os.path.join(self.out_dir, f"target_preds.{label}.txt"),
             self.__map_fieldnames,
             dataloader_idx,
             "target_pred"
