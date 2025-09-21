@@ -146,11 +146,12 @@ if [ $TARGET_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        # 2..6 is for the five partitions of the test set we're evaluating (SE, AM, COVID, PStance, Unrelated)
-        csv_paths=$(
-            readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*.txt);
-            IFS=,;
-            echo "[${preds_array[*]}]"
+        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*)
+        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
+        dataloader_labels=$(
+            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $(basename $f) | cut -d. -f2; done)
+            IFS=,
+            echo "[${label_array[*]}]"
         )
 
         python -m mtse test \
@@ -163,7 +164,7 @@ then
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes $((1 + $(wc -l < static/multiling_targets.txt) )) \
-            $EXTRA_ARGS
+            --trainer.callbacks.dataloader_labels $dataloader_labels
     done
 else
     echo "Skipping target testing"

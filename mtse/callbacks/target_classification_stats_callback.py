@@ -1,5 +1,6 @@
 # STL
 from collections import defaultdict
+from typing import Optional, List
 # 3rd Party
 import torch
 from lightning.pytorch.callbacks import Callback
@@ -20,8 +21,12 @@ def _compute_corpus_metrics(tp, fp, fn):
 
 class TargetClassificationStatsCallback(Callback):
 
-    def __init__(self, n_classes: int):
+    def __init__(self,
+                 n_classes: int,
+                 dataloader_labels: Optional[List[str]] = None
+                 ):
         self.n_classes = n_classes
+        self.dataloader_labels = dataloader_labels or []
         self.__stats_by_corp = defaultdict(lambda: self.__empty_stats())
 
     def __reset(self):
@@ -64,6 +69,8 @@ class TargetClassificationStatsCallback(Callback):
         else:
             for (dataloader_idx, corp_stats) in stats_by_corp.items():
                 macro_f1, micro_f1 = _compute_corpus_metrics(*corp_stats.transpose(1, 0))
+                if dataloader_idx < len(self.dataloader_labels):
+                    dataloader_idx = self.dataloader_labels[dataloader_idx]
                 results[f'macro_f1/{dataloader_idx}'] = macro_f1
                 results[f'micro_f1/{dataloader_idx}'] = micro_f1
             global_stats = sum(stats_by_corp.values())
