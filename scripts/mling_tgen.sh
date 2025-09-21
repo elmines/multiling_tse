@@ -4,7 +4,7 @@ FT_EMBED=0
 TARGET_FIT=${TARGET_FIT:-$ALL}
 TARGET_TEST=0
 TARGET_GEN=${TARGET_GEN:-$ALL}
-TARGET_TRANSLATE=0
+TARGET_TRANS=${TARGET_TRANS:-$ALL}
 STANCE_FIT=0
 STANCE_TEST=0
 TSE_TEST=0
@@ -21,6 +21,14 @@ LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME
 
 
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
+
+function extract_langs
+{
+    for in_path in $@
+    do
+        echo $in_path | sed -E 's/.*target_gens\.([a-z]{2})_.*/\1/'
+    done
+}
 
 if [ $FT_EMBED -eq 1 ]
 then
@@ -57,11 +65,11 @@ if [ $TARGET_GEN -eq 1 ]
 then
     for seed in $SEEDS
     do
-        version=seed${seed}_target_predict
+        version=seed${seed}_target_gen
 
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            -c configs/stages/multiling_target_predict.yaml \
+            -c configs/stages/multiling_target_gen.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
@@ -69,6 +77,32 @@ then
     done
 else
     echo "Skipping target generation"
+fi
+
+if [ $TARGET_TRANS -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        gen_dir=$LOGS_ROOT/seed${seed}_target_gen
+        readarray -t in_files < <(ls -d $gen_dir/target_gens*)
+        readarray -t in_langs < <(extract_langs ${in_files[@]})
+
+        out_dir=$LOGS_ROOT/seed${seed}_target_translate
+        if [ -e $out_dir ]
+        then
+            echo Not overwriting existing $out_dir
+            exit 1
+        fi
+        mkdir $out_dir
+        readarray -t out_paths < <(for f in ${in_files[@]}; do echo $out_dir/$(basename $f); done) 
+
+        python -m mtse.translate pred \
+            -i ${in_files[@]} \
+            --lang ${in_langs[@]} \
+            -o ${out_paths[@]}
+    done
+else
+    echo "Skipping target translation"
 fi
 
 if [ $TARGET_TEST -eq 1 ]
