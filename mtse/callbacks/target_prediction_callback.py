@@ -110,10 +110,17 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         if not hasattr(prediction, "target_preds"):
             if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
                 all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+                zerobased_inds = torch.tensor(sample_inds)
+                sample_inds = [sind + index_start for sind in sample_inds]
             else:
                 all_texts: List[str] = prediction.target_gens
-                sample_inds: torch.Tensor = prediction.sample_inds.detach().cpu().tolist()
-            gen_rows = [{"Sample": index_start + i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
+                zerobased_inds = prediction.sample_inds - torch.min(prediction.sample_inds)
+                sample_inds = prediction.sample_inds.detach().cpu().tolist()
+            gen_rows = [
+                {"Sample": sind,
+                 "Generated Target": text,
+                 "GT Target": str_labels[zind]
+            } for zind, sind, text in zip(zerobased_inds, sample_inds, all_texts)]
 
             if self.target_level >= TargetLevel.mapped:
                 if self.fast_text is None or self.__target_embeddings is None:
@@ -126,13 +133,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 target_preds, freeform_preds = map_targets(self.fast_text,
                                                            self.__target_embeddings,
                                                            all_texts,
-                                                           sample_inds,
+                                                           zerobased_inds,
                                                            self.related_threshold)
-                map_rows = [{"Sample": i + index_start,
+                map_rows = [{"Sample": sind,
                     "Generated Target": freeform_pred,
                     "Mapped Target": self.targets[target_pred],
                     "GT Target": str_labels[i]
-                    } for i, (freeform_pred, target_pred) in enumerate(zip(freeform_preds, target_preds))
+                    } for i, (sind, freeform_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, target_preds))
                 ]
         else:
             # If we have target_preds, the mapping should already be done

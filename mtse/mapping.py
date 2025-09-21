@@ -45,11 +45,10 @@ def detokenize_generated_targets(generate_output: GenerateBeamEncoderDecoderOutp
 def map_targets(fast_text: FastText,
                 target_embeddings: torch.Tensor,
                 all_texts: List[str],
-                sample_inds: List[int],
+                sample_inds: torch.Tensor,
                 related_threshold: float) -> Tuple[torch.Tensor, List[str]]:
     device = target_embeddings.device
 
-    sample_inds = torch.tensor(sample_inds, dtype=torch.long, device=device)
     output_embeddings = fast_text.wv[all_texts]
     output_embeddings = torch.tensor(output_embeddings).to(device)
     output_embeddings = output_embeddings / torch.linalg.norm(output_embeddings, keepdim=True, dim=1)

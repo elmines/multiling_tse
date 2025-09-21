@@ -76,7 +76,7 @@ class TargetPredictionDataModule(BaseDataModule):
                     s["target_preds"] = torch.tensor(self.targets.index(pred.mapped_target))
                 if self.with_generated:
                     s['target_gens'] = pred.generated_targets
-                    s["sample_inds"] = torch.full(pred.sample_id, len(pred.generated_targets))
+                    s["sample_inds"] = torch.full((len(pred.generated_targets),), pred.sample_id)
                 samples.append(s)
             self.datasets.append(MapDataset(samples))
 

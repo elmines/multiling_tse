@@ -11,6 +11,8 @@ class DotDict:
         self._data = data
 
     def __getattr__(self, name):
+        if name not in self._data:
+            raise AttributeError(f'Field "{name}" not in DotDict')
         return self._data[name]
 
 class PassthroughModule(BaseModule):

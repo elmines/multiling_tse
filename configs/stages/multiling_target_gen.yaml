@@ -3,7 +3,7 @@ trainer:
   callbacks:
     - class_path: mtse.callbacks.TargetPredictionWriter
       init_args:
-        targets_path: static/li_merged_targets.txt
+        targets_path: static/multiling_targets.txt
         target_level: generated
         # Must supply out_dir at CLI
         # Must supply embeddings_path at CLI
