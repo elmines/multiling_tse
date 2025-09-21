@@ -2,10 +2,10 @@
 ALL=${ALL:-0}
 FT_EMBED=0
 TARGET_FIT=${TARGET_FIT:-$ALL}
-TARGET_TEST=0
 TARGET_GEN=${TARGET_GEN:-$ALL}
 TARGET_TRANS=${TARGET_TRANS:-$ALL}
 TARGET_MAP=${TARGET_MAP:-$ALL}
+TARGET_TEST=${TARGET_TEST:-$ALL}
 STANCE_FIT=0
 STANCE_TEST=0
 TSE_TEST=0
@@ -148,20 +148,21 @@ then
     do
         # 2..6 is for the five partitions of the test set we're evaluating (SE, AM, COVID, PStance, Unrelated)
         csv_paths=$(
-            readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_predict/target_preds.{2..6}.txt);
+            readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*.txt);
             IFS=,;
             echo "[${preds_array[*]}]"
         )
+
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/li_merged_targets.txt \
+            --data.targets_path static/multiling_targets.txt \
             --data.csv_paths $csv_paths \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/multiling_targets.txt) )) \
             $EXTRA_ARGS
     done
 else
