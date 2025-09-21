@@ -23,6 +23,15 @@ class TargetLevel(enum.IntEnum):
     generated = 1
     mapped = 2
 
+def unique_consecutive(seq):
+    if not seq:
+        return
+    yield seq[0]
+    last = seq[0]
+    for i in range(1, len(seq)):
+        if seq[i] != last:
+            yield seq[i]
+            last = seq[i]
 
 class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __init__(self,
@@ -135,6 +144,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                                                            all_texts,
                                                            zerobased_inds,
                                                            self.related_threshold)
+                sample_inds = unique_consecutive(sample_inds)
                 map_rows = [{"Sample": sind,
                     "Generated Target": freeform_pred,
                     "Mapped Target": self.targets[target_pred],

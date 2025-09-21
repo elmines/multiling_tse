@@ -118,6 +118,7 @@ then
             IFS=,
             echo "[${label_array[*]}]"
         )
+        version=seed${seed}_target_map
 
         python -m mtse predict \
             --seed_everything $seed \
@@ -128,13 +129,14 @@ then
             --data.with_generated true \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target_map \
+            --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --trainer.callbacks.targets_path static/multiling_targets.txt \
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
             --trainer.callbacks.target_level mapped \
-            --trainer.callbacks.dataloader_labels $dataloader_labels
+            --trainer.callbacks.dataloader_labels $dataloader_labels \
+            --trainer.callbacks.related_threshold 0.35
     done
 else
     echo "Skipping target mapping"
