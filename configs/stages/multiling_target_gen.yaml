@@ -12,6 +12,8 @@ trainer:
           - ca_independence
           - es_unrelated
           - es_independence
+          - et_unrelated
+          - et_immigration
           - fr_unrelated
           - fr_lepen
           - fr_macron
@@ -42,6 +44,15 @@ data:
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/multiling/es_independence_val.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/et_unrelated_val.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/et_immigration_val.csv
           corpus_type: 'standard'
 
       - class_path: mtse.data.StanceCorpus
