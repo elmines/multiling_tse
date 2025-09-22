@@ -137,6 +137,8 @@ then
             --trainer.callbacks.target_level mapped \
             --trainer.callbacks.dataloader_labels $dataloader_labels \
             --trainer.callbacks.related_threshold 0.35
+
+        $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/seed${seed}_full_target_preds.csv $seed
     done
 else
     echo "Skipping target mapping"
