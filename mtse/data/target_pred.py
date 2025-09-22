@@ -29,8 +29,9 @@ def parse_target_preds(in_path) -> Generator[TargetPred, None, None]:
                     if mapped_target:
                         kwargs['mapped_target'] = mapped_target
                 cur_pred = TargetPred(**kwargs)
+                last_sample_id = sample_id
             else:
-                cur_pred.generated_targets(row['Generated Target'])
+                cur_pred.generated_targets.append(row['Generated Target'])
         if cur_pred is not None:
             yield cur_pred
 

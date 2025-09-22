@@ -87,7 +87,7 @@ class TargetPredictionDataModule(BaseDataModule):
             encoding['target_preds'] = keyed_scalar_stack(samples, 'target_preds')
         if 'target_gens' in samples[0]:
             encoding['target_gens'] = functools.reduce(lambda accum, el: accum + el, map(lambda x: x['target_gens'], samples))
-            encoding['sample_inds'] = keyed_scalar_stack(samples, "sample_inds")
+            encoding['sample_inds'] = torch.concatenate([s['sample_inds'] for s in samples])
         return encoding
     
     def _dataloaders(self) -> List[torch.utils.data.DataLoader]:
