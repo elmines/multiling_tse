@@ -1,4 +1,5 @@
 # STL
+import pdb
 import argparse
 import pathlib
 from typing import List, Optional
@@ -81,10 +82,15 @@ def main(raw_args=None):
         translator = get_translator()
         for src_lang, in_path, out_path in zip(langs, in_paths, out_paths):
             target_preds = list(tqdm(parse_target_preds(in_path), desc=f"Parsing {in_path}"))
-            texts = [pred.generated_target for pred in target_preds]
+            texts = []
+            sample_inds: List[int] = []
+            for i, pred in enumerate(target_preds):
+                texts.extend(pred.generated_targets)
+                sample_inds.extend(i for _ in pred.generated_targets)
+                pred.generated_targets.clear()
             translations = translate(translator, texts, src_lang)
-            for (p, translation) in zip(target_preds, translations):
-                p.generated_target = translation
+            for (sample_ind, translation) in zip(sample_inds, translations):
+                target_preds[sample_ind].generated_targets.append(translation)
             write_target_preds(out_path, tqdm(target_preds, desc=f"Writing to {out_path}"))
 
 

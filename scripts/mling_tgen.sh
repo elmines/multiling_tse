@@ -2,9 +2,10 @@
 ALL=${ALL:-0}
 FT_EMBED=0
 TARGET_FIT=${TARGET_FIT:-$ALL}
-TARGET_TEST=0
-TARGET_PRED=${TARGET_PRED:-$ALL}
-TARGET_TRANSLATE=0
+TARGET_GEN=${TARGET_GEN:-$ALL}
+TARGET_TRANS=${TARGET_TRANS:-$ALL}
+TARGET_MAP=${TARGET_MAP:-$ALL}
+TARGET_TEST=${TARGET_TEST:-$ALL}
 STANCE_FIT=0
 STANCE_TEST=0
 TSE_TEST=0
@@ -21,6 +22,14 @@ LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME
 
 
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
+
+function extract_langs
+{
+    for in_path in $@
+    do
+        echo $in_path | sed -E 's/.*target_gens\.([a-z]{2})_.*/\1/'
+    done
+}
 
 if [ $FT_EMBED -eq 1 ]
 then
@@ -53,45 +62,111 @@ else
     echo "Skipping target fitting"
 fi
 
-if [ $TARGET_PRED -eq 1 ]
+if [ $TARGET_GEN -eq 1 ]
 then
     for seed in $SEEDS
     do
-        version=seed${seed}_target_predict
+        version=seed${seed}_target_gen
 
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            -c configs/stages/multiling_target_predict.yaml \
+            -c configs/stages/multiling_target_gen.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
-    echo "Skipping target prediction"
+    echo "Skipping target generation"
+fi
+
+if [ $TARGET_TRANS -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+        gen_dir=$LOGS_ROOT/seed${seed}_target_gen
+        readarray -t in_files < <(ls -d $gen_dir/target_gens*)
+        readarray -t in_langs < <(extract_langs ${in_files[@]})
+
+        out_dir=$LOGS_ROOT/seed${seed}_target_translate
+        if [ -e $out_dir ]
+        then
+            echo Not overwriting existing $out_dir
+            exit 1
+        fi
+        mkdir $out_dir
+        readarray -t out_paths < <(for f in ${in_files[@]}; do echo $out_dir/$(basename $f); done) 
+
+        python -m mtse.translate pred \
+            -i ${in_files[@]} \
+            --lang ${in_langs[@]} \
+            -o ${out_paths[@]}
+    done
+else
+    echo "Skipping target translation"
+fi
+
+if [ $TARGET_MAP -eq 1 ]
+then
+    for seed in $SEEDS
+    do
+
+        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_translate/target_gens.*)
+        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
+        dataloader_labels=$(
+            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $f | cut -d. -f2; done)
+            IFS=,
+            echo "[${label_array[*]}]"
+        )
+        version=seed${seed}_target_map
+
+        python -m mtse predict \
+            --seed_everything $seed \
+            --model mtse.modules.PassthroughModule \
+            --data mtse.data.TargetPredictionDataModule \
+            --data.targets_path static/multiling_targets.txt \
+            --data.csv_paths $csv_paths \
+            --data.with_generated true \
+            --trainer.logger lightning.pytorch.loggers.CSVLogger \
+            $LOGGER_ARGS \
+            --trainer.logger.version $version \
+            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+            --trainer.callbacks.targets_path static/multiling_targets.txt \
+            --trainer.callbacks.embeddings_path $(embed_path $seed) \
+            --trainer.callbacks.target_level mapped \
+            --trainer.callbacks.dataloader_labels $dataloader_labels \
+            --trainer.callbacks.related_threshold 0.35
+
+        $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/seed${seed}_full_target_preds.csv $seed
+    done
+else
+    echo "Skipping target mapping"
 fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        # 2..6 is for the five partitions of the test set we're evaluating (SE, AM, COVID, PStance, Unrelated)
-        csv_paths=$(
-            readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_predict/target_preds.{2..6}.txt);
-            IFS=,;
-            echo "[${preds_array[*]}]"
+        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*)
+        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
+        dataloader_labels=$(
+            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $(basename $f) | cut -d. -f2; done)
+            IFS=,
+            echo "[${label_array[*]}]"
         )
+
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/li_merged_targets.txt \
+            --data.targets_path static/multiling_targets.txt \
             --data.csv_paths $csv_paths \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
-            $EXTRA_ARGS
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/multiling_targets.txt) )) \
+            --trainer.callbacks.dataloader_labels $dataloader_labels
     done
 else
     echo "Skipping target testing"

@@ -1,9 +1,11 @@
 import os
+import sys
 import enum
 import csv
 from contextlib import contextmanager
 from typing import Optional
 from collections import defaultdict
+import typing
 from typing import List
 # 3rd Party
 import torch
@@ -14,6 +16,7 @@ from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from ..modules.mixins import TargetMixin
 from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
+from ..data.target_pred import TargetPred
 
 @enum.unique
 class TargetLevel(enum.IntEnum):
@@ -21,6 +24,15 @@ class TargetLevel(enum.IntEnum):
     generated = 1
     mapped = 2
 
+def unique_consecutive(seq):
+    if not seq:
+        return
+    yield seq[0]
+    last = seq[0]
+    for i in range(1, len(seq)):
+        if seq[i] != last:
+            yield seq[i]
+            last = seq[i]
 
 class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __init__(self,
@@ -105,9 +117,20 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         gen_rows = None
         map_rows = None
-        if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
-            all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
-            gen_rows = [{"Sample": index_start + i, "Generated Target": text, "GT Target": str_labels[i]} for i,text in zip(sample_inds, all_texts) ]
+        if not hasattr(prediction, "target_preds"):
+            if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
+                all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
+                zerobased_inds = torch.tensor(sample_inds, device=pl_module.device)
+                sample_inds = [sind + index_start for sind in sample_inds]
+            else:
+                all_texts: List[str] = prediction.target_gens
+                zerobased_inds = prediction.sample_inds - torch.min(prediction.sample_inds)
+                sample_inds = prediction.sample_inds.detach().cpu().tolist()
+            gen_rows = [
+                {"Sample": sind,
+                 "Generated Target": text,
+                 "GT Target": str_labels[zind]
+            } for zind, sind, text in zip(zerobased_inds, sample_inds, all_texts)]
 
             if self.target_level >= TargetLevel.mapped:
                 if self.fast_text is None or self.__target_embeddings is None:
@@ -120,25 +143,37 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 target_preds, freeform_preds = map_targets(self.fast_text,
                                                            self.__target_embeddings,
                                                            all_texts,
-                                                           sample_inds,
+                                                           zerobased_inds,
                                                            self.related_threshold)
-                map_rows = [{"Sample": i + index_start,
+                sample_inds = unique_consecutive(sample_inds)
+                map_rows = [{"Sample": sind,
                     "Generated Target": freeform_pred,
                     "Mapped Target": self.targets[target_pred],
                     "GT Target": str_labels[i]
-                    } for i, (freeform_pred, target_pred) in enumerate(zip(freeform_preds, target_preds))
+                    } for i, (sind, freeform_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, target_preds))
                 ]
         else:
-            assert hasattr(prediction, "target_preds")
-            target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
-            # Pretend like we "generated" the targets, even though we actually only classified them
-            gen_rows = [{"Sample": i + index_start,
+            if hasattr(prediction, "target_gens"):
+                print(f"Warning: Skipping logging of target_gens for dataloader {dataloader_idx}", file=sys.stderr)
+            if self.target_level < TargetLevel.mapped:
+                return
+
+            # If we have target_preds, the mapping has already been done
+            # For simplicity, ignore any target_gen fields
+            target_preds = [self.targets[p] for p in prediction.target_preds.flatten().detach().cpu().tolist()]
+
+            if hasattr(prediction, "sample_inds"):
+                sample_inds = prediction.sample_inds
+            else:
+                sample_inds = torch.arange(0, len(target_preds))
+            sample_inds = unique_consecutive(sample_inds.detach().cpu().tolist())
+            map_rows = [{
+                "Sample": sind,
                 "Generated Target": pred,
-                "GT Target": str_labels[i]} for i, pred in enumerate(str_labels)
-            ]
-            if self.target_level >= TargetLevel.mapped:
-                # For TC, just copypaste the 
-                map_rows = [{"Mapped Target": row["Generated Target"], **row} for row in gen_rows]
+                "Mapped Target": pred,
+                "GT Target": str_labels[i]
+                } for i, (sind, pred) in enumerate(zip(sample_inds, target_preds))]
+
         if gen_rows is not None:
             with self.__get_gen_writer(dataloader_idx) as writer:
                 writer.writerows(gen_rows)

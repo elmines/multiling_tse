@@ -1,5 +1,6 @@
 # STL
 from __future__ import annotations
+import functools
 import pdb
 import pathlib
 import csv
@@ -12,11 +13,12 @@ import lightning as L
 from tqdm import tqdm
 from typing import Tuple, List, Tuple, Optional
 # Local
-from .encoder import Encoder, PredictTask
+from .encoder import Encoder, PredictTask, keyed_scalar_stack
 from .dataset import MapDataset
 from .transforms import Transform
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
+from .target_pred import parse_target_preds
 from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
 from ..modules.mixins import TargetMixin
 
@@ -49,13 +51,15 @@ class TargetPredictionDataModule(BaseDataModule):
     """
     def __init__(self,
                  targets_path: pathlib.Path,
-                 csv_paths: List[pathlib.Path]):
+                 csv_paths: List[pathlib.Path],
+                 with_generated: bool = False):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
         # calls in L.LightningDataModule and its ancestors
         # Hence we use composition here instead
         target_mixin = TargetMixin(targets_path)
         self.targets = target_mixin.targets
+        self.with_generated = with_generated
 
         self.csv_paths = csv_paths
         self.datasets = []
@@ -63,22 +67,34 @@ class TargetPredictionDataModule(BaseDataModule):
     def prepare_data(self):
         self.datasets.clear()
         for path in self.csv_paths:
-            with open(path, 'r') as r:
-                reader = csv.DictReader(r)
-                rows = list(reader)
             samples = []
-            for row in rows:
-                samples.append({
-                    "target":      torch.tensor(self.targets.index(row['GT Target'])),
-                    "target_preds": torch.tensor(self.targets.index(row['Mapped Target']))
-                })
+            for pred in parse_target_preds(path):
+                s = {
+                    "target": torch.tensor(self.targets.index(pred.gt_target)),
+                }
+                if pred.mapped_target is not None:
+                    s["target_preds"] = torch.tensor(self.targets.index(pred.mapped_target))
+                if self.with_generated:
+                    s['target_gens'] = pred.generated_targets
+                    s["sample_inds"] = torch.full((len(pred.generated_targets),), pred.sample_id)
+                samples.append(s)
             self.datasets.append(MapDataset(samples))
+
+    def _collate(self, samples):
+        encoding = dict()
+        encoding['target'] = keyed_scalar_stack(samples, 'target')
+        if 'target_preds' in samples[0]:
+            encoding['target_preds'] = keyed_scalar_stack(samples, 'target_preds')
+        if 'target_gens' in samples[0]:
+            encoding['target_gens'] = functools.reduce(lambda accum, el: accum + el, map(lambda x: x['target_gens'], samples))
+            encoding['sample_inds'] = torch.concatenate([s['sample_inds'] for s in samples])
+        return encoding
     
     def _dataloaders(self) -> List[torch.utils.data.DataLoader]:
         return [
             torch.utils.data.DataLoader(ds,
                                         batch_size=1024,
-                                        collate_fn=torch.utils.data.default_collate) for ds in self.datasets]
+                                        collate_fn=self._collate) for ds in self.datasets]
 
     def predict_dataloader(self):
         return self._dataloaders()
