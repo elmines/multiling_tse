@@ -184,6 +184,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
             target_preds = batch['target']
         else:
             all_texts, sample_inds = detokenize_generated_targets(generate_output, self.tokenizer)
+            sample_inds = torch.tensor(sample_inds, device=self.device)
             target_preds, _ = map_targets(
                 self.fast_text,
                 self.target_embeddings,
