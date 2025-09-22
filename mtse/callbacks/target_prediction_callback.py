@@ -1,4 +1,5 @@
 import os
+import sys
 import enum
 import csv
 from contextlib import contextmanager
@@ -152,19 +153,26 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                     } for i, (sind, freeform_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, target_preds))
                 ]
         else:
-            # If we have target_preds, the mapping should already be done
-            target_preds = prediction.target_preds.flatten().detach().cpu().tolist()
             if hasattr(prediction, "target_gens"):
-                target_gens = prediction.target_gens
+                print(f"Warning: Skipping logging of target_gens for dataloader {dataloader_idx}", file=sys.stderr)
+            if self.target_level < TargetLevel.mapped:
+                return
+
+            # If we have target_preds, the mapping has already been done
+            # For simplicity, ignore any target_gen fields
+            target_preds = [self.targets[p] for p in prediction.target_preds.flatten().detach().cpu().tolist()]
+
+            if hasattr(prediction, "sample_inds"):
+                sample_inds = prediction.sample_inds
             else:
-                # Pretend like we "generated" the targets by just copypasting the final predictions
-                target_gens = [self.targets[pred] for pred in target_preds]
-            gen_rows = [{"Sample": i + index_start,
-                "Generated Target": gen,
-                "GT Target": str_labels[i]} for i, gen in enumerate(target_gens)
-            ]
-            if self.target_level >= TargetLevel.mapped:
-                map_rows = [{"Mapped Target": pred, **row} for pred, row in zip(target_preds, gen_rows)]
+                sample_inds = torch.arange(0, len(target_preds))
+            sample_inds = unique_consecutive(sample_inds.detach().cpu().tolist())
+            map_rows = [{
+                "Sample": sind,
+                "Generated Target": pred,
+                "Mapped Target": pred,
+                "GT Target": str_labels[i]
+                } for i, (sind, pred) in enumerate(zip(sample_inds, target_preds))]
 
         if gen_rows is not None:
             with self.__get_gen_writer(dataloader_idx) as writer:
