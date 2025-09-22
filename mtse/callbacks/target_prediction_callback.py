@@ -120,7 +120,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         if not hasattr(prediction, "target_preds"):
             if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
                 all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
-                zerobased_inds = torch.tensor(sample_inds)
+                zerobased_inds = torch.tensor(sample_inds, device=pl_module.device)
                 sample_inds = [sind + index_start for sind in sample_inds]
             else:
                 all_texts: List[str] = prediction.target_gens
