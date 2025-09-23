@@ -11,8 +11,7 @@ Run `python3 scripts/split_tse.py` to split the merged TSE corpus into its compo
 ## Keyword Generation Training Data
 
 ```bash
-cd data/kp_times
-./download.sh
+utils/kptimes_prepare.sh
 ```
 
 ## Repo Structure
