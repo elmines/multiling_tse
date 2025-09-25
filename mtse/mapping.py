@@ -29,7 +29,13 @@ def make_target_embeddings(targets: List[str], fast_text: FastText) -> np.ndarra
 def detokenize(tokenizer: PreTrainedTokenizerFast, id_seq: List[int]) -> List[str]:
     full_string = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
     target_names = full_string.split(TARGET_DELIMITER)
-    return target_names
+    pruned = []
+    seen = set()
+    for t in target_names:
+        if t not in seen:
+            pruned.append(t)
+            seen.add(t)
+    return pruned
 
 def detokenize_generated_targets(generate_output: GenerateBeamEncoderDecoderOutput,
                                  tokenizer: PreTrainedTokenizerFast) -> Tuple[List[str], List[int]]:
