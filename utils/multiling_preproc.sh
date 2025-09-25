@@ -11,3 +11,4 @@ $SCRIPT_DIR/preproc_cic_data.py     $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_hi_data.py      $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_et_data.py      $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_lai_data.py     $DATA_DIR/multiling/raw $DATA_DIR/multiling/
+$SCRIPT_DIR/part_kptimes.py
