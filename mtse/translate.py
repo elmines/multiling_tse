@@ -120,6 +120,7 @@ def main(raw_args=None):
         in_paths = args.i
         out_paths = args.o
         assert len(in_paths) == len(out_paths)
+        # FIXME: Rely on the fact that the target_pred objects now have a lang field?
         langs = args.lang
         assert len(langs) == len(in_paths)
         model, tokenizer = get_model()
@@ -130,7 +131,8 @@ def main(raw_args=None):
             for i, pred in enumerate(target_preds):
                 texts.extend(pred.generated_targets)
                 sample_inds.extend(i for _ in pred.generated_targets)
-                pred.generated_targets.clear()
+                pred.untranslated_targets = pred.generated_targets
+                pred.generated_targets = []
             translations = translate(model, tokenizer, texts, src_lang)
             for (sample_ind, translation) in zip(sample_inds, translations):
                 target_preds[sample_ind].generated_targets.append(translation)

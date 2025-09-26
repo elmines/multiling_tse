@@ -1,5 +1,6 @@
 # STL
 from typing import List, Dict, Optional
+import functools
 import enum
 import abc
 import copy
@@ -65,6 +66,9 @@ def keyed_pad(samples: List[TensorDict], k: str, padding_value=0):
 
 def keyed_scalar_stack(samples: List[TensorDict], k: str):
     return torch.stack([torch.squeeze(s[k]) for s in samples])
+
+def concat_lists(samples: List[TensorDict], k: str):
+    return functools.reduce(lambda accum, el: accum + el, map(lambda x: x[k], samples))
 
 def collate_ids(tokenizer: PreTrainedTokenizerFast,
                 samples: List[TensorDict],

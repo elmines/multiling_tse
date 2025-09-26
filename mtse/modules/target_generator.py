@@ -8,6 +8,7 @@ from transformers import MT5ForConditionalGeneration, T5Tokenizer
 from .base_module import BaseModule
 from .mixins import TargetMixin
 from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, SampleType
+from ..constants import LANG_TO_ID
 
 class LiTargetGenerator(BaseModule, TargetMixin):
 
@@ -55,6 +56,8 @@ class LiTargetGenerator(BaseModule, TargetMixin):
         return self.__encoder
 
     def forward(self, **bart_kwargs):
+        # FIXME: Pop this in a cleaner place
+        bart_kwargs.pop('lang', None)
         return self.bart(**bart_kwargs)
     def training_step(self, batch, batch_idx):
         res = self(**batch)
@@ -99,11 +102,16 @@ class LiTargetGenerator(BaseModule, TargetMixin):
                 encoding['target'] = torch.tensor(
                     [self.module.targets.index(sample.target_label)],
                     dtype=torch.long)
+            if self.module.multilingual:
+                assert sample.lang
+                encoding['lang'] = torch.tensor(LANG_TO_ID[sample.lang], dtype=torch.long)
             return encoding
         def collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
             if "target" in samples[0]:
                 encoding['target'] = keyed_scalar_stack(samples, 'target')
+            if 'lang' in samples[0]:
+                encoding['lang'] = keyed_scalar_stack(samples, 'lang')
             return encoding
 
 __all__ = ["LiTargetGenerator"]

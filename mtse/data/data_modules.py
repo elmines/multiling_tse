@@ -13,13 +13,13 @@ import lightning as L
 from tqdm import tqdm
 from typing import Tuple, List, Tuple, Optional
 # Local
-from .encoder import Encoder, PredictTask, keyed_scalar_stack
+from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .dataset import MapDataset
 from .transforms import Transform
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS
 from .target_pred import parse_target_preds
-from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
+from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID
 from ..modules.mixins import TargetMixin
 
 class BaseDataModule(L.LightningDataModule):
@@ -52,7 +52,8 @@ class TargetPredictionDataModule(BaseDataModule):
     def __init__(self,
                  targets_path: pathlib.Path,
                  csv_paths: List[pathlib.Path],
-                 with_generated: bool = False):
+                 with_generated: bool = False,
+                 with_untranslated: bool = False):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
         # calls in L.LightningDataModule and its ancestors
@@ -60,6 +61,7 @@ class TargetPredictionDataModule(BaseDataModule):
         target_mixin = TargetMixin(targets_path)
         self.targets = target_mixin.targets
         self.with_generated = with_generated
+        self.with_untranslated = with_untranslated
 
         self.csv_paths = csv_paths
         self.datasets = []
@@ -72,21 +74,28 @@ class TargetPredictionDataModule(BaseDataModule):
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),
                 }
+                s['lang'] = torch.tensor(LANG_TO_ID[pred.lang], dtype=torch.long)
                 if pred.mapped_target is not None:
                     s["target_preds"] = torch.tensor(self.targets.index(pred.mapped_target))
-                if self.with_generated:
-                    s['target_gens'] = pred.generated_targets
+                if self.with_generated or self.with_untranslated:
                     s["sample_inds"] = torch.full((len(pred.generated_targets),), pred.sample_id)
+                    if self.with_generated:
+                        s['target_gens'] = pred.generated_targets
+                    if self.with_untranslated:
+                        s['target_untrans'] = pred.untranslated_targets
                 samples.append(s)
             self.datasets.append(MapDataset(samples))
 
     def _collate(self, samples):
         encoding = dict()
         encoding['target'] = keyed_scalar_stack(samples, 'target')
+        encoding['lang'] = keyed_scalar_stack(samples, 'lang')
         if 'target_preds' in samples[0]:
             encoding['target_preds'] = keyed_scalar_stack(samples, 'target_preds')
-        if 'target_gens' in samples[0]:
-            encoding['target_gens'] = functools.reduce(lambda accum, el: accum + el, map(lambda x: x['target_gens'], samples))
+        for k in ['target_gens', 'target_untrans']:
+            if k in samples[0]:
+                encoding[k] = concat_lists(samples, k)
+        if 'sample_inds' in samples[0]:
             encoding['sample_inds'] = torch.concatenate([s['sample_inds'] for s in samples])
         return encoding
     

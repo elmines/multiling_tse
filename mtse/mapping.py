@@ -52,7 +52,7 @@ def map_targets(fast_text: FastText,
                 target_embeddings: torch.Tensor,
                 all_texts: List[str],
                 sample_inds: torch.Tensor,
-                related_threshold: float) -> Tuple[torch.Tensor, List[str]]:
+                related_threshold: float) -> Tuple[torch.Tensor, List[int]]:
     device = target_embeddings.device
 
     output_embeddings = fast_text.wv[all_texts]
@@ -77,7 +77,6 @@ def map_targets(fast_text: FastText,
 
     # Get the string-based free-form targets as well
     all_text_inds = torch.gather(arg_sample_scores, 1, arg_class_scores.unsqueeze(1)).squeeze(1)
-    freeform_preds = [all_texts[i] for i in all_text_inds]
 
-    return target_preds, freeform_preds
+    return target_preds, all_text_inds
 
