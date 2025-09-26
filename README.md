@@ -8,6 +8,12 @@
 
 ## Dependencies
 
+### System
+
+- `sudo apt-get install curl wget`
+
+### Python
+
 The easiest approach is to make a conda environment:
 ```bash
 conda env create -f environment.yaml --prefix ./venv
