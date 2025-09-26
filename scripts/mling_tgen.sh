@@ -127,6 +127,7 @@ then
             --data.targets_path static/multiling_targets.txt \
             --data.csv_paths $csv_paths \
             --data.with_generated true \
+            --data.with_untranslated true \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version $version \
