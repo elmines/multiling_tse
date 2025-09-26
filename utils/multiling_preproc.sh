@@ -3,6 +3,7 @@
 SCRIPT_DIR=$(dirname $0)/corpus_scripts
 DATA_DIR=$(dirname $0)/../data
 
+$SCRIPT_DIR/preproc_enc.py          $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_globalvoices.py $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_cstance_data.py $DATA_DIR/multiling/raw $DATA_DIR/multiling/
 $SCRIPT_DIR/preproc_sardi_data.py   $DATA_DIR/multiling/raw $DATA_DIR/multiling/
