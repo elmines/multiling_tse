@@ -6,10 +6,8 @@ import random
 import sys
 
 in_dir = sys.argv[1]
-# in_dir = os.path.join(os.path.dirname(sys.argv[0]), "..", "..", "data", "multiling", "raw")
 
 out_dir = sys.argv[2]
-# out_dir = os.path.join(os.path.dirname(sys.argv[0]), "..", "..", "data", "multiling")
 
 entries = [
     ("ca", 3300),
@@ -49,3 +47,15 @@ for (lang, n_samples) in entries:
     write_texts(lang, "train", samples[:train_splindex])
     write_texts(lang, "val", samples[train_splindex:val_splindex])
     write_texts(lang, "test", samples[val_splindex:])
+
+
+# English is just for the embedding training
+in_path = os.path.join(in_dir, f"en_globalvoices.txt")
+with open(in_path, 'r') as r:
+    samples = [l.strip() for l in r.readlines()]
+samples = list(filter(lambda l: len(l) >= MIN_CHARS, samples))
+assert len(samples) >= n_samples
+random.seed(0)
+random.shuffle(samples)
+samples = samples[:64000]
+write_texts("en", "all", samples)

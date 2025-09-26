@@ -1,6 +1,6 @@
 #!/bin/bash
 ALL=${ALL:-0}
-FT_EMBED=0
+FT_EMBED=${FT_EMBED:-$ALL}
 TARGET_FIT=${TARGET_FIT:-$ALL}
 TARGET_GEN=${TARGET_GEN:-$ALL}
 TARGET_TRANS=${TARGET_TRANS:-$ALL}
@@ -37,8 +37,8 @@ then
     for seed in $SEEDS
     do
         python -m mtse.train_ft \
-            --corpus_type li \
-            -i data/li_tse/raw_train_all_onecol.csv \
+            --corpus_type standard \
+            -i data/multiling/en_unrelated_all.csv \
             --seed $seed \
             --embed 256 \
             -o $(embed_path $seed) \

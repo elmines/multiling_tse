@@ -9,7 +9,7 @@ cd $store_dir
 
 
 curl -L -r 0-$((2**20))  -o et_unrelated.jsonl 'https://huggingface.co/datasets/siimh/estonian_corpus_2021/resolve/main/corpus_et_clean.jsonl'
-for lang in ca es fr it
+for lang in en ca es fr it
 do
     outpath=${lang}_globalvoices.txt.gz
     curl -L https://object.pouta.csc.fi/OPUS-GlobalVoices/v2015/mono/${lang}.txt.gz -o $outpath
