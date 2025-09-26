@@ -36,7 +36,7 @@ val_splindex = int(.8 * len(samples))
 def write_samples(part, texts):
     out_path = os.path.join(out_dir, f"et_unrelated_{part}.csv")
     rows = [
-        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 3, "Lang": 'et'}
+        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": 'et'}
         for t in texts
     ]
     with open(out_path, 'w') as w:

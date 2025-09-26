@@ -23,7 +23,7 @@ MIN_CHARS = 128
 def write_texts(lang, part, texts):
     out_path = os.path.join(out_dir, f"{lang}_unrelated_{part}.csv")
     rows = [
-        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 3, "Lang": lang}
+        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": lang}
         for t in texts
     ]
     with open(out_path, 'w') as w:
