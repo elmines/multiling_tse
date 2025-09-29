@@ -8,7 +8,7 @@ TARGET_MAP=${TARGET_MAP:-$ALL}
 TARGET_TEST=${TARGET_TEST:-$ALL}
 STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
-TSE_TEST=0
+TSE_TEST=${TSE_TEST:-$ALL}
 
 SEEDS=${@:- 0 1 2}
 
@@ -206,12 +206,23 @@ if [ $TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
+        corpora_args=""
+        predict_dir=$LOGS_ROOT/seed${seed}_target_map
+        prefix=""
+        for target_pred_path in $predict_dir/target_preds.*.txt
+        do
+            data_part=$(basename $target_pred_path | cut -d. -f2)
+            data_path=data/multiling/${data_part}_test.csv
+            corpus_args="{class_path: mtse.data.StanceCorpus, init_args: {path: $data_path, target_preds_path: $target_pred_path}}"
+            corpora_args="${corpora_args}${prefix}${corpus_args}"
+            prefix=","
+        done
         train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
+            --data mtse.data.PredictDataModule \
+            --data.corpora "[$corpora_args]" \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test
