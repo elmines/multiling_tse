@@ -6,10 +6,9 @@ TARGET_GEN=${TARGET_GEN:-$ALL}
 TARGET_TRANS=${TARGET_TRANS:-$ALL}
 TARGET_MAP=${TARGET_MAP:-$ALL}
 TARGET_TEST=${TARGET_TEST:-$ALL}
-STANCE_FIT=0
+STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=0
 TSE_TEST=0
-GT_TSE_TEST=0
 
 SEEDS=${@:- 0 1 2}
 
@@ -178,7 +177,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_stance_classifier.yaml \
+            -c configs/base/m_stance_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_stance \
             --seed_everything $seed
@@ -219,23 +218,4 @@ then
     done
 else
     echo "Skipping tse testing"
-fi
-
-if [ $GT_TSE_TEST -eq 1 ]
-then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}_stance
-        python -m mtse test \
-            -c $train_dir/config.yaml \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
-            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
-            --trainer.callbacks.full_metrics true \
-            --trainer.logger.version seed${seed}_tse_test_gt \
-            --data.corpora.target_input label \
-            --model.use_target_gt true
-    done
-else
-    echo "Skipping gt tse testing"
 fi
