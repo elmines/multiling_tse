@@ -137,6 +137,7 @@ class TSEStatsCallback(Callback):
                 _, _2, results['tse/f1'] = \
                     TSEStatsCallback.compute_metrics(stats.tp, stats.pred_pos, stats.support)
                 results['tse/acc'] = stats.correct / stats.total if stats.total > 0 else 0.0
+                results['tse/nsamples'] = stats.total
 
                 results = {f"{stage}/{k}{ldr_suffix}":v for k,v in results.items()}
                 for (k, v) in results.items():
