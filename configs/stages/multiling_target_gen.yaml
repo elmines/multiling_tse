@@ -30,58 +30,58 @@ data:
 
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/ca_unrelated_val.csv
+          path: data/multiling/ca_unrelated_test.csv
           corpus_type: 'standard'
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/ca_independence_val.csv
-          corpus_type: 'standard'
-
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/multiling/es_unrelated_val.csv
-          corpus_type: 'standard'
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/multiling/es_independence_val.csv
+          path: data/multiling/ca_independence_test.csv
           corpus_type: 'standard'
 
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/et_unrelated_val.csv
+          path: data/multiling/es_unrelated_test.csv
           corpus_type: 'standard'
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/et_immigration_val.csv
-          corpus_type: 'standard'
-
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/multiling/fr_unrelated_val.csv
-          corpus_type: 'standard'
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/multiling/fr_lepen_val.csv
-          corpus_type: 'standard'
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/multiling/fr_macron_val.csv
+          path: data/multiling/es_independence_test.csv
           corpus_type: 'standard'
 
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/it_unrelated_val.csv
+          path: data/multiling/et_unrelated_test.csv
           corpus_type: 'standard'
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/it_sardinia_val.csv
+          path: data/multiling/et_immigration_test.csv
           corpus_type: 'standard'
 
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/zh_unrelated_val.csv
+          path: data/multiling/fr_unrelated_test.csv
           corpus_type: 'standard'
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/multiling/zh_nlpcc_val.csv
+          path: data/multiling/fr_lepen_test.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/fr_macron_test.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/it_unrelated_test.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/it_sardinia_test.csv
+          corpus_type: 'standard'
+
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/zh_unrelated_test.csv
+          corpus_type: 'standard'
+      - class_path: mtse.data.StanceCorpus
+        init_args:
+          path: data/multiling/zh_nlpcc_test.csv
           corpus_type: 'standard'

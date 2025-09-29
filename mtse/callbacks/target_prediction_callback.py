@@ -159,8 +159,10 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                                                            all_texts,
                                                            zerobased_inds,
                                                            self.related_threshold)
-                freeform_preds = [all_texts[i] for i in all_text_inds]
-                untrans_preds = [untrans_gens[i] for i in all_text_inds]
+                # FIXME: Put the i < len(all_texts) handling logic in map_targets itself
+                # This handles the case where segment_max_coo can't find a maximum...?
+                freeform_preds = [all_texts[i] if i < len(all_texts) else "" for i in all_text_inds]
+                untrans_preds = [untrans_gens[i] if i < len(all_texts) else "" for i in all_text_inds]
 
                 sample_inds = unique_consecutive(sample_inds)
                 map_rows = [{"Sample": sind,
