@@ -207,6 +207,7 @@ then
     for seed in $SEEDS
     do
         corpora_args=""
+        dataloader_labels=""
         predict_dir=$LOGS_ROOT/seed${seed}_target_map
         prefix=""
         for target_pred_path in $predict_dir/target_preds.*.txt
@@ -215,6 +216,7 @@ then
             data_path=data/multiling/${data_part}_test.csv
             corpus_args="{class_path: mtse.data.StanceCorpus, init_args: {path: $data_path, target_preds_path: $target_pred_path}}"
             corpora_args="${corpora_args}${prefix}${corpus_args}"
+            dataloader_labels="${dataloader_labels}${prefix}${data_part}"
             prefix=","
         done
         train_dir=$LOGS_ROOT/seed${seed}_stance
@@ -224,6 +226,7 @@ then
             --data mtse.data.PredictDataModule \
             --data.corpora "[$corpora_args]" \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
+            --trainer.callbacks.dataloader_labels "[$dataloader_labels]" \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test
     done
