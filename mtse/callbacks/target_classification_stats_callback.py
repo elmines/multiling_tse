@@ -28,9 +28,11 @@ class TargetClassificationStatsCallback(Callback):
         self.n_classes = n_classes
         self.dataloader_labels = dataloader_labels or []
         self.__stats_by_corp = defaultdict(lambda: self.__empty_stats())
+        self.__counts_by_corp = defaultdict(int)
 
     def __reset(self):
         self.__stats_by_corp = defaultdict(lambda: self.__empty_stats())
+        self.__counts_by_corp = defaultdict(int)
 
     def __empty_stats(self):
         return torch.zeros((self.n_classes, 3), dtype=torch.long)
@@ -43,6 +45,7 @@ class TargetClassificationStatsCallback(Callback):
         # Indices [0, 1, 3] correspond to [tp, fp, fn]
         batch_stats = multiclass_stat_scores(target_preds, target_labels, self.n_classes, average='none')[:, [0, 1, 3]]
         corp_stats += batch_stats.to(corp_stats.device)
+        self.__counts_by_corp[dataloader_idx] += target_labels.shape[0]
 
     def on_test_epoch_start(self, trainer, pl_module):
         self.__reset()
@@ -69,12 +72,15 @@ class TargetClassificationStatsCallback(Callback):
         else:
             for (dataloader_idx, corp_stats) in stats_by_corp.items():
                 macro_f1, micro_f1 = _compute_corpus_metrics(*corp_stats.transpose(1, 0))
+                nsamples = self.__counts_by_corp[dataloader_idx]
                 if dataloader_idx < len(self.dataloader_labels):
                     dataloader_idx = self.dataloader_labels[dataloader_idx]
                 results[f'macro_f1/{dataloader_idx}'] = macro_f1
                 results[f'micro_f1/{dataloader_idx}'] = micro_f1
+                results[f'nsamples/{dataloader_idx}'] = nsamples
             global_stats = sum(stats_by_corp.values())
             results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*global_stats.transpose(1, 0))
+        results['nsamples'] = sum(self.__counts_by_corp.values())
         results = {f"{stage}/target/{k}":v for k,v in results.items()}
         for (k, v) in results.items():
             pl_module.log(k, v, on_step=False, on_epoch=True, add_dataloader_idx=False)
