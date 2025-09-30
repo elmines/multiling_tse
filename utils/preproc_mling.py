@@ -134,6 +134,46 @@ def part_nlpcc(in_dir, fold_dirs):
     write_corpora(fold_dirs, root_train_folds, root_val_folds, root_test_folds, "zh_nlpcc_{part}.csv")
 
 
+def part_sardistance(in_dir, fold_dirs):
+    label_map = {'AGAINST': 0, 'FAVOR': 1}
+    train_in_path       = os.path.join(in_dir, "it_sardinia_train.csv")
+    test_in_path        = os.path.join(in_dir, "it_sardinia_test.csv")
+    test_labels_in_path = os.path.join(in_dir, "it_sardinia_test_labels.csv")
+
+    TARGET = "Sardinian Independence"
+
+    with open(test_in_path, 'r') as r:
+        raw_test_rows = list(csv.DictReader(r))
+    with open(test_labels_in_path, 'r') as r:
+        raw_test_label_rows = list(csv.DictReader(r))
+    assert len(raw_test_rows) == len(raw_test_label_rows)
+    normed_rows = []
+    for (data, label) in zip(raw_test_rows, raw_test_label_rows):
+        assert data['tweet_id'] == label['tweet_id']
+        raw_label = label['label']    
+        if raw_label not in label_map:
+            continue
+        normed_rows.append({
+            "Context": data['text'],
+            "Target": TARGET,
+            "Stance": label_map[raw_label],
+            "StanceType": "bi",
+            "Lang": "it"
+        })
+    with open(train_in_path, 'r') as r:
+        raw_rows = list(csv.DictReader(r))
+        for row in filter(lambda row: row['label'] in label_map, raw_rows):
+            label = label_map[row['label']]
+            normed_rows.append({
+                "Context": row['text'],
+                'Target': TARGET,
+                'Stance': label,
+                'StanceType': 'bi',
+                'Lang': 'it'
+            })
+    random.shuffle(normed_rows)
+    train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia_{part}.csv")
 
 if __name__ == "__main__":
     random.seed(0)
@@ -147,5 +187,6 @@ if __name__ == "__main__":
         fold_dirs.append(fdir)
     part_cic(in_dir, fold_dirs)
     part_nlpcc(in_dir, fold_dirs)
+    part_sardistance(in_dir, fold_dirs)
 
     
