@@ -1,9 +1,11 @@
 #!usr/bin/env python3
+import json
 import csv
 import random
 import sys
 import os
 import re
+from itertools import islice
 
 def write_corpus(out_path, normalized_rows):
     with open(out_path, 'w') as w:
@@ -45,8 +47,8 @@ def split_rows_simple(row_set, K):
         test_folds.append(row_set[test_start:test_end])
         nontest = row_set[:test_start] + row_set[test_end:]
         random.shuffle(nontest)
-        val_folds.append(row_set[:val_size])
-        train_folds.append(row_set[val_size:])
+        val_folds.append(nontest[:val_size])
+        train_folds.append(nontest[val_size:])
     return train_folds, val_folds, test_folds
 
 def append_folds(root_train, root_val, root_test, sub_train, sub_val, sub_test):
@@ -128,7 +130,9 @@ def part_nlpcc(in_dir, fold_dirs):
     root_val_folds = [[] for _ in range(K)]
     root_test_folds = [[] for _ in range(K)]
     for target in targets:
-        target_train_folds, target_val_folds, target_test_folds = split_rows_stance(samples_by_target[target], K)
+        target_samples = samples_by_target[target]
+        random.shuffle(target_samples)
+        target_train_folds, target_val_folds, target_test_folds = split_rows_stance(target_samples, K)
         append_folds(root_train_folds, root_val_folds, root_test_folds,
                      target_train_folds, target_val_folds, target_test_folds)
     write_corpora(fold_dirs, root_train_folds, root_val_folds, root_test_folds, "zh_nlpcc_{part}.csv")
@@ -229,6 +233,43 @@ def part_fr_election_data(in_dir, fold_dirs):
         train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
         write_corpora(fold_dirs, train_folds, val_folds, test_folds, path_template)
 
+def part_cstance_data(in_dir, fold_dirs):
+    in_path = os.path.join(in_dir, 'zh_cstance.csv')
+    MAX_ROWS = 1000
+    with open(in_path, 'r', encoding='utf-8-sig') as r:
+        raw_rows = list(islice(csv.DictReader(r), MAX_ROWS))
+    rows = [{"Context": raw_row['Text'],
+            "Target": "Unrelated",
+            'StanceType': 'tri',
+            "Stance": 2, # Neutral
+            'Lang': 'zh'} for raw_row in raw_rows]
+    random.shuffle(rows)
+    train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "zh_unrelated_{part}.csv")
+
+def part_enc_data(in_dir, fold_dirs):
+    in_path = os.path.join(in_dir, "et_unrelated.jsonl")
+    samples = []
+    n_samples = 700
+    MIN_CHARS = 128
+    with open(in_path, 'r') as r:
+        for line in r.readlines():
+            try:
+                json_doc = json.loads(line)
+            except json.decoder.JSONDecodeError:
+                continue
+            samples.append(json_doc['text'])
+    samples = [t for t in samples if len(t) >= MIN_CHARS]
+    assert len(samples) >= n_samples
+    random.shuffle(samples)
+    samples = samples[:n_samples]
+    rows = [
+        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": 'et'}
+        for t in samples
+    ]
+    train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_unrelated_{part}.csv")
+
  
 
 if __name__ == "__main__":
@@ -241,6 +282,8 @@ if __name__ == "__main__":
         fdir = os.path.join(out_dir, f"fold{i}")
         os.makedirs(fdir, exist_ok=True)
         fold_dirs.append(fdir)
+    part_enc_data(in_dir, fold_dirs)
+    part_cstance_data(in_dir, fold_dirs)
     part_cic(in_dir, fold_dirs)
     part_nlpcc(in_dir, fold_dirs)
     part_sardistance(in_dir, fold_dirs)
