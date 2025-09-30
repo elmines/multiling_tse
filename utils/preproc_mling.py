@@ -175,6 +175,32 @@ def part_sardistance(in_dir, fold_dirs):
     train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia_{part}.csv")
 
+def part_et_data(in_dir, fold_dirs):
+    in_path = os.path.join(in_dir, 'et_immigration.csv')
+    label_map = {
+        '1': 0,
+        '2': 0,
+        # Neutral
+        # '3': 2,
+        '4': 1,
+        '5': 1,
+        # Not related
+        # 'MH': 2
+    }
+    with open(in_path, 'r') as r:
+        raw_rows = list(csv.DictReader(r))
+    rows = [{
+        "Context": row['sentence'],
+        "Target": "Immigration",
+        "Stance": label_map[row['stanceConsolidated']],
+        "StanceType": "bi",
+        "Lang": "et"
+    } for row in raw_rows if row['stanceConsolidated'] in label_map]
+    random.shuffle(rows)
+    train_folds, val_folds, test_folds = split_rows_stance(rows, len(fold_dirs))
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration_{part}.csv")
+    
+
 if __name__ == "__main__":
     random.seed(0)
     in_dir = os.path.join(os.path.dirname(sys.argv[0]), "..", "data", "multiling", "raw")
@@ -188,5 +214,6 @@ if __name__ == "__main__":
     part_cic(in_dir, fold_dirs)
     part_nlpcc(in_dir, fold_dirs)
     part_sardistance(in_dir, fold_dirs)
+    part_et_data(in_dir, fold_dirs)
 
     
