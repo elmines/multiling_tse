@@ -199,7 +199,37 @@ def part_et_data(in_dir, fold_dirs):
     random.shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_stance(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration_{part}.csv")
-    
+
+
+def part_fr_election_data(in_dir, fold_dirs):
+    URI_REGEX = re.compile(r'https://t.co/[a-zA-Z0-9]*')
+
+    entries = [
+        ("fr_lepen.csv", "fr_lepen_{part}.csv", "Marine LePen"),
+        ("fr_macron.csv", "fr_macron_{part}.csv", "Emmanuel Macron"),
+    ]
+    label_map = {
+        'favor': 1,
+        'FAVOUR': 1,
+        'agains': 0,
+        'AGAINST': 0,
+        # 'none': 2,
+        # 'NONE': 2
+    }
+    for (in_name, path_template, target) in entries:
+        with open(os.path.join(in_dir, in_name), 'r') as r:
+            raw_rows = list(csv.DictReader(r))
+        normed_rows = [{
+            "Context": URI_REGEX.sub("", row['Tweet']),
+            "Target": target,
+            "Stance": label_map[row['Stance']],
+            "StanceType": "bi",
+            "Lang": "fr"
+        } for row in raw_rows if row['Stance'] in label_map]
+        train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
+        write_corpora(fold_dirs, train_folds, val_folds, test_folds, path_template)
+
+ 
 
 if __name__ == "__main__":
     random.seed(0)
@@ -215,5 +245,6 @@ if __name__ == "__main__":
     part_nlpcc(in_dir, fold_dirs)
     part_sardistance(in_dir, fold_dirs)
     part_et_data(in_dir, fold_dirs)
+    part_fr_election_data(in_dir, fold_dirs)
 
     
