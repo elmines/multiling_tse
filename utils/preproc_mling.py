@@ -7,6 +7,10 @@ import os
 import re
 from itertools import islice
 
+def seed_and_shuffle(samples):
+    random.seed(0)
+    random.shuffle(samples)
+
 def write_corpus(out_path, normalized_rows):
     with open(out_path, 'w') as w:
         writer = csv.DictWriter(w,
@@ -46,7 +50,7 @@ def split_rows_simple(row_set, K):
     for (test_start, test_end) in part_inds:
         test_folds.append(row_set[test_start:test_end])
         nontest = row_set[:test_start] + row_set[test_end:]
-        random.shuffle(nontest)
+        seed_and_shuffle(nontest)
         val_folds.append(nontest[:val_size])
         train_folds.append(nontest[val_size:])
     return train_folds, val_folds, test_folds
@@ -94,7 +98,7 @@ def part_cic(in_dir, fold_dirs):
                 "Stance": stance_map[row['LABEL']],
                 "Lang": lang
             } for row in raw_rows if row['LABEL'] != 'NONE')
-        random.shuffle(row_set)
+        seed_and_shuffle(row_set)
         train_folds, val_folds, test_folds = split_rows_stance(row_set, K)
         write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_catalonia_{part}.csv")
 
@@ -131,7 +135,7 @@ def part_nlpcc(in_dir, fold_dirs):
     root_test_folds = [[] for _ in range(K)]
     for target in targets:
         target_samples = samples_by_target[target]
-        random.shuffle(target_samples)
+        seed_and_shuffle(target_samples)
         target_train_folds, target_val_folds, target_test_folds = split_rows_stance(target_samples, K)
         append_folds(root_train_folds, root_val_folds, root_test_folds,
                      target_train_folds, target_val_folds, target_test_folds)
@@ -175,7 +179,7 @@ def part_sardistance(in_dir, fold_dirs):
                 'StanceType': 'bi',
                 'Lang': 'it'
             })
-    random.shuffle(normed_rows)
+    seed_and_shuffle(normed_rows)
     train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia_{part}.csv")
 
@@ -200,7 +204,7 @@ def part_et_data(in_dir, fold_dirs):
         "StanceType": "bi",
         "Lang": "et"
     } for row in raw_rows if row['stanceConsolidated'] in label_map]
-    random.shuffle(rows)
+    seed_and_shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_stance(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration_{part}.csv")
 
@@ -230,6 +234,7 @@ def part_fr_election_data(in_dir, fold_dirs):
             "StanceType": "bi",
             "Lang": "fr"
         } for row in raw_rows if row['Stance'] in label_map]
+        seed_and_shuffle(normed_rows)
         train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
         write_corpora(fold_dirs, train_folds, val_folds, test_folds, path_template)
 
@@ -243,7 +248,7 @@ def part_cstance_data(in_dir, fold_dirs):
             'StanceType': 'tri',
             "Stance": 2, # Neutral
             'Lang': 'zh'} for raw_row in raw_rows]
-    random.shuffle(rows)
+    seed_and_shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "zh_unrelated_{part}.csv")
 
@@ -261,7 +266,7 @@ def part_enc_data(in_dir, fold_dirs):
             samples.append(json_doc['text'])
     samples = [t for t in samples if len(t) >= MIN_CHARS]
     assert len(samples) >= n_samples
-    random.shuffle(samples)
+    seed_and_shuffle(samples)
     samples = samples[:n_samples]
     rows = [
         {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": 'et'}
@@ -270,7 +275,44 @@ def part_enc_data(in_dir, fold_dirs):
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_unrelated_{part}.csv")
 
- 
+def part_globalvoices_data(in_dir, fold_dirs, out_dir):
+    entries = [
+        ("ca", 3300),
+        ("es", 3300),
+        ("fr", 500),
+        ("it", 2000),
+    ]
+    MIN_CHARS = 128
+
+    def texts_to_samples(lang, texts):
+        return [
+            {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": lang}
+            for t in texts
+        ]
+
+    for (lang, n_samples) in entries:
+        in_path = os.path.join(in_dir, f"{lang}_globalvoices.txt")
+        with open(in_path, 'r') as r:
+            samples = [l.strip() for l in r.readlines()]
+        samples = list(filter(lambda l: len(l) >= MIN_CHARS, samples))
+        assert len(samples) >= n_samples
+        seed_and_shuffle(samples)
+        samples = samples[:n_samples]
+        samples = texts_to_samples(lang, samples)
+        train_folds, val_folds, test_folds = split_rows_simple(samples, len(fold_dirs))
+        write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated_{part}.csv")
+
+    # English is just for the embedding training
+    in_path = os.path.join(in_dir, f"en_globalvoices.txt")
+    with open(in_path, 'r') as r:
+        samples = [l.strip() for l in r.readlines()]
+    samples = list(filter(lambda l: len(l) >= MIN_CHARS, samples))
+    assert len(samples) >= n_samples
+    seed_and_shuffle(samples)
+    samples = samples[:64000]
+    samples = texts_to_samples('en', samples)
+    write_corpus(os.path.join(out_dir, "en_unrelated.csv"), samples)
+
 
 if __name__ == "__main__":
     random.seed(0)
@@ -282,8 +324,11 @@ if __name__ == "__main__":
         fdir = os.path.join(out_dir, f"fold{i}")
         os.makedirs(fdir, exist_ok=True)
         fold_dirs.append(fdir)
+    # Unrelated Data
     part_enc_data(in_dir, fold_dirs)
     part_cstance_data(in_dir, fold_dirs)
+    part_globalvoices_data(in_dir, fold_dirs, out_dir)
+    # Core Data
     part_cic(in_dir, fold_dirs)
     part_nlpcc(in_dir, fold_dirs)
     part_sardistance(in_dir, fold_dirs)
