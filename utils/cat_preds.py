@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Usage: python cat_preds.py ./path/to/exp_root/ out.csv [seed=0] 
+Usage: python cat_preds.py ./path/to/exp_root/ out.csv [fold=0] [seed=0]
 
 where exp_root/ contains seed{seed}_target_gen/, seed{seed}_target_translate/,
 and seed{seed}_target_map/.
@@ -14,21 +14,22 @@ import glob
 def altprint(*args, **kwargs):
     print(f"{sys.argv[0]}:", *args, **kwargs)
 
-if len(sys.argv) not in {3, 4}:
+if len(sys.argv) not in {3, 4, 5}:
     altprint(__doc__)
     sys.exit(1)
 
-data_dir = os.path.join(os.path.dirname(sys.argv[0]), "..", "data", "multiling")
 exp_root = sys.argv[1]
 out_path = sys.argv[2]
-seed = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+fold = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+seed = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+data_dir = os.path.join(os.path.dirname(sys.argv[0]), "..", "data", "multiling", f"fold{fold}")
 
-gen_dir   = os.path.join(exp_root, f"seed{seed}_target_gen"  )
-trans_dir = os.path.join(exp_root, f"seed{seed}_target_translate")
-pred_dir  = os.path.join(exp_root, f"seed{seed}_target_map"  )
+gen_dir   = os.path.join(exp_root, f"fold{fold}_seed{seed}_target_gen"  )
+trans_dir = os.path.join(exp_root, f"fold{fold}_seed{seed}_target_translate")
+pred_dir  = os.path.join(exp_root, f"fold{fold}_seed{seed}_target_map"  )
 
-data_paths = glob.glob(os.path.join(data_dir, "*_val.csv"))
-data_parts = [os.path.basename(p).split("_val.csv")[0] for p in data_paths]
+data_paths = glob.glob(os.path.join(data_dir, "*_test.csv"))
+data_parts = [os.path.basename(p).split("_test.csv")[0] for p in data_paths]
 
 def extract_cands(p, k):
     with open(p, 'r') as r:
@@ -49,9 +50,9 @@ def extract_cands(p, k):
 catted_rows = []
 fieldnames = None
 for part_name, data_path in zip(data_parts, data_paths):
-    gen_path = os.path.join(gen_dir, f"target_gens.{part_name}.txt")
-    trans_path = os.path.join(trans_dir, f"target_gens.{part_name}.txt")
-    pred_path = os.path.join(pred_dir, f"target_preds.{part_name}.txt")
+    gen_path = os.path.join(gen_dir, f"{part_name}.target_gens.csv")
+    trans_path = os.path.join(trans_dir, f"{part_name}.target_gens.csv")
+    pred_path = os.path.join(pred_dir, f"{part_name}.target_preds.csv")
     if not os.path.exists(gen_path):
         altprint(f"Skipping {part_name} for missing generations")
         continue

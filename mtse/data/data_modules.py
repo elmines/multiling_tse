@@ -13,12 +13,13 @@ from tqdm import tqdm
 from typing import Tuple, List, Tuple, Optional
 # Local
 from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
+from .target_pred import TargetPred
 from .dataset import MapDataset
 from .transforms import Transform
 from .corpus import StanceCorpus
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
-from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID
+from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS
 from ..modules.mixins import TargetMixin
 
 class BaseDataModule(L.LightningDataModule):
@@ -125,27 +126,51 @@ class TargetPredictionDataModule(BaseDataModule):
     Meant for use with the PassthroughModule
     """
     def __init__(self,
+                 data_dir: pathlib.Path,
                  targets_path: pathlib.Path,
-                 csv_paths: List[pathlib.Path],
+                 suffix_pattern: str = ".target_gens.csv",
                  with_generated: bool = False,
-                 with_untranslated: bool = False):
+                 with_untranslated: bool = False,
+
+                 # FIXME: Don't make a variable for something
+                 # so experiment-specific
+                 merge_independence: bool = False,
+                 ):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
         # calls in L.LightningDataModule and its ancestors
         # Hence we use composition here instead
+        self.data_dir = data_dir
         target_mixin = TargetMixin(targets_path)
         self.targets = target_mixin.targets
         self.with_generated = with_generated
         self.with_untranslated = with_untranslated
+        self.merge_independence = merge_independence
 
-        self.csv_paths = csv_paths
         self.datasets = []
+
+        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}")))
+        self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
+
+    @property
+    def testloader_labels(self):
+        return self.__testloader_labels
+
+    @staticmethod
+    def merge_independence_targets(s: TargetPred):
+        if s.gt_target in INDEPENDENCE_TARGETS:
+            s.gt_target = "Independence"
+        if s.mapped_target in INDEPENDENCE_TARGETS:
+            s.mapped_target = "Independence"
 
     def prepare_data(self):
         self.datasets.clear()
-        for path in self.csv_paths:
+        for path in self.__test_paths:
             samples = []
             for pred in parse_target_preds(path):
+                if self.merge_independence:
+                    self.merge_independence_targets(pred)
+
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),
                 }

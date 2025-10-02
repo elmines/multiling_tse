@@ -94,7 +94,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __get_gen_writer(self, dataloader_idx):
         label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_gens.{label}.txt"),
+            os.path.join(self.out_dir, f"{label}.target_gens.csv"),
             self.__gen_fieldnames,
             dataloader_idx,
             "target_gen"
@@ -103,7 +103,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __get_map_writer(self, dataloader_idx):
         label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_preds.{label}.txt"),
+            os.path.join(self.out_dir, f"{label}.target_preds.csv"),
             self.__map_fieldnames,
             dataloader_idx,
             "target_pred"

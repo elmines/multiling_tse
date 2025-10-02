@@ -4,6 +4,11 @@ DEFAULT_HF_MODEL = "vinai/bertweet-base"
 
 UNRELATED_TARGET = "Unrelated"
 
+INDEPENDENCE_TARGETS = [
+    "Catalonian Independence",
+    "Sardinian Independence"
+]
+
 TARGET_DELIMITER = ";"
 
 DEFAULT_RELATED_THRESHOLD = 0.2

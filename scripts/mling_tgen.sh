@@ -10,10 +10,18 @@ STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 
-TARGETS_PATH=${TARGETS_PATH:-static/multiling_targets.txt}
+MERGE_TARGETS=${MERGE_TARGETS:-0}
+if [ $MERGE_TARGETS -eq 1 ]
+then
+    TARGETS_PATH=static/reduced_multiling_targets.txt
+    MERGED_STEM="_merged"
+else
+    TARGETS_PATH=static/multiling_targets.txt
+    MERGED_STEM=""
+fi
 
-seed=${1:-0}
-fold=${2:-0}
+fold=${1:-0}
+seed=${2:-0}
 
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
@@ -83,65 +91,63 @@ fi
 
 if [ $TARGET_TRANS -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        gen_dir=$LOGS_ROOT/seed${seed}_target_gen
-        readarray -t in_files < <(ls -d $gen_dir/target_gens*)
-        readarray -t in_langs < <(extract_langs ${in_files[@]})
-
-        out_dir=$LOGS_ROOT/seed${seed}_target_translate
-        if [ -e $out_dir ]
+        out_dir=$LOGS_ROOT/fold${fold}_seed${seed}_target_translate
+        if [ -e $out_dir -a ! -z $(ls $out_dir) ]
         then
             echo Not overwriting existing $out_dir
             exit 1
         fi
-        mkdir $out_dir
-        readarray -t out_paths < <(for f in ${in_files[@]}; do echo $out_dir/$(basename $f); done) 
+        mkdir -p $out_dir
+
+        in_files=()
+        in_langs=()
+        out_paths=()
+        for target_path in $LOGS_ROOT/fold${fold}_seed${seed}_target_gen/*target_gens.csv
+        do
+            in_files+=($target_path)
+            in_langs+=($(basename $target_path | cut -c1-2))
+            out_paths+=($out_dir/$(basename $target_path))
+        done
 
         python -m mtse.translate pred \
             -i ${in_files[@]} \
             --lang ${in_langs[@]} \
             -o ${out_paths[@]}
-    done
 else
     echo "Skipping target translation"
 fi
 
 if [ $TARGET_MAP -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+    version=fold${fold}_seed${seed}${MERGED_STEM}_target_map
 
-        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_translate/target_gens.*)
-        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
-        dataloader_labels=$(
-            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $f | cut -d. -f2; done)
-            IFS=,
-            echo "[${label_array[*]}]"
-        )
-        version=seed${seed}_target_map
+    EXTRA_ARGS=""
+    if [ $MERGE_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="--data.merge_independence true"
+    fi
 
-        python -m mtse predict \
-            --seed_everything $seed \
-            --model mtse.modules.PassthroughModule \
-            --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/multiling_targets.txt \
-            --data.csv_paths $csv_paths \
-            --data.with_generated true \
-            --data.with_untranslated true \
-            --trainer.logger lightning.pytorch.loggers.CSVLogger \
-            $LOGGER_ARGS \
-            --trainer.logger.version $version \
-            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
-            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.targets_path static/multiling_targets.txt \
-            --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --trainer.callbacks.target_level mapped \
-            --trainer.callbacks.dataloader_labels $dataloader_labels \
-            --trainer.callbacks.related_threshold 0.35
+    python -m mtse predict \
+        --seed_everything $seed \
+        --model mtse.modules.PassthroughModule \
+        --data mtse.data.TargetPredictionDataModule \
+        --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}_target_translate \
+        --data.targets_path $TARGETS_PATH \
+        --data.suffix_pattern .target_gens.csv \
+        --data.with_generated true \
+        --data.with_untranslated true \
+        $EXTRA_ARGS \
+        --trainer.logger lightning.pytorch.loggers.CSVLogger \
+        $LOGGER_ARGS \
+        --trainer.logger.version $version \
+        --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+        --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+        --trainer.callbacks.targets_path $TARGETS_PATH \
+        --trainer.callbacks.embeddings_path $(embed_path $seed) \
+        --trainer.callbacks.target_level mapped \
+        --trainer.callbacks.related_threshold 0.35
 
-        $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/seed${seed}_full_target_preds.csv $seed
-    done
+    $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_full_target_preds.csv $fold $seed
 else
     echo "Skipping target mapping"
 fi
