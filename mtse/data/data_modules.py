@@ -1,9 +1,8 @@
 # STL
 from __future__ import annotations
-import functools
-import pdb
+import os
 import pathlib
-import csv
+import glob
 # 3rd Party
 import random
 import torch
@@ -17,7 +16,7 @@ from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .dataset import MapDataset
 from .transforms import Transform
 from .corpus import StanceCorpus
-from .parse import DetCorpusType, CORPUS_PARSERS
+from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
 from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID
 from ..modules.mixins import TargetMixin
@@ -34,6 +33,10 @@ class BaseDataModule(L.LightningDataModule):
         self._encoder: Encoder = None
 
     @property
+    def testloader_labels(self) -> Optional[List[str]]:
+        return None
+
+    @property
     def encoder(self) -> Encoder:
         return self._encoder
 
@@ -43,6 +46,78 @@ class BaseDataModule(L.LightningDataModule):
         self._encoder = enc
         for t in self.transforms:
             self._encoder.add_transform(t)
+
+class DirDataModule(BaseDataModule):
+    """
+    Looks for files with suffixies _train.csv, _val.csv, _test.csv
+    """
+    def __init__(self, data_dir: pathlib.Path, batch_size: int = DEFAULT_BATCH_SIZE, **parent_kwargs):
+        super().__init__(**parent_kwargs)
+        self.data_dir = data_dir
+        self.batch_size = batch_size
+        self.__train_ds: Dataset = None
+        self.__val_ds: Dataset = None
+        # Allow multiple datasets for eval purposes
+
+        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_test.csv")))
+        self.__testloader_labels = [os.path.basename(p).split("_test.csv")[0] for p in self.__test_paths]
+
+        self.__test_datasets: List[Dataset] = None
+        self.encoder: Encoder = None
+
+    @property
+    def testloader_labels(self):
+        return self.__testloader_labels
+
+    def _setup_train(self):
+        if self.__train_ds is not None:
+            return
+        train_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_train.csv")))
+        val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
+
+        train_samples = []
+        for train_path in train_paths:
+            sample_iter = tqdm(parse_standard(train_path), desc=f"Parsing {train_path}")
+            sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
+            train_samples.extend(sample_iter)
+        self.__train_ds = MapDataset(train_samples)
+        val_samples = []
+        for val_path in val_paths:
+            sample_iter = tqdm(parse_standard(val_path), desc=f"Parsing {val_path}")
+            sample_iter = map(lambda s: self.encoder.encode(s, inference=True), sample_iter)
+            val_samples.extend(sample_iter)
+        self.__val_ds = MapDataset(val_samples)
+
+    def _setup_test(self):
+        if self.__test_datasets is not None:
+            return
+        dses = []
+        i = 0
+        for test_path in self.__test_paths:
+            sample_iter = tqdm(parse_standard(test_path), desc=f"Parsing {test_path}")
+            ds = MapDataset( map(lambda s: self.encoder.encode(s, inference=True), sample_iter) )
+            dses.append(ds)
+            if (i := i + 1) > 2:
+                break
+        self.__test_datasets = dses
+
+    def setup(self, stage):
+        if stage == 'fit':
+            self._setup_train()
+        else:
+            self._setup_test()
+
+    def train_dataloader(self):
+        return DataLoader(self.__train_ds, batch_size=self.batch_size, collate_fn=self.encoder.collate, shuffle=True)
+    def val_dataloader(self):
+        return DataLoader(self.__val_ds,  batch_size=self.batch_size, collate_fn=self.encoder.collate)
+
+    def test_dataloader(self):
+        return [torch.utils.data.DataLoader(ds,
+                                    batch_size=self.batch_size,
+                                    collate_fn=self.encoder.collate) for ds in self.__test_datasets]
+    def predict_dataloader(self):
+        return self.test_dataloader()
 
 class TargetPredictionDataModule(BaseDataModule):
     """

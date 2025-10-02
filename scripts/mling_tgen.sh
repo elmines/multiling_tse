@@ -10,7 +10,10 @@ STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0 1 2}
+TARGETS_PATH=${TARGETS_PATH:-static/multiling_targets.txt}
+
+seed=${1:-0}
+fold=${2:-0}
 
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
@@ -30,51 +33,50 @@ function extract_langs
     done
 }
 
+# Doesn't depend on fold
 if [ $FT_EMBED -eq 1 ]
 then
     mkdir -p $LOGS_ROOT
-    for seed in $SEEDS
-    do
-        python -m mtse.train_ft \
-            --corpus_type standard \
-            -i data/multiling/en_unrelated_all.csv \
-            --seed $seed \
-            --embed 256 \
-            -o $(embed_path $seed) \
-            --epochs 500 
-    done
+    python -m mtse.train_ft \
+        --corpus_type standard \
+        -i data/multiling/en_unrelated_all.csv \
+        --seed $seed \
+        --embed 256 \
+        -o $(embed_path $seed) \
+        --epochs 500 
 else
     echo "Skipping FastText embedding"
 fi
 
+# Doesn't depend on fold
 if [ $TARGET_FIT -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        python -m mtse fit \
-            -c configs/base/mt5_target_generator.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target \
-            --seed_everything $seed 
-    done
+    python -m mtse fit \
+        -c configs/base/mt5_target_generator.yaml \
+        $LOGGER_ARGS \
+        --trainer.logger.version seed${seed}_target \
+        --seed_everything $seed 
 else
     echo "Skipping target fitting"
 fi
 
 if [ $TARGET_GEN -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        version=seed${seed}_target_gen
+    version=fold${fold}_seed${seed}_target_gen
 
-        python -m mtse predict \
-            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            -c configs/stages/multiling_target_gen.yaml \
-            --trainer.logger.version $version \
-            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
-    done
+    python -m mtse predict \
+        -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+        --return_predictions false \
+        --data mtse.data.DirDataModule \
+        --model.predict_targets true \
+        --data.data_dir data/multiling/fold${fold} \
+        --trainer.logger.version $version \
+        --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+        --trainer.callbacks.targets_path $TARGETS_PATH \
+        --trainer.callbacks.target_level generated \
+        --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+        --trainer.callbacks.embeddings_path $(embed_path $seed) \
+        --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
 else
     echo "Skipping target generation"
 fi

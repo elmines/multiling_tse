@@ -42,13 +42,14 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                  embeddings_path: Optional[os.PathLike] = None,
                  target_level: TargetLevel = TargetLevel.mapped,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
-                 dataloader_labels: Optional[List[str]] = None
                  ):
         BasePredictionWriter.__init__(self, write_interval='batch')
         TargetMixin.__init__(self, targets_path)
         self.out_dir = out_dir
         self.target_level = target_level
-        self.dataloader_labels = dataloader_labels or []
+
+        # Meant to be set by the CLI after instantiation
+        self.dataloader_labels = []
 
         self.related_threshold = related_threshold
         if embeddings_path is not None:

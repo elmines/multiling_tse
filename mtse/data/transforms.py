@@ -26,6 +26,12 @@ class SemHashtagRemoval(Transform):
     def __call__(self, sample: Sample):
         sample.context = _remove_semeval_tag(sample.context)
 
+class MergeIndependence(Transform):
+    def __call__(self, sample: Sample):
+        targ_label = sample.target_label
+        if targ_label == 'Catalonian Independence' or targ_label == 'Sardinian Independence':
+            sample.target_label = "Independence"
+
 class LiPreprocess(Transform):
     """
     Performs the preprocessing logic from Li et al. (2023)'s work
