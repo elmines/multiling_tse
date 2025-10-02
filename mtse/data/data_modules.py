@@ -58,9 +58,11 @@ class DirDataModule(BaseDataModule):
                  data_dir: pathlib.Path,
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  target_input: TargetInputType = "label", 
+                 preds_dir: Optional[pathlib.Path] = None,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.data_dir = data_dir
+        self.preds_dir = preds_dir
         self.batch_size = batch_size
         self.target_input = target_input
         self.__train_ds: Dataset = None
@@ -68,16 +70,31 @@ class DirDataModule(BaseDataModule):
         # Allow multiple datasets for eval purposes
 
         self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_test.csv")))
-        self.__testloader_labels = [os.path.basename(p).split("_test.csv")[0] for p in self.__test_paths]
+        self.__testloader_labels = list(map(DirDataModule._extract_label, self.__test_paths))
 
         self.__test_datasets: List[Dataset] = None
+
+    @staticmethod
+    def _extract_label(file_path):
+        return os.path.basename(file_path).split("_test.csv")[0]
 
     @property
     def testloader_labels(self):
         return self.__testloader_labels
 
     def _parse_path(self, path) -> Generator[Sample, None, None]:
-        yield from StanceCorpus(path, corpus_type="standard", target_input=self.target_input)
+        target_preds_path = None
+        if self.preds_dir is not None:
+            label = DirDataModule._extract_label(path)
+            target_preds_path = os.path.join(self.preds_dir, label + ".target_preds.csv")
+            if not os.path.exists(target_preds_path):
+                return
+                raise ValueError(f'Could not find target preds for "{label}" at expected path "{target_preds_path}"')
+
+        yield from StanceCorpus(path,
+                                corpus_type="standard",
+                                target_input=self.target_input,
+                                target_preds_path=target_preds_path)
 
     def _setup_train(self):
         if self.__train_ds is not None:

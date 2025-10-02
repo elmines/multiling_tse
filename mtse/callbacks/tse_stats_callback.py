@@ -37,11 +37,10 @@ class TSEStatsCallback(Callback):
                 total=self.total + rhs.total,
             )
 
-    def __init__(self, full_metrics=False,
-                 dataloader_labels: Optional[List[str]] = None):
+    def __init__(self, full_metrics=False):
         self.no_target = 0
         self.full_metrics = full_metrics
-        self.dataloader_labels = dataloader_labels or []
+        self.dataloader_labels = []
         self.__stats_by_corp = defaultdict(TSEStatsCallback.CorpStats)
 
 
