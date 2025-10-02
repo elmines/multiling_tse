@@ -7,6 +7,15 @@ then
 fi
 cd $store_dir
 
+
+curl -L -r 0-$((2**20))  -o et_unrelated.jsonl 'https://huggingface.co/datasets/siimh/estonian_corpus_2021/resolve/main/corpus_et_clean.jsonl'
+for lang in en ca es fr it
+do
+    outpath=${lang}_globalvoices.txt.gz
+    curl -L https://object.pouta.csc.fi/OPUS-GlobalVoices/v2015/mono/${lang}.txt.gz -o $outpath
+    gunzip $outpath
+done
+
 # zh, C-Stance (for Unrelated data)
 wget -O zh_cstance.csv https://github.com/chenyez/C-STANCE/raw/refs/heads/main/c_stance_dataset/subtaskA/raw_train_all_onecol.csv
 
@@ -29,14 +38,14 @@ rm temp.zip
 # zh, NLPCC 2016
 wget -O zh_nlpcc.tsv http://tcci.ccf.org.cn/conference/2016/dldoc/evasampledata4-TaskAA.txt
 # # ca, Catalonian Independence
-wget -O ca_independence_train.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_train.csv
-wget -O ca_independence_val.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_val.csv
-wget -O ca_independence_test.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_test.csv
+wget -O ca_catalonia_train.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_train.csv
+wget -O ca_catalonia_val.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_val.csv
+wget -O ca_catalonia_test.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/01_CIC_CA/catalan_test.csv
 
 # es, Catalonian Independence
-wget -O es_independence_train.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_train.csv
-wget -O es_independence_val.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_val.csv
-wget -O es_independence_test.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_test.csv
+wget -O es_catalonia_train.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_train.csv
+wget -O es_catalonia_val.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_val.csv
+wget -O es_catalonia_test.csv https://raw.githubusercontent.com/ZotovaElena/Multilingual-Stance-Detection/refs/heads/master/CIC_2020_Dataset/data/02_CIC_ES/spanish_test.csv
 
 # hi, Demonetisation
 wget -O hi_demonetisation_tweets.txt https://raw.githubusercontent.com/sahilswami96/StanceDetection_CodeMixed/refs/heads/master/Dataset/Notebandi_tweets.txt

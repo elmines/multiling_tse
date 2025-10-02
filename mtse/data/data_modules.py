@@ -1,9 +1,9 @@
 # STL
 from __future__ import annotations
-import functools
-import pdb
+import os
 import pathlib
-import csv
+import glob
+import pdb
 # 3rd Party
 import random
 import torch
@@ -11,15 +11,17 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split, Sampler
 import lightning as L
 from tqdm import tqdm
-from typing import Tuple, List, Tuple, Optional
+from typing import Tuple, List, Tuple, Optional, Generator
 # Local
-from .encoder import Encoder, PredictTask, keyed_scalar_stack
+from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
+from .target_pred import TargetPred
 from .dataset import MapDataset
 from .transforms import Transform
-from .corpus import StanceCorpus
-from .parse import DetCorpusType, CORPUS_PARSERS
+from .corpus import StanceCorpus, TargetInputType
+from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
-from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
+from .sample import Sample
+from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS, INDEPENDENCE
 from ..modules.mixins import TargetMixin
 
 class BaseDataModule(L.LightningDataModule):
@@ -34,6 +36,10 @@ class BaseDataModule(L.LightningDataModule):
         self._encoder: Encoder = None
 
     @property
+    def testloader_labels(self) -> Optional[List[str]]:
+        return None
+
+    @property
     def encoder(self) -> Encoder:
         return self._encoder
 
@@ -44,49 +50,174 @@ class BaseDataModule(L.LightningDataModule):
         for t in self.transforms:
             self._encoder.add_transform(t)
 
+class DirDataModule(BaseDataModule):
+    """
+    Looks for files with suffixies _train.csv, _val.csv, _test.csv
+    """
+    def __init__(self,
+                 data_dir: pathlib.Path,
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 target_input: TargetInputType = "label", 
+                 preds_dir: Optional[pathlib.Path] = None,
+                 **parent_kwargs):
+        super().__init__(**parent_kwargs)
+        self.data_dir = data_dir
+        self.preds_dir = preds_dir
+        self.batch_size = batch_size
+        self.target_input = target_input
+        self.__train_ds: Dataset = None
+        self.__val_ds: Dataset = None
+        # Allow multiple datasets for eval purposes
+
+        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_test.csv")))
+        self.__testloader_labels = list(map(DirDataModule._extract_label, self.__test_paths))
+
+        self.__test_datasets: List[Dataset] = None
+
+    @staticmethod
+    def _extract_label(file_path):
+        return os.path.basename(file_path).split("_test.csv")[0]
+
+    @property
+    def testloader_labels(self):
+        return self.__testloader_labels
+
+    def _parse_path(self, path) -> Generator[Sample, None, None]:
+        target_preds_path = None
+        if self.preds_dir is not None:
+            label = DirDataModule._extract_label(path)
+            target_preds_path = os.path.join(self.preds_dir, label + ".target_preds.csv")
+            if not os.path.exists(target_preds_path):
+                raise ValueError(f'Could not find target preds for "{label}" at expected path "{target_preds_path}"')
+
+        yield from StanceCorpus(path,
+                                corpus_type="standard",
+                                target_input=self.target_input,
+                                target_preds_path=target_preds_path)
+
+    def _setup_train(self):
+        if self.__train_ds is not None:
+            return
+        train_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_train.csv")))
+        val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
+
+        train_samples = []
+        for train_path in train_paths:
+            sample_iter = tqdm(self._parse_path(train_path), desc=f"Parsing {train_path}")
+            sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
+            train_samples.extend(sample_iter)
+        self.__train_ds = MapDataset(train_samples)
+        val_samples = []
+        for val_path in val_paths:
+            sample_iter = tqdm(self._parse_path(val_path), desc=f"Parsing {val_path}")
+            sample_iter = map(lambda s: self.encoder.encode(s, inference=True), sample_iter)
+            val_samples.extend(sample_iter)
+        self.__val_ds = MapDataset(val_samples)
+
+    def _setup_test(self):
+        if self.__test_datasets is not None:
+            return
+        dses = []
+        for test_path in self.__test_paths:
+            sample_iter = tqdm(self._parse_path(test_path), desc=f"Parsing {test_path}")
+            ds = MapDataset( map(lambda s: self.encoder.encode(s, inference=True), sample_iter) )
+            dses.append(ds)
+        self.__test_datasets = dses
+
+    def setup(self, stage):
+        if stage == 'fit':
+            self._setup_train()
+        else:
+            self._setup_test()
+
+    def train_dataloader(self):
+        return DataLoader(self.__train_ds, batch_size=self.batch_size, collate_fn=self.encoder.collate, shuffle=True)
+    def val_dataloader(self):
+        return DataLoader(self.__val_ds,  batch_size=self.batch_size, collate_fn=self.encoder.collate)
+
+    def test_dataloader(self):
+        return [torch.utils.data.DataLoader(ds,
+                                    batch_size=self.batch_size,
+                                    collate_fn=self.encoder.collate) for ds in self.__test_datasets]
+    def predict_dataloader(self):
+        return self.test_dataloader()
+
 class TargetPredictionDataModule(BaseDataModule):
     """
     Only reads a CSV file of target predictions.
     Meant for use with the PassthroughModule
     """
     def __init__(self,
+                 data_dir: pathlib.Path,
                  targets_path: pathlib.Path,
-                 csv_paths: List[pathlib.Path],
-                 with_generated: bool = False):
+                 suffix_pattern: str = ".target_gens.csv",
+                 with_generated: bool = False,
+                 with_untranslated: bool = False,
+
+                 # FIXME: Don't make a variable for something
+                 # so experiment-specific
+                 merge_independence: bool = False,
+                 ):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
         # calls in L.LightningDataModule and its ancestors
         # Hence we use composition here instead
+        self.data_dir = data_dir
         target_mixin = TargetMixin(targets_path)
         self.targets = target_mixin.targets
         self.with_generated = with_generated
+        self.with_untranslated = with_untranslated
+        self.merge_independence = merge_independence
 
-        self.csv_paths = csv_paths
         self.datasets = []
+
+        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}")))
+        self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
+
+    @property
+    def testloader_labels(self):
+        return self.__testloader_labels
+
+    @staticmethod
+    def merge_independence_targets(s: TargetPred):
+        if s.gt_target in INDEPENDENCE_TARGETS:
+            s.gt_target = INDEPENDENCE
+        if s.mapped_target in INDEPENDENCE_TARGETS:
+            s.mapped_target = INDEPENDENCE
 
     def prepare_data(self):
         self.datasets.clear()
-        for path in self.csv_paths:
+        for path in self.__test_paths:
             samples = []
             for pred in parse_target_preds(path):
+                if self.merge_independence:
+                    self.merge_independence_targets(pred)
+
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),
                 }
+                s['lang'] = torch.tensor(LANG_TO_ID[pred.lang], dtype=torch.long)
                 if pred.mapped_target is not None:
                     s["target_preds"] = torch.tensor(self.targets.index(pred.mapped_target))
-                if self.with_generated:
-                    s['target_gens'] = pred.generated_targets
+                if self.with_generated or self.with_untranslated:
                     s["sample_inds"] = torch.full((len(pred.generated_targets),), pred.sample_id)
+                    if self.with_generated:
+                        s['target_gens'] = pred.generated_targets
+                    if self.with_untranslated:
+                        s['target_untrans'] = pred.untranslated_targets
                 samples.append(s)
             self.datasets.append(MapDataset(samples))
 
     def _collate(self, samples):
         encoding = dict()
         encoding['target'] = keyed_scalar_stack(samples, 'target')
+        encoding['lang'] = keyed_scalar_stack(samples, 'lang')
         if 'target_preds' in samples[0]:
             encoding['target_preds'] = keyed_scalar_stack(samples, 'target_preds')
-        if 'target_gens' in samples[0]:
-            encoding['target_gens'] = functools.reduce(lambda accum, el: accum + el, map(lambda x: x['target_gens'], samples))
+        for k in ['target_gens', 'target_untrans']:
+            if k in samples[0]:
+                encoding[k] = concat_lists(samples, k)
+        if 'sample_inds' in samples[0]:
             encoding['sample_inds'] = torch.concatenate([s['sample_inds'] for s in samples])
         return encoding
     

@@ -17,6 +17,7 @@ from ..modules.mixins import TargetMixin
 from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
 from ..data.target_pred import TargetPred
+from ..constants import ID_TO_LANG
 
 @enum.unique
 class TargetLevel(enum.IntEnum):
@@ -41,13 +42,14 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                  embeddings_path: Optional[os.PathLike] = None,
                  target_level: TargetLevel = TargetLevel.mapped,
                  related_threshold: float = DEFAULT_RELATED_THRESHOLD,
-                 dataloader_labels: Optional[List[str]] = None
                  ):
         BasePredictionWriter.__init__(self, write_interval='batch')
         TargetMixin.__init__(self, targets_path)
         self.out_dir = out_dir
         self.target_level = target_level
-        self.dataloader_labels = dataloader_labels or []
+
+        # Meant to be set by the CLI after instantiation
+        self.dataloader_labels = []
 
         self.related_threshold = related_threshold
         if embeddings_path is not None:
@@ -62,8 +64,8 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.__started_file = set()
         self.__sample_counter = defaultdict(int)
 
-        self.__gen_fieldnames = ["Sample", "Generated Target", "GT Target"]
-        self.__map_fieldnames = ["Sample", "Generated Target", "Mapped Target", "GT Target"]
+        self.__gen_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "GT Target", "Lang"]
+        self.__map_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "Mapped Target", "GT Target", "Lang"]
 
 
     @staticmethod
@@ -92,7 +94,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __get_gen_writer(self, dataloader_idx):
         label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_gens.{label}.txt"),
+            os.path.join(self.out_dir, f"{label}.target_gens.csv"),
             self.__gen_fieldnames,
             dataloader_idx,
             "target_gen"
@@ -101,11 +103,22 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
     def __get_map_writer(self, dataloader_idx):
         label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
         return self.__get_writer(
-            os.path.join(self.out_dir, f"target_preds.{label}.txt"),
+            os.path.join(self.out_dir, f"{label}.target_preds.csv"),
             self.__map_fieldnames,
             dataloader_idx,
             "target_pred"
         )
+
+    @staticmethod
+    def __add_langs(rows, lang_strs):
+        last_sid = None
+        i = -1
+        for row in rows:
+            sid = row['Sample']
+            if sid != last_sid:
+                i += 1
+                last_sid = sid
+            row['Lang'] = lang_strs[i]
 
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
         if self.target_level <= TargetLevel.none:
@@ -126,11 +139,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 all_texts: List[str] = prediction.target_gens
                 zerobased_inds = prediction.sample_inds - torch.min(prediction.sample_inds)
                 sample_inds = prediction.sample_inds.detach().cpu().tolist()
+            untrans_gens = batch.get('target_untrans', all_texts)
             gen_rows = [
                 {"Sample": sind,
                  "Generated Target": text,
+                 "Untranslated Target": ut_target,
                  "GT Target": str_labels[zind]
-            } for zind, sind, text in zip(zerobased_inds, sample_inds, all_texts)]
+            } for zind, sind, text, ut_target in zip(zerobased_inds, sample_inds, all_texts, untrans_gens)]
 
             if self.target_level >= TargetLevel.mapped:
                 if self.fast_text is None or self.__target_embeddings is None:
@@ -140,17 +155,23 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                     self.__device = pl_module.device
                     self.__target_embeddings = self.__target_embeddings.to(self.__device)
 
-                target_preds, freeform_preds = map_targets(self.fast_text,
+                target_preds, all_text_inds = map_targets(self.fast_text,
                                                            self.__target_embeddings,
                                                            all_texts,
                                                            zerobased_inds,
                                                            self.related_threshold)
+                # FIXME: Put the i < len(all_texts) handling logic in map_targets itself
+                # This handles the case where segment_max_coo can't find a maximum...?
+                freeform_preds = [all_texts[i] if i < len(all_texts) else "" for i in all_text_inds]
+                untrans_preds = [untrans_gens[i] if i < len(all_texts) else "" for i in all_text_inds]
+
                 sample_inds = unique_consecutive(sample_inds)
                 map_rows = [{"Sample": sind,
                     "Generated Target": freeform_pred,
                     "Mapped Target": self.targets[target_pred],
+                    "Untranslated Target": ut_pred,
                     "GT Target": str_labels[i]
-                    } for i, (sind, freeform_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, target_preds))
+                    } for i, (sind, freeform_pred, ut_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, untrans_preds, target_preds))
                 ]
         else:
             if hasattr(prediction, "target_gens"):
@@ -161,6 +182,8 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             # If we have target_preds, the mapping has already been done
             # For simplicity, ignore any target_gen fields
             target_preds = [self.targets[p] for p in prediction.target_preds.flatten().detach().cpu().tolist()]
+            untrans_preds = batch.get('target_untrans', freeform_preds)
+            assert len(untrans_preds) == len(target_preds)
 
             if hasattr(prediction, "sample_inds"):
                 sample_inds = prediction.sample_inds
@@ -171,13 +194,21 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 "Sample": sind,
                 "Generated Target": pred,
                 "Mapped Target": pred,
+                "Untranslated Target": ut_pred,
                 "GT Target": str_labels[i]
-                } for i, (sind, pred) in enumerate(zip(sample_inds, target_preds))]
+                } for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
+
+        
+        lang_strs = [ID_TO_LANG[l] for l in batch['lang'].detach().cpu().tolist()] if 'lang' in batch else None
 
         if gen_rows is not None:
+            if lang_strs is not None:
+                TargetPredictionWriter.__add_langs(gen_rows, lang_strs)
             with self.__get_gen_writer(dataloader_idx) as writer:
                 writer.writerows(gen_rows)
         if map_rows is not None:
+            if lang_strs is not None:
+                TargetPredictionWriter.__add_langs(map_rows, lang_strs)
             with self.__get_map_writer(dataloader_idx) as writer:
                 writer.writerows(map_rows)
         self.__sample_counter[dataloader_idx] += len(target_labels)

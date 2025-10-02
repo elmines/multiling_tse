@@ -1,5 +1,9 @@
 # STL
 from typing import Tuple
+import dataclasses
+from collections import defaultdict
+from typing import Optional, List
+import functools
 # 3rd Party
 import torch
 from lightning.pytorch.callbacks import Callback
@@ -8,36 +12,40 @@ import lightning as L
 
 class TSEStatsCallback(Callback):
 
+    @dataclasses.dataclass
+    class CorpStats:
+        tp: int = 0
+        pred_pos: int = 0
+        support: int = 0
+        fn_wrongtarg: int = 0
+        fn_wrongstance: int = 0
+        fp_wrongtarg: int = 0
+        fp_wrongstance: int = 0
+        correct: int = 0
+        total: int = 0
+
+        def __add__(self, rhs):
+            return TSEStatsCallback.CorpStats(
+                tp=self.tp + rhs.tp,
+                pred_pos=self.pred_pos + rhs.pred_pos,
+                support=self.support + rhs.support,
+                fn_wrongtarg=self.fn_wrongtarg + rhs.fn_wrongtarg,
+                fn_wrongstance=self.fn_wrongstance + rhs.fn_wrongstance,
+                fp_wrongtarg=self.fp_wrongtarg + rhs.fp_wrongtarg,
+                fp_wrongstance=self.fp_wrongstance + rhs.fp_wrongstance,
+                correct=self.correct + rhs.correct,
+                total=self.total + rhs.total,
+            )
+
     def __init__(self, full_metrics=False):
         self.no_target = 0
         self.full_metrics = full_metrics
+        self.dataloader_labels = []
+        self.__stats_by_corp = defaultdict(TSEStatsCallback.CorpStats)
 
-        self.__summarized = False
-        self.__tp = 0
-        self.__pred_pos = 0
-        self.__support = 0
-
-        self.__fn_wrongtarg = 0
-        self.__fn_wrongstance = 0
-        self.__fp_wrongtarg = 0
-        self.__fp_wrongstance = 0
-
-        self.__correct = 0
-        self.__total = 0
 
     def reset(self):
-        self.__summarized = False
-        self.__tp = 0
-        self.__pred_pos = 0
-        self.__support = 0
-
-        self.__fn_wrongtarg = 0
-        self.__fn_wrongstance = 0
-        self.__fp_wrongtarg = 0
-        self.__fp_wrongstance = 0
-
-        self.__correct = 0
-        self.__total = 0
+        self.__stats_by_corp = defaultdict(TSEStatsCallback.CorpStats)
 
     @staticmethod
     def compute_metrics(tp, pred_pos, support) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -55,25 +63,25 @@ class TSEStatsCallback(Callback):
                target_preds: torch.Tensor,
                stance_preds: torch.Tensor,
                target_labels: torch.Tensor,
-               stance_labels: torch.Tensor):
-        if self.__summarized:
-            raise ValueError("Must reset F1Calc before recording more results")
+               stance_labels: torch.Tensor,
+               dataloader_idx: int):
+        corp_stats = self.__stats_by_corp[dataloader_idx]
 
-        self.__correct += int(torch.sum(torch.logical_or(
+        corp_stats.correct += int(torch.sum(torch.logical_or(
             torch.logical_and(target_preds == self.no_target, target_labels == self.no_target),
             torch.logical_and(target_preds == target_labels, stance_preds == stance_labels)
         )))
-        self.__total += stance_labels.numel()
+        corp_stats.total += stance_labels.numel()
 
 
         pred_pos = target_preds != self.no_target
         label_has_target = target_labels != self.no_target
 
-        self.__pred_pos += int(torch.sum(pred_pos))
+        corp_stats.pred_pos += int(torch.sum(pred_pos))
 
         pred_pos_inds = torch.where(pred_pos)
-        self.__fp_wrongtarg += int(torch.sum(target_preds[pred_pos_inds] != target_labels[pred_pos_inds]))
-        self.__fp_wrongstance += int(torch.sum(torch.logical_and(
+        corp_stats.fp_wrongtarg += int(torch.sum(target_preds[pred_pos_inds] != target_labels[pred_pos_inds]))
+        corp_stats.fp_wrongstance += int(torch.sum(torch.logical_and(
             target_preds[pred_pos_inds] == target_labels[pred_pos_inds],
             stance_preds[pred_pos_inds] != stance_labels[pred_pos_inds]
         )))
@@ -83,11 +91,11 @@ class TSEStatsCallback(Callback):
         stance_preds = stance_preds[label_has_target_inds]
         target_labels = target_labels[label_has_target_inds]
         stance_labels = stance_labels[label_has_target_inds]
-        self.__support += target_labels.numel()
-        self.__fn_wrongtarg   += int(torch.sum(target_preds != target_labels))
-        self.__fn_wrongstance += int(torch.sum(torch.logical_and(target_preds == target_labels, stance_preds != stance_labels)))
+        corp_stats.support += target_labels.numel()
+        corp_stats.fn_wrongtarg   += int(torch.sum(target_preds != target_labels))
+        corp_stats.fn_wrongstance += int(torch.sum(torch.logical_and(target_preds == target_labels, stance_preds != stance_labels)))
 
-        self.__tp += int(torch.sum(torch.logical_and(target_preds == target_labels, stance_preds == stance_labels)))
+        corp_stats.tp += int(torch.sum(torch.logical_and(target_preds == target_labels, stance_preds == stance_labels)))
 
     def on_validation_epoch_start(self, trainer, pl_module):
         self.reset()
@@ -99,28 +107,42 @@ class TSEStatsCallback(Callback):
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0):
         return self._on_batch_end(trainer, pl_module, outputs, batch, batch_idx, dataloader_idx)
     def _on_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx = 0):
-        self.record(outputs.target_preds, outputs.stance_preds, batch['target'], batch['stance'])
+        self.record(outputs.target_preds, outputs.stance_preds, batch['target'], batch['stance'], dataloader_idx)
 
     def on_validation_epoch_end(self, trainer, pl_module):
         return self._on_epoch_end(trainer, pl_module, "val")
     def on_test_epoch_end(self, trainer, pl_module):
         return self._on_epoch_end(trainer, pl_module, "test")
     def _on_epoch_end(self, trainer, pl_module: L.LightningModule, stage):
-        results = {}
-        if self.full_metrics:
-            results['tse/fn_wrongtarg'] = self.__fn_wrongtarg
-            results['tse/fn_wrongstance'] = self.__fn_wrongstance
-            results['tse/fp_wrongtarg'] = self.__fp_wrongtarg
-            results['tse/fp_wrongstance'] = self.__fp_wrongstance
-            results['tse/pred_pos'] = self.__pred_pos
-            results['tse/support'] = self.__support
-            results['tse/tp'] = self.__tp
 
-        _, _2, results['tse/f1'] = \
-            TSEStatsCallback.compute_metrics(self.__tp, self.__pred_pos, self.__support)
+        def log_stats(stats: TSEStatsCallback.CorpStats, dataloader_idx: Optional[int] = None):
+            results = {}
+            ldr_suffix = ""
+            if dataloader_idx is not None:
+                if dataloader_idx < len(self.dataloader_labels):
+                    ldr_suffix = f"/{self.dataloader_labels[dataloader_idx]}"
+                else:
+                    ldr_suffix = f"/{dataloader_idx}"
+            
+            if self.full_metrics:
+                results['tse/fn_wrongtarg'] = stats.fn_wrongtarg
+                results['tse/fn_wrongstance'] = stats.fn_wrongstance
+                results['tse/fp_wrongtarg'] = stats.fp_wrongtarg
+                results['tse/fp_wrongstance'] = stats.fp_wrongstance
+                results['tse/pred_pos'] = stats.pred_pos
+                results['tse/support'] = stats.support
+                results['tse/tp'] = stats.tp
 
-        results['tse/acc'] = self.__correct / self.__total if self.__total > 0 else 0.0
+                _, _2, results['tse/f1'] = \
+                    TSEStatsCallback.compute_metrics(stats.tp, stats.pred_pos, stats.support)
+                results['tse/acc'] = stats.correct / stats.total if stats.total > 0 else 0.0
+                results['tse/nsamples'] = stats.total
 
-        results = {f"{stage}/{k}":v for k,v in results.items()}
-        for (k, v) in results.items():
-            pl_module.log(k, v, on_step=False, on_epoch=True)
+                results = {f"{stage}/{k}{ldr_suffix}":v for k,v in results.items()}
+                for (k, v) in results.items():
+                    pl_module.log(k, v, on_step=False, on_epoch=True)
+        agg_stats = functools.reduce(lambda accum,el: accum + el, self.__stats_by_corp.values())
+        log_stats(agg_stats)
+        if len(self.__stats_by_corp) > 1:
+            for dataloader_idx, stats in self.__stats_by_corp.items():
+                log_stats(stats, dataloader_idx)

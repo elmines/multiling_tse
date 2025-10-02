@@ -1,17 +1,28 @@
 #!/bin/bash
 ALL=${ALL:-0}
-FT_EMBED=0
+FT_EMBED=${FT_EMBED:-$ALL}
 TARGET_FIT=${TARGET_FIT:-$ALL}
 TARGET_GEN=${TARGET_GEN:-$ALL}
 TARGET_TRANS=${TARGET_TRANS:-$ALL}
 TARGET_MAP=${TARGET_MAP:-$ALL}
 TARGET_TEST=${TARGET_TEST:-$ALL}
-STANCE_FIT=0
-STANCE_TEST=0
-TSE_TEST=0
-GT_TSE_TEST=0
+STANCE_FIT=${STANCE_FIT:-$ALL}
+STANCE_TEST=${STANCE_TEST:-$ALL}
+TSE_TEST=${TSE_TEST:-$ALL}
+GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0 1 2}
+MERGE_TARGETS=${MERGE_TARGETS:-0}
+if [ $MERGE_TARGETS -eq 1 ]
+then
+    TARGETS_PATH=static/reduced_multiling_targets.txt
+    MERGED_STEM="_merged"
+else
+    TARGETS_PATH=static/multiling_targets.txt
+    MERGED_STEM=""
+fi
+
+fold=${1:-0}
+seed=${2:-0}
 
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
@@ -31,210 +42,202 @@ function extract_langs
     done
 }
 
+# Doesn't depend on fold
 if [ $FT_EMBED -eq 1 ]
 then
     mkdir -p $LOGS_ROOT
-    for seed in $SEEDS
-    do
-        python -m mtse.train_ft \
-            --corpus_type li \
-            -i data/li_tse/raw_train_all_onecol.csv \
-            --seed $seed \
-            --embed 256 \
-            -o $(embed_path $seed) \
-            --epochs 500 
-    done
+    python -m mtse.train_ft \
+        --corpus_type standard \
+        -i data/multiling/en_unrelated_all.csv \
+        --seed $seed \
+        --embed 256 \
+        -o $(embed_path $seed) \
+        --epochs 500 
 else
     echo "Skipping FastText embedding"
 fi
 
+# Doesn't depend on fold
 if [ $TARGET_FIT -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        python -m mtse fit \
-            -c configs/base/mt5_target_generator.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target \
-            --seed_everything $seed 
-    done
+    python -m mtse fit \
+        -c configs/base/mt5_target_generator.yaml \
+        $LOGGER_ARGS \
+        --trainer.logger.version seed${seed}_target \
+        --seed_everything $seed 
 else
     echo "Skipping target fitting"
 fi
 
 if [ $TARGET_GEN -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        version=seed${seed}_target_gen
+    version=fold${fold}_seed${seed}_target_gen
 
-        python -m mtse predict \
-            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            -c configs/stages/multiling_target_gen.yaml \
-            --trainer.logger.version $version \
-            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
-    done
+    python -m mtse predict \
+        -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+        --return_predictions false \
+        --data mtse.data.DirDataModule \
+        --model.predict_targets true \
+        --data.data_dir data/multiling/fold${fold} \
+        --trainer.logger.version $version \
+        --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+        --trainer.callbacks.targets_path $TARGETS_PATH \
+        --trainer.callbacks.target_level generated \
+        --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+        --trainer.callbacks.embeddings_path $(embed_path $seed) \
+        --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
 else
     echo "Skipping target generation"
 fi
 
 if [ $TARGET_TRANS -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        gen_dir=$LOGS_ROOT/seed${seed}_target_gen
-        readarray -t in_files < <(ls -d $gen_dir/target_gens*)
-        readarray -t in_langs < <(extract_langs ${in_files[@]})
-
-        out_dir=$LOGS_ROOT/seed${seed}_target_translate
-        if [ -e $out_dir ]
+        out_dir=$LOGS_ROOT/fold${fold}_seed${seed}_target_translate
+        if [ -e $out_dir -a ! -z $(ls $out_dir) ]
         then
             echo Not overwriting existing $out_dir
             exit 1
         fi
-        mkdir $out_dir
-        readarray -t out_paths < <(for f in ${in_files[@]}; do echo $out_dir/$(basename $f); done) 
+        mkdir -p $out_dir
+
+        in_files=()
+        in_langs=()
+        out_paths=()
+        for target_path in $LOGS_ROOT/fold${fold}_seed${seed}_target_gen/*target_gens.csv
+        do
+            in_files+=($target_path)
+            in_langs+=($(basename $target_path | cut -c1-2))
+            out_paths+=($out_dir/$(basename $target_path))
+        done
 
         python -m mtse.translate pred \
             -i ${in_files[@]} \
             --lang ${in_langs[@]} \
             -o ${out_paths[@]}
-    done
 else
     echo "Skipping target translation"
 fi
 
 if [ $TARGET_MAP -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+    version=fold${fold}_seed${seed}${MERGED_STEM}_target_map
 
-        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_translate/target_gens.*)
-        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
-        dataloader_labels=$(
-            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $f | cut -d. -f2; done)
-            IFS=,
-            echo "[${label_array[*]}]"
-        )
-        version=seed${seed}_target_map
+    EXTRA_ARGS=""
+    if [ $MERGE_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
+    fi
 
-        python -m mtse predict \
-            --seed_everything $seed \
-            --model mtse.modules.PassthroughModule \
-            --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/multiling_targets.txt \
-            --data.csv_paths $csv_paths \
-            --data.with_generated true \
-            --trainer.logger lightning.pytorch.loggers.CSVLogger \
-            $LOGGER_ARGS \
-            --trainer.logger.version $version \
-            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
-            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.targets_path static/multiling_targets.txt \
-            --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --trainer.callbacks.target_level mapped \
-            --trainer.callbacks.dataloader_labels $dataloader_labels \
-            --trainer.callbacks.related_threshold 0.35
+    python -m mtse predict \
+        --seed_everything $seed \
+        --model mtse.modules.PassthroughModule \
+        --data mtse.data.TargetPredictionDataModule \
+        --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}_target_translate \
+        --data.targets_path $TARGETS_PATH \
+        --data.suffix_pattern .target_gens.csv \
+        --data.with_generated true \
+        --data.with_untranslated true \
+        $EXTRA_ARGS \
+        --trainer.logger lightning.pytorch.loggers.CSVLogger \
+        $LOGGER_ARGS \
+        --trainer.logger.version $version \
+        --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+        --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+        --trainer.callbacks.targets_path $TARGETS_PATH \
+        --trainer.callbacks.embeddings_path $(embed_path $seed) \
+        --trainer.callbacks.target_level mapped \
+        --trainer.callbacks.related_threshold 0.35
 
-        $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/seed${seed}_full_target_preds.csv $seed
-    done
+    $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_full_target_preds.csv $fold $seed
 else
     echo "Skipping target mapping"
 fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*)
-        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
-        dataloader_labels=$(
-            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $(basename $f) | cut -d. -f2; done)
-            IFS=,
-            echo "[${label_array[*]}]"
-        )
+        EXTRA_ARGS=""
+        if [ $MERGE_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
+        fi
 
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/multiling_targets.txt \
-            --data.csv_paths $csv_paths \
+            --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.targets_path $TARGETS_PATH \
+            --data.suffix_pattern .target_preds.csv \
+            $EXTRA_ARGS \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target_test \
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/multiling_targets.txt) )) \
-            --trainer.callbacks.dataloader_labels $dataloader_labels
-    done
+            --trainer.callbacks.n_classes $((1 + $(wc -l < $TARGETS_PATH) ))
 else
     echo "Skipping target testing"
 fi
 
 if [ $STANCE_FIT -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+        EXTRA_ARGS=()
+        if [ $MERGE_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS+=(--data.transforms)
+            EXTRA_ARGS+=("[{class_path : mtse.data.MergeIndependence}]")
+        fi
+
         python -m mtse fit \
-            -c configs/base/li_stance_classifier.yaml \
+            -c configs/base/m_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_stance \
-            --seed_everything $seed
-    done
+            --model.targets_path $TARGETS_PATH \
+            --data mtse.data.DirDataModule \
+            --data.data_dir data/multiling/fold${fold} \
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_stance \
+            --seed_everything $seed \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance fitting"
 fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+        train_dir=fold${fold}_seed${seed}${MERGED_STEM}_stance
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
-            --data configs/data/li_stance_test.yaml \
-            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
-    done
+            -c $LOGS_ROOT/$train_dir/config.yaml \
+            --trainer.logger.version ${train_dir}_test \
+            --ckpt_path $LOGS_ROOT/$train_dir/checkpoints/*ckpt
 else
     echo "Skipping stance testing"
 fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}_stance
+        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
+            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.target_input pred \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version seed${seed}_tse_test
-    done
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test
 else
     echo "Skipping tse testing"
 fi
 
 if [ $GT_TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}_stance
+        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --model.use_target_gt true \
+            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.target_input label \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version seed${seed}_tse_test_gt \
-            --data.corpora.target_input label \
-            --model.use_target_gt true
-    done
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test_gt
 else
     echo "Skipping gt tse testing"
 fi

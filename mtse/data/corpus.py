@@ -28,8 +28,8 @@ class StanceCorpus:
                 raise ValueError(f"Invalid target_input = {self.target_input}")
 
     def __init__(self,
-                 corpus_type: DetCorpusType,
                  path: pathlib.Path,
+                 corpus_type: DetCorpusType = 'standard',
                  target_preds_path: Optional[pathlib.Path] = None,
                  transforms: List[Transform] = [],
                  target_input: TargetInputType = 'label',

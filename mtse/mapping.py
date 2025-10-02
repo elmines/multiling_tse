@@ -29,7 +29,13 @@ def make_target_embeddings(targets: List[str], fast_text: FastText) -> np.ndarra
 def detokenize(tokenizer: PreTrainedTokenizerFast, id_seq: List[int]) -> List[str]:
     full_string = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(id_seq, skip_special_tokens=True))
     target_names = full_string.split(TARGET_DELIMITER)
-    return target_names
+    pruned = []
+    seen = set()
+    for t in target_names:
+        if t not in seen:
+            pruned.append(t)
+            seen.add(t)
+    return pruned
 
 def detokenize_generated_targets(generate_output: GenerateBeamEncoderDecoderOutput,
                                  tokenizer: PreTrainedTokenizerFast) -> Tuple[List[str], List[int]]:
@@ -46,7 +52,7 @@ def map_targets(fast_text: FastText,
                 target_embeddings: torch.Tensor,
                 all_texts: List[str],
                 sample_inds: torch.Tensor,
-                related_threshold: float) -> Tuple[torch.Tensor, List[str]]:
+                related_threshold: float) -> Tuple[torch.Tensor, List[int]]:
     device = target_embeddings.device
 
     output_embeddings = fast_text.wv[all_texts]
@@ -71,7 +77,6 @@ def map_targets(fast_text: FastText,
 
     # Get the string-based free-form targets as well
     all_text_inds = torch.gather(arg_sample_scores, 1, arg_class_scores.unsqueeze(1)).squeeze(1)
-    freeform_preds = [all_texts[i] for i in all_text_inds]
 
-    return target_preds, freeform_preds
+    return target_preds, all_text_inds
 

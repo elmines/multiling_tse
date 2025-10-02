@@ -7,12 +7,6 @@ trainer:
 
   callbacks:
 
-    - class_path: lightning.pytorch.callbacks.EarlyStopping
-      init_args:
-        monitor: val/loss
-        patience: 5
-        mode: min
-
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         monitor: val/loss
@@ -40,17 +34,45 @@ data:
 
     corpora:
       - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/kptimes/train.jsonl
-          corpus_type: kptimes
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
-          limit_n: 1000000
+        init_args: {"path": "data/kptimes/trans_part/ca_train.jsonl", "corpus_type": "kptimes"}
       - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/kptimes/dev.jsonl
-          corpus_type: kptimes
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+        init_args: {"path": "data/kptimes/trans_part/ca_dev.jsonl", "corpus_type": "kptimes"}
+
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/es_train.jsonl", "corpus_type": "kptimes"}
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/es_dev.jsonl", "corpus_type": "kptimes"}
+
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/et_train.jsonl", "corpus_type": "kptimes"}
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/et_dev.jsonl", "corpus_type": "kptimes"}
+
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/fr_train.jsonl", "corpus_type": "kptimes"}
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/fr_dev.jsonl", "corpus_type": "kptimes"}
+
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/it_train.jsonl", "corpus_type": "kptimes"}
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/it_dev.jsonl", "corpus_type": "kptimes"}
+
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/zh_train.jsonl", "corpus_type": "kptimes"}
+      - class_path: mtse.data.StanceCorpus
+        init_args: {"path": "data/kptimes/trans_part/zh_dev.jsonl", "corpus_type": "kptimes"}
     ratios:
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]
 
