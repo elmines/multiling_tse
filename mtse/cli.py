@@ -9,7 +9,11 @@ from .data import *
 from .callbacks import *
 from lightning.pytorch.callbacks import Callback
 
-class DoofCallback(Callback):
+class FieldSetterCallback(Callback):
+    """
+    Simple callback used to set some fields that are
+    easier to set programmatically than with a YAML config.
+    """
     def __init__(self, dataloader_labels: Optional[List[str]] = None):
         self.dataloader_labels = dataloader_labels
     def _on_infer_start(self, trainer, pl_module):
@@ -44,7 +48,7 @@ class StanceCLI(LightningCLI):
             state_dict =  torch.load(self.config_dump['weight_ckpt'])['state_dict']
             self.model.load_state_dict(state_dict, strict=False)
 
-        extra_callback = DoofCallback(datamodule.testloader_labels)
+        extra_callback = FieldSetterCallback(datamodule.testloader_labels)
         self.trainer.callbacks.append(extra_callback)
 
 
@@ -56,6 +60,6 @@ def cli_main(**cli_kwargs):
             "max_epochs": 1000,
             "deterministic": True
         },
-        seed_everything_default=1,
+        seed_everything_default=0,
         **cli_kwargs
     )
