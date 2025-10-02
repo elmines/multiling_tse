@@ -88,7 +88,6 @@ class DirDataModule(BaseDataModule):
             label = DirDataModule._extract_label(path)
             target_preds_path = os.path.join(self.preds_dir, label + ".target_preds.csv")
             if not os.path.exists(target_preds_path):
-                return
                 raise ValueError(f'Could not find target preds for "{label}" at expected path "{target_preds_path}"')
 
         yield from StanceCorpus(path,
@@ -103,13 +102,10 @@ class DirDataModule(BaseDataModule):
         val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
 
         train_samples = []
-        i = 0
         for train_path in train_paths:
             sample_iter = tqdm(self._parse_path(train_path), desc=f"Parsing {train_path}")
             sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
             train_samples.extend(sample_iter)
-            if (i := i + 1) > 2:
-                break
         self.__train_ds = MapDataset(train_samples)
         val_samples = []
         for val_path in val_paths:
@@ -122,13 +118,10 @@ class DirDataModule(BaseDataModule):
         if self.__test_datasets is not None:
             return
         dses = []
-        i = 0
         for test_path in self.__test_paths:
             sample_iter = tqdm(self._parse_path(test_path), desc=f"Parsing {test_path}")
             ds = MapDataset( map(lambda s: self.encoder.encode(s, inference=True), sample_iter) )
             dses.append(ds)
-            if (i := i + 1) > 2:
-                break
         self.__test_datasets = dses
 
     def setup(self, stage):
