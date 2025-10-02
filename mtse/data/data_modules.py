@@ -21,7 +21,7 @@ from .corpus import StanceCorpus, TargetInputType
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
 from .sample import Sample
-from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS
+from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS, INDEPENDENCE
 from ..modules.mixins import TargetMixin
 
 class BaseDataModule(L.LightningDataModule):
@@ -181,9 +181,9 @@ class TargetPredictionDataModule(BaseDataModule):
     @staticmethod
     def merge_independence_targets(s: TargetPred):
         if s.gt_target in INDEPENDENCE_TARGETS:
-            s.gt_target = "Independence"
+            s.gt_target = INDEPENDENCE
         if s.mapped_target in INDEPENDENCE_TARGETS:
-            s.mapped_target = "Independence"
+            s.mapped_target = INDEPENDENCE
 
     def prepare_data(self):
         self.datasets.clear()
