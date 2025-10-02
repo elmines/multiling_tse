@@ -9,6 +9,7 @@ TARGET_TEST=${TARGET_TEST:-$ALL}
 STANCE_FIT=${STANCE_FIT:-$ALL}
 STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
+GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 MERGE_TARGETS=${MERGE_TARGETS:-0}
 if [ $MERGE_TARGETS -eq 1 ]
@@ -212,29 +213,31 @@ fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-        # corpora_args=""
-        # dataloader_labels=""
-        # predict_dir=$LOGS_ROOT/seed${seed}_target_map
-        # prefix=""
-        # for target_pred_path in $predict_dir/target_preds.*.txt
-        # do
-        #     data_part=$(basename $target_pred_path | cut -d. -f2)
-        #     data_path=data/multiling/${data_part}_test.csv
-        #     corpus_args="{class_path: mtse.data.StanceCorpus, init_args: {path: $data_path, target_preds_path: $target_pred_path}}"
-        #     corpora_args="${corpora_args}${prefix}${corpus_args}"
-        #     dataloader_labels="${dataloader_labels}${prefix}${data_part}"
-        #     prefix=","
-        # done
-
         train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
-
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.target_input pred \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test
 else
     echo "Skipping tse testing"
+fi
+
+if [ $GT_TSE_TEST -eq 1 ]
+then
+        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
+        python -m mtse test \
+            -c $train_dir/config.yaml \
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --model.use_target_gt true \
+            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.target_input label \
+            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
+            --trainer.callbacks.full_metrics true \
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test_gt
+else
+    echo "Skipping gt tse testing"
 fi
