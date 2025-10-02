@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 import glob
+import pdb
 # 3rd Party
 import random
 import torch
@@ -10,15 +11,16 @@ import numpy as np
 from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split, Sampler
 import lightning as L
 from tqdm import tqdm
-from typing import Tuple, List, Tuple, Optional
+from typing import Tuple, List, Tuple, Optional, Generator
 # Local
 from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .target_pred import TargetPred
 from .dataset import MapDataset
 from .transforms import Transform
-from .corpus import StanceCorpus
+from .corpus import StanceCorpus, TargetInputType
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
+from .sample import Sample
 from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS
 from ..modules.mixins import TargetMixin
 
@@ -52,10 +54,15 @@ class DirDataModule(BaseDataModule):
     """
     Looks for files with suffixies _train.csv, _val.csv, _test.csv
     """
-    def __init__(self, data_dir: pathlib.Path, batch_size: int = DEFAULT_BATCH_SIZE, **parent_kwargs):
+    def __init__(self,
+                 data_dir: pathlib.Path,
+                 batch_size: int = DEFAULT_BATCH_SIZE,
+                 target_input: TargetInputType = "label", 
+                 **parent_kwargs):
         super().__init__(**parent_kwargs)
         self.data_dir = data_dir
         self.batch_size = batch_size
+        self.target_input = target_input
         self.__train_ds: Dataset = None
         self.__val_ds: Dataset = None
         # Allow multiple datasets for eval purposes
@@ -64,11 +71,13 @@ class DirDataModule(BaseDataModule):
         self.__testloader_labels = [os.path.basename(p).split("_test.csv")[0] for p in self.__test_paths]
 
         self.__test_datasets: List[Dataset] = None
-        self.encoder: Encoder = None
 
     @property
     def testloader_labels(self):
         return self.__testloader_labels
+
+    def _parse_path(self, path) -> Generator[Sample, None, None]:
+        yield from StanceCorpus(path, corpus_type="standard", target_input=self.target_input)
 
     def _setup_train(self):
         if self.__train_ds is not None:
@@ -77,14 +86,17 @@ class DirDataModule(BaseDataModule):
         val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
 
         train_samples = []
+        i = 0
         for train_path in train_paths:
-            sample_iter = tqdm(parse_standard(train_path), desc=f"Parsing {train_path}")
+            sample_iter = tqdm(self._parse_path(train_path), desc=f"Parsing {train_path}")
             sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
             train_samples.extend(sample_iter)
+            if (i := i + 1) > 2:
+                break
         self.__train_ds = MapDataset(train_samples)
         val_samples = []
         for val_path in val_paths:
-            sample_iter = tqdm(parse_standard(val_path), desc=f"Parsing {val_path}")
+            sample_iter = tqdm(self._parse_path(val_path), desc=f"Parsing {val_path}")
             sample_iter = map(lambda s: self.encoder.encode(s, inference=True), sample_iter)
             val_samples.extend(sample_iter)
         self.__val_ds = MapDataset(val_samples)
@@ -95,7 +107,7 @@ class DirDataModule(BaseDataModule):
         dses = []
         i = 0
         for test_path in self.__test_paths:
-            sample_iter = tqdm(parse_standard(test_path), desc=f"Parsing {test_path}")
+            sample_iter = tqdm(self._parse_path(test_path), desc=f"Parsing {test_path}")
             ds = MapDataset( map(lambda s: self.encoder.encode(s, inference=True), sample_iter) )
             dses.append(ds)
             if (i := i + 1) > 2:

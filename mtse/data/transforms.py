@@ -9,6 +9,7 @@ import preprocessor as twp
 twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
+from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
 
 
 class Transform(abc.ABC):
@@ -28,9 +29,10 @@ class SemHashtagRemoval(Transform):
 
 class MergeIndependence(Transform):
     def __call__(self, sample: Sample):
-        targ_label = sample.target_label
-        if targ_label == 'Catalonian Independence' or targ_label == 'Sardinian Independence':
-            sample.target_label = "Independence"
+        # TODO: Be more fine-grained and don't sweep through every property
+        for prop in ["target_pred", "target_label", "target_input"]:
+            if getattr(sample, prop) in INDEPENDENCE_TARGETS:
+                setattr(sample, prop, INDEPENDENCE)
 
 class LiPreprocess(Transform):
     """
@@ -147,6 +149,7 @@ class LiPreprocess(Transform):
 
 __all__ = [
     "Transform",
+    "MergeIndependence",
     "SemHashtagRemoval",
     "LiPreprocess",
 ]

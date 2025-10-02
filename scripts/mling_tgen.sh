@@ -178,30 +178,34 @@ fi
 
 if [ $STANCE_FIT -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+        EXTRA_ARGS=()
+        if [ $MERGE_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS+=(--data.transforms)
+            EXTRA_ARGS+=("[{class_path : mtse.data.MergeIndependence}]")
+        fi
+
         python -m mtse fit \
             -c configs/base/m_stance_classifier.yaml \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_stance \
-            --seed_everything $seed
-    done
+            --model.targets_path $TARGETS_PATH \
+            --data mtse.data.DirDataModule \
+            --data.data_dir data/multiling/fold${fold} \
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_stance \
+            --seed_everything $seed \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance fitting"
 fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
+        train_dir=fold${fold}_seed${seed}${MERGED_STEM}_stance
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
-            --data configs/data/m_stance_test.yaml \
-            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
-    done
+            -c $LOGS_ROOT/$train_dir/config.yaml \
+            --trainer.logger.version ${train_dir}_test \
+            --ckpt_path $LOGS_ROOT/$train_dir/checkpoints/*ckpt
 else
     echo "Skipping stance testing"
 fi

@@ -8,6 +8,7 @@ INDEPENDENCE_TARGETS = [
     "Catalonian Independence",
     "Sardinian Independence"
 ]
+INDEPENDENCE = "Independence"
 
 TARGET_DELIMITER = ";"
 
