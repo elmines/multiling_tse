@@ -22,11 +22,9 @@ def _compute_corpus_metrics(tp, fp, fn):
 class TargetClassificationStatsCallback(Callback):
 
     def __init__(self,
-                 n_classes: int,
-                 dataloader_labels: Optional[List[str]] = None
-                 ):
+                 n_classes: int):
         self.n_classes = n_classes
-        self.dataloader_labels = dataloader_labels or []
+        self.dataloader_labels = []
         self.__stats_by_corp = defaultdict(lambda: self.__empty_stats())
         self.__counts_by_corp = defaultdict(int)
 

@@ -124,7 +124,7 @@ then
     EXTRA_ARGS=""
     if [ $MERGE_TARGETS -eq 1 ]
     then
-        EXTRA_ARGS="--data.merge_independence true"
+        EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
     fi
 
     python -m mtse predict \
@@ -154,28 +154,24 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        readarray -t preds_array < <(ls -d $LOGS_ROOT/seed${seed}_target_map/target_preds.*)
-        csv_paths=$(IFS=,; echo "[${preds_array[*]}]")
-        dataloader_labels=$(
-            readarray -t label_array < <(for f in ${preds_array[@]}; do echo $(basename $f) | cut -d. -f2; done)
-            IFS=,
-            echo "[${label_array[*]}]"
-        )
+        EXTRA_ARGS=""
+        if [ $MERGE_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
+        fi
 
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/multiling_targets.txt \
-            --data.csv_paths $csv_paths \
+            --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.targets_path $TARGETS_PATH \
+            --data.suffix_pattern .target_preds.csv \
+            $EXTRA_ARGS \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target_test \
+            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/multiling_targets.txt) )) \
-            --trainer.callbacks.dataloader_labels $dataloader_labels
-    done
+            --trainer.callbacks.n_classes $((1 + $(wc -l < $TARGETS_PATH) ))
 else
     echo "Skipping target testing"
 fi
