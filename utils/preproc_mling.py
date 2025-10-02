@@ -1,4 +1,4 @@
-#!usr/bin/env python3
+#!/usr/bin/env python3
 import json
 import csv
 import random
@@ -110,6 +110,16 @@ def part_nlpcc(in_dir, fold_dirs):
         "开放二胎": "Allowing second births",
         "深圳禁摩限电": "Shenzhen bans motorcycles and imposes electricity restrictions",
     }
+
+    file_labels = {
+        "IphoneSE": "iphone",
+        "Setting off firecrackers during the Spring Festival": "firecracker",
+        "Russia's counter-terrorism operations in Syria": "russia",
+        "Allowing second births": "twochild",
+        "Shenzhen bans motorcycles and imposes electricity restrictions": "shenzhen",
+    }
+
+
     label_map = {
         'FAVOR': 1,
         'AGAINST': 0,
@@ -130,16 +140,12 @@ def part_nlpcc(in_dir, fold_dirs):
         })
 
     K = len(fold_dirs)
-    root_train_folds = [[] for _ in range(K)]
-    root_val_folds = [[] for _ in range(K)]
-    root_test_folds = [[] for _ in range(K)]
     for target in targets:
         target_samples = samples_by_target[target]
         seed_and_shuffle(target_samples)
         target_train_folds, target_val_folds, target_test_folds = split_rows_stance(target_samples, K)
-        append_folds(root_train_folds, root_val_folds, root_test_folds,
-                     target_train_folds, target_val_folds, target_test_folds)
-    write_corpora(fold_dirs, root_train_folds, root_val_folds, root_test_folds, "zh_nlpcc_{part}.csv")
+        file_label = file_labels[target]
+        write_corpora(fold_dirs, target_train_folds, target_val_folds, target_test_folds, f"zh_{file_label}_" + "{part}.csv")
 
 
 def part_sardistance(in_dir, fold_dirs):
