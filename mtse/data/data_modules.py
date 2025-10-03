@@ -153,6 +153,7 @@ class TargetPredictionDataModule(BaseDataModule):
                  data_dir: pathlib.Path,
                  targets_path: pathlib.Path,
                  suffix_pattern: str = ".target_gens.csv",
+                 exclude_patterns: List[str] = [],
                  with_generated: bool = False,
                  with_untranslated: bool = False,
 
@@ -181,7 +182,11 @@ class TargetPredictionDataModule(BaseDataModule):
             "Shenzhen bans motorcycles and imposes electricity restrictions": "Shenzhen Laws"
         })
 
-        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}")))
+        all_paths = glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}"))
+        excluded = []
+        for patt in exclude_patterns:
+            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
+        self.__test_paths = sorted(set(all_paths) - set(excluded))
         self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
 
     @property

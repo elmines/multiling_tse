@@ -11,14 +11,26 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SHORT_TARGETS=${SHORT_TARGETS:-0}
-if [ $SHORT_TARGETS -eq 1 ]
+SHORT_TARGETS=0
+NOIMM=0
+if [ -z $TARGET_TYPE ]
+then
+    TARGETS_PATH=static/multiling_targets.txt
+    EXP_MOD=""
+elif [ "$TARGET_TYPE" = short ]
 then
     TARGETS_PATH=static/shortened_multiling_targets.txt
     EXP_MOD="_short"
+    SHORT_TARGETS=1
+elif [ "$TARGET_TYPE" = noimm ]
+then
+    TARGETS_PATH=static/noimm_multiling_targets.txt
+    EXP_MOD="_noimm"
+    NOIMM=1
+    SHORT_TARGETS=1
 else
-    TARGETS_PATH=static/multiling_targets.txt
-    EXP_MOD=""
+    echo Invalid TARGET_TYPE=$TARGET_TYPE
+    exit 1
 fi
 
 if [ -z $RELATED_THRESHOLD ]
@@ -131,10 +143,16 @@ if [ $TARGET_MAP -eq 1 ]
 then
     version=fold${fold}_seed${seed}${EXP_MOD}_target_map
 
-    EXTRA_ARGS=""
+    EXTRA_ARGS=()
     if [ $SHORT_TARGETS -eq 1 ]
     then
-        EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
+        EXTRA_ARGS+=(--data.shorten_targets)
+        EXTRA_ARGS+=("true")
+    fi
+    if [ $NOIMM -eq 1 ]
+    then
+        EXTRA_ARGS+=(--data.exclude_patterns)
+        EXTRA_ARGS+=("[\"*et_immigration*\", \"*et_unrelated*\"]")
     fi
     python -m mtse predict \
         --seed_everything $seed \
@@ -145,7 +163,6 @@ then
         --data.suffix_pattern .target_gens.csv \
         --data.with_generated true \
         --data.with_untranslated true \
-        $EXTRA_ARGS \
         --trainer.logger lightning.pytorch.loggers.CSVLogger \
         $LOGGER_ARGS \
         --trainer.logger.version $version \
@@ -154,7 +171,8 @@ then
         --trainer.callbacks.targets_path $TARGETS_PATH \
         --trainer.callbacks.embeddings_path $(embed_path $seed) \
         --trainer.callbacks.target_level mapped \
-        --trainer.callbacks.related_threshold $RELATED_THRESHOLD
+        --trainer.callbacks.related_threshold $RELATED_THRESHOLD \
+        "${EXTRA_ARGS[@]}"
 
     $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_full_target_preds.csv $fold $seed
 else
