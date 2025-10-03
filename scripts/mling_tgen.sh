@@ -21,6 +21,14 @@ else
     EXP_MOD=""
 fi
 
+if [ -z $RELATED_THRESHOLD ]
+then
+    RELATED_THRESHOLD=0.35 # Our default value
+else
+    THRESH_MOD=$(echo $RELATED_THRESHOLD | sed 's/\./_/')
+    EXP_MOD="${EXP_MOD}_${THRESH_MOD}"
+fi
+
 fold=${1:-0}
 seed=${2:-0}
 
@@ -147,7 +155,7 @@ then
         --trainer.callbacks.targets_path $TARGETS_PATH \
         --trainer.callbacks.embeddings_path $(embed_path $seed) \
         --trainer.callbacks.target_level mapped \
-        --trainer.callbacks.related_threshold 0.35
+        --trainer.callbacks.related_threshold $RELATED_THRESHOLD
 
     $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_full_target_preds.csv $fold $seed
 else
