@@ -14,6 +14,7 @@ class StanceClassificationStatsCallback(Callback):
 
     def __init__(self, stance_type: StanceType = 'tri'):
         self.__stance_type = STANCE_TYPE_MAP[stance_type]
+        self.dataloader_labels = []
 
         enum_names = [s.name for s in self.__stance_type]
         self.__favor_index = enum_names.index('favor')
@@ -71,7 +72,8 @@ class StanceClassificationStatsCallback(Callback):
                 _, _, class_f1s = _compute_class_metrics(tp, fp, fn)
                 corpus_f1 = torch.mean(class_f1s[[self.__favor_index, self.__against_index]])
                 corpus_f1s.append(corpus_f1)
-                results[f'bimacro_f1/{didx}'] = corpus_f1
+                dataloader_label = self.dataloader_labels[didx] if didx < len(self.dataloader_labels) else didx
+                results[f'bimacro_f1/{dataloader_label}'] = corpus_f1
         if per_corpus_metrics:
             results['avg_of_dataset_bimacro_f1'] = sum(corpus_f1s) / len(corpus_f1s)
 
