@@ -136,7 +136,6 @@ then
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
     fi
-    TARGETS_PATH=static/shortened_multiling_targets.txt
     python -m mtse predict \
         --seed_everything $seed \
         --model mtse.modules.PassthroughModule \
