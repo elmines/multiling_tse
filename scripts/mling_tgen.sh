@@ -75,6 +75,7 @@ then
 
     python -m mtse predict \
         -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+        $LOGGER_ARGS \
         --return_predictions false \
         --data mtse.data.DirDataModule \
         --model.predict_targets true \
@@ -205,6 +206,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/$train_dir/config.yaml \
+            $LOGGER_ARGS \
             --trainer.logger.version ${train_dir}_test \
             --ckpt_path $LOGS_ROOT/$train_dir/checkpoints/*ckpt
 else
@@ -216,6 +218,7 @@ then
         train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
+            $LOGGER_ARGS \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
             --data.target_input pred \
@@ -231,6 +234,7 @@ then
         train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
+            $LOGGER_ARGS \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --model.use_target_gt true \
             --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
