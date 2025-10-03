@@ -1,7 +1,7 @@
 import abc
 import json
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Tuple
 import importlib.resources
 # 3rd Party
 import wordninja
@@ -9,6 +9,7 @@ import preprocessor as twp
 twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
+from .target_pred import TargetPred
 from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
 
 
@@ -26,6 +27,23 @@ def _remove_semeval_tag(text):
 class SemHashtagRemoval(Transform):
     def __call__(self, sample: Sample):
         sample.context = _remove_semeval_tag(sample.context)
+
+class TargetRename(Transform):
+    def __init__(self, renames: Dict[str, str]):
+        self.renames = renames
+    def __call__(self, sample: Sample | TargetPred):
+        if isinstance(sample, Sample):
+            # TODO: Be more fine-grained and don't sweep through every property
+            for prop in ["target_pred", "target_label", "target_input"]:
+                orig = getattr(sample, prop)
+                if orig in self.renames:
+                    setattr(sample, prop, self.renames[orig])
+            return
+
+        for prop in ["gt_target", "mapped_target"]:
+            orig = getattr(sample, prop)
+            if orig in self.renames:
+                setattr(sample, prop, self.renames[orig])
 
 class MergeIndependence(Transform):
     def __call__(self, sample: Sample):
@@ -149,6 +167,7 @@ class LiPreprocess(Transform):
 
 __all__ = [
     "Transform",
+    "TargetRename",
     "MergeIndependence",
     "SemHashtagRemoval",
     "LiPreprocess",

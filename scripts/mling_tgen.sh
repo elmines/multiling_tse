@@ -11,14 +11,14 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-MERGE_TARGETS=${MERGE_TARGETS:-0}
-if [ $MERGE_TARGETS -eq 1 ]
+SHORT_TARGETS=${SHORT_TARGETS:-0}
+if [ $SHORT_TARGETS -eq 1 ]
 then
-    TARGETS_PATH=static/reduced_multiling_targets.txt
-    MERGED_STEM="_merged"
+    TARGETS_PATH=static/shortened_multiling_targets.txt
+    EXP_MOD="_short"
 else
     TARGETS_PATH=static/multiling_targets.txt
-    MERGED_STEM=""
+    EXP_MOD=""
 fi
 
 fold=${1:-0}
@@ -121,14 +121,14 @@ fi
 
 if [ $TARGET_MAP -eq 1 ]
 then
-    version=fold${fold}_seed${seed}${MERGED_STEM}_target_map
+    version=fold${fold}_seed${seed}${EXP_MOD}_target_map
 
     EXTRA_ARGS=""
-    if [ $MERGE_TARGETS -eq 1 ]
+    if [ $SHORT_TARGETS -eq 1 ]
     then
-        EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
+        EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
     fi
-
+    TARGETS_PATH=static/shortened_multiling_targets.txt
     python -m mtse predict \
         --seed_everything $seed \
         --model mtse.modules.PassthroughModule \
@@ -149,7 +149,7 @@ then
         --trainer.callbacks.target_level mapped \
         --trainer.callbacks.related_threshold 0.35
 
-    $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_full_target_preds.csv $fold $seed
+    $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_full_target_preds.csv $fold $seed
 else
     echo "Skipping target mapping"
 fi
@@ -157,21 +157,21 @@ fi
 if [ $TARGET_TEST -eq 1 ]
 then
         EXTRA_ARGS=""
-        if [ $MERGE_TARGETS -eq 1 ]
+        if [ $SHORT_TARGETS -eq 1 ]
         then
-            EXTRA_ARGS="$EXTRA_ARGS --data.merge_independence true"
+            EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
         fi
 
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_target_map \
             --data.targets_path $TARGETS_PATH \
             --data.suffix_pattern .target_preds.csv \
             $EXTRA_ARGS \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
-            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_target_test \
+            --trainer.logger.version fold${fold}_seed${seed}${EXP_MOD}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes $((1 + $(wc -l < $TARGETS_PATH) ))
 else
@@ -181,7 +181,7 @@ fi
 if [ $STANCE_FIT -eq 1 ]
 then
         EXTRA_ARGS=()
-        if [ $MERGE_TARGETS -eq 1 ]
+        if [ $SHORT_TARGETS -eq 1 ]
         then
             EXTRA_ARGS+=(--data.transforms)
             EXTRA_ARGS+=("[{class_path : mtse.data.MergeIndependence}]")
@@ -193,7 +193,7 @@ then
             --model.targets_path $TARGETS_PATH \
             --data mtse.data.DirDataModule \
             --data.data_dir data/multiling/fold${fold} \
-            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_stance \
+            --trainer.logger.version fold${fold}_seed${seed}${EXP_MOD}_stance \
             --seed_everything $seed \
             "${EXTRA_ARGS[@]}"
 else
@@ -202,7 +202,7 @@ fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-        train_dir=fold${fold}_seed${seed}${MERGED_STEM}_stance
+        train_dir=fold${fold}_seed${seed}${EXP_MOD}_stance
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/$train_dir/config.yaml \
@@ -215,33 +215,33 @@ fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
+        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             $LOGGER_ARGS \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_target_map \
             --data.target_input pred \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test
+            --trainer.logger.version fold${fold}_seed${seed}${EXP_MOD}_tse_test
 else
     echo "Skipping tse testing"
 fi
 
 if [ $GT_TSE_TEST -eq 1 ]
 then
-        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_stance
+        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_stance
         python -m mtse test \
             -c $train_dir/config.yaml \
             $LOGGER_ARGS \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --model.use_target_gt true \
-            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${MERGED_STEM}_target_map \
+            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_target_map \
             --data.target_input label \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version fold${fold}_seed${seed}${MERGED_STEM}_tse_test_gt
+            --trainer.logger.version fold${fold}_seed${seed}${EXP_MOD}_tse_test_gt
 else
     echo "Skipping gt tse testing"
 fi

@@ -1,0 +1,6 @@
+- class_path: mtse.data.TargetRename
+  init_args:
+    renames:
+      "Russia's counter-terrorism operations in Syria": "Russia"
+      "Setting off firecrackers during the Spring Festival": "Firecrackers"
+      "Shenzhen bans motorcycles and imposes electricity restrictions": "Shenzhen Laws"

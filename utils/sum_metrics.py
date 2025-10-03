@@ -8,12 +8,12 @@ import pathlib
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", type=pathlib.Path, required=True)
-parser.add_argument("--merged", action="store_true")
+parser.add_argument("--short", action="store_true")
 parser.add_argument("--task", choices=("target", "tse", "stance"), default='target')
 args = parser.parse_args()
 
 in_dir = args.i
-merged = bool(args.merged)
+short = bool(args.short)
 task = args.task
 
 all_labels = [
@@ -36,8 +36,8 @@ all_labels = [
     "zh_unrelated"
 ]
 
-merged_stem = "_merged" if merged else ""
-path_template = "fold{fold}_seed0" + merged_stem 
+short_stem = "_short" if short else ""
+path_template = "fold{fold}_seed0" + short_stem 
 if task == "target":
     labels = all_labels
     path_template += "_target_test"

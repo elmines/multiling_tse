@@ -16,7 +16,7 @@ from typing import Tuple, List, Tuple, Optional, Generator
 from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .target_pred import TargetPred
 from .dataset import MapDataset
-from .transforms import Transform
+from .transforms import Transform, TargetRename
 from .corpus import StanceCorpus, TargetInputType
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
@@ -147,6 +147,8 @@ class TargetPredictionDataModule(BaseDataModule):
     Only reads a CSV file of target predictions.
     Meant for use with the PassthroughModule
     """
+
+
     def __init__(self,
                  data_dir: pathlib.Path,
                  targets_path: pathlib.Path,
@@ -154,9 +156,10 @@ class TargetPredictionDataModule(BaseDataModule):
                  with_generated: bool = False,
                  with_untranslated: bool = False,
 
-                 # FIXME: Don't make a variable for something
-                 # so experiment-specific
+                 # FIXME: Don't make a variables
+                 # for things so experiment-specific
                  merge_independence: bool = False,
+                 shorten_targets: bool = False
                  ):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
@@ -170,6 +173,13 @@ class TargetPredictionDataModule(BaseDataModule):
         self.merge_independence = merge_independence
 
         self.datasets = []
+
+        self.shorten_targets = shorten_targets
+        self.__target_transform = TargetRename({
+            "Russia's counter-terrorism operations in Syria": "Russia",
+            "Setting off firecrackers during the Spring Festival": "Firecrackers",
+            "Shenzhen bans motorcycles and imposes electricity restrictions": "Shenzhen Laws"
+        })
 
         self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}")))
         self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
@@ -189,9 +199,13 @@ class TargetPredictionDataModule(BaseDataModule):
         self.datasets.clear()
         for path in self.__test_paths:
             samples = []
-            for pred in parse_target_preds(path):
+            pred_iter = parse_target_preds(path)
+
+            for pred in pred_iter:
                 if self.merge_independence:
                     self.merge_independence_targets(pred)
+                if self.shorten_targets:
+                    pred_iter = self.__target_transform(pred)
 
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),
