@@ -22,6 +22,7 @@ elif [ "$TARGET_TYPE" = shortnoet ]
 then
     TARGETS_PATH=static/shortnoet.txt
     EXP_MOD="_shortnoet"
+    NOET=1
     SHORT_TARGETS=1
 elif [ "$TARGET_TYPE" = short ]
 then
