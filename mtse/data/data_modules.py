@@ -162,11 +162,7 @@ class TargetPredictionDataModule(BaseDataModule):
                  exclude_patterns: List[str] = [],
                  with_generated: bool = False,
                  with_untranslated: bool = False,
-
-                 # FIXME: Don't make a variables
-                 # for things so experiment-specific
-                 merge_independence: bool = False,
-                 shorten_targets: bool = False
+                 transforms: List[Transform] = []
                  ):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
@@ -177,16 +173,9 @@ class TargetPredictionDataModule(BaseDataModule):
         self.targets = target_mixin.targets
         self.with_generated = with_generated
         self.with_untranslated = with_untranslated
-        self.merge_independence = merge_independence
 
         self.datasets = []
-
-        self.shorten_targets = shorten_targets
-        self.__target_transform = TargetRename({
-            "Russia's counter-terrorism operations in Syria": "Russia",
-            "Setting off firecrackers during the Spring Festival": "Firecrackers",
-            "Shenzhen bans motorcycles and imposes electricity restrictions": "Shenzhen Laws"
-        })
+        self.transforms = transforms
 
         all_paths = glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}"))
         excluded = []
@@ -199,13 +188,6 @@ class TargetPredictionDataModule(BaseDataModule):
     def testloader_labels(self):
         return self.__testloader_labels
 
-    @staticmethod
-    def merge_independence_targets(s: TargetPred):
-        if s.gt_target in INDEPENDENCE_TARGETS:
-            s.gt_target = INDEPENDENCE
-        if s.mapped_target in INDEPENDENCE_TARGETS:
-            s.mapped_target = INDEPENDENCE
-
     def prepare_data(self):
         self.datasets.clear()
         for path in self.__test_paths:
@@ -213,10 +195,8 @@ class TargetPredictionDataModule(BaseDataModule):
             pred_iter = parse_target_preds(path)
 
             for pred in pred_iter:
-                if self.merge_independence:
-                    self.merge_independence_targets(pred)
-                if self.shorten_targets:
-                    pred_iter = self.__target_transform(pred)
+                for t in self.transforms:
+                    t(pred) # Transforms are in-place
 
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),

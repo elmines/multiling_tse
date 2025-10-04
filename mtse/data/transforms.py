@@ -15,9 +15,11 @@ from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
 
 class Transform(abc.ABC):
     @abc.abstractmethod
-    def __call__(self, sample: Sample) -> None:
+    def __call__(self, sample: Sample | TargetPred) -> None:
         """
-        Modifies the sample in-place
+        Modifies the sample or TargetPred in-place.
+
+        Not all Transforms support TargetPred
         """
 
 _semeval_tag = re.compile('#SemST', flags=re.IGNORECASE)
@@ -44,13 +46,6 @@ class TargetRename(Transform):
             orig = getattr(sample, prop)
             if orig in self.renames:
                 setattr(sample, prop, self.renames[orig])
-
-class MergeIndependence(Transform):
-    def __call__(self, sample: Sample):
-        # TODO: Be more fine-grained and don't sweep through every property
-        for prop in ["target_pred", "target_label", "target_input"]:
-            if getattr(sample, prop) in INDEPENDENCE_TARGETS:
-                setattr(sample, prop, INDEPENDENCE)
 
 class LiPreprocess(Transform):
     """
@@ -168,7 +163,6 @@ class LiPreprocess(Transform):
 __all__ = [
     "Transform",
     "TargetRename",
-    "MergeIndependence",
     "SemHashtagRemoval",
     "LiPreprocess",
 ]

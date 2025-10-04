@@ -37,7 +37,6 @@ else
     echo Invalid TARGET_TYPE=$TARGET_TYPE
     exit 1
 fi
-set +x
 
 if [ -z $RELATED_THRESHOLD ]
 then
@@ -56,6 +55,7 @@ EXP_NAME=${EXP_NAME:-MlingTGen}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
+set +x
 
 
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
@@ -152,8 +152,8 @@ then
     EXTRA_ARGS=()
     if [ $SHORT_TARGETS -eq 1 ]
     then
-        EXTRA_ARGS+=(--data.shorten_targets)
-        EXTRA_ARGS+=("true")
+        EXTRA_ARGS+=(-c)
+        EXTRA_ARGS+=("configs/shorten_targets.yaml")
     fi
     if [ $NOET -eq 1 ]
     then
@@ -187,13 +187,13 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-        EXTRA_ARGS=""
+        EXTRA_ARGS=()
         if [ $SHORT_TARGETS -eq 1 ]
         then
-            echo "Not supported"
-            exit 1
-            EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
+            EXTRA_ARGS+=(-c)
+            EXTRA_ARGS+=("configs/shorten_targets.yaml")
         fi
+        # Don't need to worry about NOET here--taken care of by TARGET_MAP stage
 
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
@@ -201,12 +201,12 @@ then
             --data.data_dir $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_target_map \
             --data.targets_path $TARGETS_PATH \
             --data.suffix_pattern .target_preds.csv \
-            $EXTRA_ARGS \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version fold${fold}_seed${seed}${EXP_MOD}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < $TARGETS_PATH) ))
+            --trainer.callbacks.n_classes $((1 + $(wc -l < $TARGETS_PATH) )) \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping target testing"
 fi
@@ -216,10 +216,8 @@ then
         EXTRA_ARGS=()
         if [ $SHORT_TARGETS -eq 1 ]
         then
-            echo "Not supported"
-            exit 1
-            EXTRA_ARGS+=(--data.transforms)
-            EXTRA_ARGS+=("[{class_path : mtse.data.MergeIndependence}]")
+            EXTRA_ARGS+=(-c)
+            EXTRA_ARGS+=("configs/shorten_targets.yaml")
         fi
         if [ $NOET -eq 1 ]
         then
