@@ -11,27 +11,33 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
+set -x
 SHORT_TARGETS=0
-NOIMM=0
+NOET=0
 if [ -z $TARGET_TYPE ]
 then
     TARGETS_PATH=static/multiling_targets.txt
     EXP_MOD=""
+elif [ "$TARGET_TYPE" = shortnoet ]
+then
+    TARGETS_PATH=static/shortnoet.txt
+    EXP_MOD="_shortnoet"
+    SHORT_TARGETS=1
 elif [ "$TARGET_TYPE" = short ]
 then
-    TARGETS_PATH=static/shortened_multiling_targets.txt
+    TARGETS_PATH=static/short.txt
     EXP_MOD="_short"
     SHORT_TARGETS=1
-elif [ "$TARGET_TYPE" = noimm ]
+elif [ "$TARGET_TYPE" = noet ]
 then
-    TARGETS_PATH=static/noimm_multiling_targets.txt
-    EXP_MOD="_noimm"
-    NOIMM=1
-    SHORT_TARGETS=1
+    TARGETS_PATH=static/noet.txt
+    EXP_MOD="_noet"
+    NOET=1
 else
     echo Invalid TARGET_TYPE=$TARGET_TYPE
     exit 1
 fi
+set +x
 
 if [ -z $RELATED_THRESHOLD ]
 then
@@ -149,7 +155,7 @@ then
         EXTRA_ARGS+=(--data.shorten_targets)
         EXTRA_ARGS+=("true")
     fi
-    if [ $NOIMM -eq 1 ]
+    if [ $NOET -eq 1 ]
     then
         EXTRA_ARGS+=(--data.exclude_patterns)
         EXTRA_ARGS+=("[\"*et_immigration*\", \"*et_unrelated*\"]")
@@ -184,6 +190,8 @@ then
         EXTRA_ARGS=""
         if [ $SHORT_TARGETS -eq 1 ]
         then
+            echo "Not supported"
+            exit 1
             EXTRA_ARGS="$EXTRA_ARGS --data.shorten_targets true"
         fi
 
@@ -208,8 +216,15 @@ then
         EXTRA_ARGS=()
         if [ $SHORT_TARGETS -eq 1 ]
         then
+            echo "Not supported"
+            exit 1
             EXTRA_ARGS+=(--data.transforms)
             EXTRA_ARGS+=("[{class_path : mtse.data.MergeIndependence}]")
+        fi
+        if [ $NOET -eq 1 ]
+        then
+            EXTRA_ARGS+=(--data.exclude_patterns)
+            EXTRA_ARGS+=("[\"*et_immigration*\", \"*et_unrelated*\"]")
         fi
 
         python -m mtse fit \

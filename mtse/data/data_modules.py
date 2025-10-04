@@ -58,6 +58,7 @@ class DirDataModule(BaseDataModule):
                  data_dir: pathlib.Path,
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  target_input: TargetInputType = "label", 
+                 exclude_patterns: List[str] = [],
                  preds_dir: Optional[pathlib.Path] = None,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
@@ -69,7 +70,12 @@ class DirDataModule(BaseDataModule):
         self.__val_ds: Dataset = None
         # Allow multiple datasets for eval purposes
 
-        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_test.csv")))
+        all_paths = glob.glob(os.path.join(self.data_dir, "*_test.csv"))
+        excluded = []
+        for patt in exclude_patterns:
+            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
+        self.__excluded = set(excluded)
+        self.__test_paths = sorted(set(all_paths) - self.__excluded)
         self.__testloader_labels = list(map(DirDataModule._extract_label, self.__test_paths))
 
         self.__test_datasets: List[Dataset] = None
@@ -98,8 +104,8 @@ class DirDataModule(BaseDataModule):
     def _setup_train(self):
         if self.__train_ds is not None:
             return
-        train_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_train.csv")))
-        val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
+        train_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_train.csv"))) - self.__excluded)
+        val_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_val.csv"))) - self.__excluded)
 
         train_samples = []
         for train_path in train_paths:
