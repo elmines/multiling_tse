@@ -21,7 +21,7 @@ then
     EXP_MOD=""
 elif [ "$TARGET_TYPE" = llm ]
 then
-    TARGETS_PATH=static/llm_multiling.txt
+    TARGETS_PATH=static/llm_multiling_targets.txt
     EXP_MOD="_llm"
     LLM_TARGETS=1
 elif [ "$TARGET_TYPE" = shortnoet ]
