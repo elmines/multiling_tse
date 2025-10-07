@@ -13,11 +13,17 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 set -x
 SHORT_TARGETS=0
+LLM_TARGETS=0
 NOET=0
 if [ -z $TARGET_TYPE ]
 then
     TARGETS_PATH=static/multiling_targets.txt
     EXP_MOD=""
+elif [ "$TARGET_TYPE" = llm ]
+then
+    TARGETS_PATH=static/llm_multiling.txt
+    EXP_MOD="_llm"
+    LLM_TARGETS=1
 elif [ "$TARGET_TYPE" = shortnoet ]
 then
     TARGETS_PATH=static/shortnoet.txt
@@ -151,7 +157,11 @@ then
     version=fold${fold}_seed${seed}${EXP_MOD}_target_map
 
     EXTRA_ARGS=()
-    if [ $SHORT_TARGETS -eq 1 ]
+    if [ $LLM_TARGETS -eq 1 ]
+    then
+        EXTRA_ARGS+=(-c)
+        EXTRA_ARGS+=("configs/llm_shorten_targets.yaml")
+    elif [ $SHORT_TARGETS -eq 1 ]
     then
         EXTRA_ARGS+=(-c)
         EXTRA_ARGS+=("configs/shorten_targets.yaml")
@@ -189,7 +199,11 @@ fi
 if [ $TARGET_TEST -eq 1 ]
 then
         EXTRA_ARGS=()
-        if [ $SHORT_TARGETS -eq 1 ]
+        if [ $LLM_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS+=(-c)
+            EXTRA_ARGS+=("configs/llm_shorten_targets.yaml")
+        elif [ $SHORT_TARGETS -eq 1 ]
         then
             EXTRA_ARGS+=(-c)
             EXTRA_ARGS+=("configs/shorten_targets.yaml")
@@ -215,7 +229,11 @@ fi
 if [ $STANCE_FIT -eq 1 ]
 then
         EXTRA_ARGS=()
-        if [ $SHORT_TARGETS -eq 1 ]
+        if [ $LLM_TARGETS -eq 1 ]
+        then
+            EXTRA_ARGS+=(-c)
+            EXTRA_ARGS+=("configs/llm_shorten_targets.yaml")
+        elif [ $SHORT_TARGETS -eq 1 ]
         then
             EXTRA_ARGS+=(-c)
             EXTRA_ARGS+=("configs/shorten_targets.yaml")
