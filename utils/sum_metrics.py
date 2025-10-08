@@ -8,7 +8,7 @@ import pathlib
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", type=pathlib.Path, required=True)
-parser.add_argument("--task", choices=("target", "tse", "stance"), default='target')
+parser.add_argument("--task", choices=("target", "tse", "stance", "tse_gt"), default='target')
 args = parser.parse_args()
 
 in_dir = args.i
@@ -42,6 +42,10 @@ elif task == 'stance':
     labels = [l for l in all_labels if "unrelated" not in l]
     paths = glob.glob(os.path.join(in_dir, "*stance_test", "metrics.csv"))
     metric_keys = ["test/stance/bimacro_f1"] + [f"test/stance/bimacro_f1/{l}" for l in labels]
+elif task == 'tse_gt':
+    labels = [l for l in all_labels if "unrelated" not in l]
+    paths = glob.glob(os.path.join(in_dir, "*tse_test_gt", "metrics.csv"))
+    metric_keys = ["test/tse/f1"] + [f"test/tse/f1/{l}" for l in labels]
 else:
     assert task == 'tse'
     labels = [l for l in all_labels if "unrelated" not in l]
