@@ -345,6 +345,10 @@ def part_global_voices(in_dir, fold_dirs, lang, n_samples):
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated_{part}.csv")
 
 def get_en_globalvoices(in_dir, out_dir, n_samples=64000):
+    """
+    The Li et al. in their TSE paper used ~51,000 samples to train their FT
+    embeddings; we use 64000 just to be safe
+    """
     # English is just for the embedding training
     in_path = os.path.join(in_dir, f"en_globalvoices.txt")
     with open(in_path, 'r') as r:
