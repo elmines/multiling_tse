@@ -7,6 +7,9 @@ import os
 import re
 from itertools import islice
 
+UNREL_PERCENTAGE = 0.172
+UNREL_RATIO = UNREL_PERCENTAGE / (1 - UNREL_PERCENTAGE)
+
 def seed_and_shuffle(samples):
     random.seed(0)
     random.shuffle(samples)
@@ -23,14 +26,17 @@ def write_corpus(out_path, normalized_rows):
 def stance_filter(rows):
     against_samples = []
     favor_samples = []
+    neut_samples = []
     for row in rows:
         stance = row['Stance']
         if stance == 0:
             against_samples.append(row)
-        else:
-            assert stance == 1
+        elif stance == 1:
             favor_samples.append(row)
-    return against_samples, favor_samples
+        else:
+            assert stance == 2
+            neut_samples.append(row)
+    return against_samples, favor_samples, neut_samples
 
 def split_rows_simple(row_set, K):
     fold_size = len(row_set) // K
@@ -66,11 +72,11 @@ def append_folds(root_train, root_val, root_test, sub_train, sub_val, sub_test):
             root_fold.extend(class_fold)
 
 def split_rows_stance(row_set, K):
-    against_samples, favor_samples = stance_filter(row_set)
+    against_samples, favor_samples, neut_samples = stance_filter(row_set)
     train_folds = [ [] for _ in range(K) ]
     val_folds = [ [] for _ in range(K) ]
     test_folds = [ [] for _ in range(K) ]
-    for class_data in [against_samples, favor_samples]:
+    for class_data in [against_samples, favor_samples, neut_samples]:
         class_train_folds, class_val_folds, class_test_folds = split_rows_simple(class_data, K)
         append_folds(train_folds, val_folds, test_folds, class_train_folds, class_val_folds, class_test_folds)
     return train_folds, val_folds, test_folds
@@ -82,7 +88,7 @@ def write_corpora(fold_dirs, train_folds, val_folds, test_folds, path_template):
 
 def part_cic(in_dir, fold_dirs):
     K = len(fold_dirs)
-    stance_map = {'AGAINST': 0, 'FAVOR': 1}
+    stance_map = {'AGAINST': 0, 'FAVOR': 1, 'NONE': 2}
     URI_REGEX = re.compile(r'https://t.co/[a-zA-Z0-9]*')
     ca_rows = []
     es_rows = []
@@ -94,13 +100,14 @@ def part_cic(in_dir, fold_dirs):
             row_set.extend({
                 "Context": URI_REGEX.sub("", row['TWEET']),
                 "Target": "Catalonian Independence",
-                "StanceType": "bi",
+                "StanceType": "tri",
                 "Stance": stance_map[row['LABEL']],
                 "Lang": lang
-            } for row in raw_rows if row['LABEL'] != 'NONE')
+            } for row in raw_rows)
         seed_and_shuffle(row_set)
         train_folds, val_folds, test_folds = split_rows_stance(row_set, K)
         write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_catalonia_{part}.csv")
+    return len(ca_rows), len(es_rows)
 
 def part_nlpcc(in_dir, fold_dirs):
     target_map = {
@@ -123,18 +130,22 @@ def part_nlpcc(in_dir, fold_dirs):
     label_map = {
         'FAVOR': 1,
         'AGAINST': 0,
+        'NONE': 2
     }
     targets = sorted(target_map.values())
     samples_by_target = {t:[] for t in targets}
     with open(os.path.join(in_dir, "zh_nlpcc.tsv"), 'r', encoding='utf-8-sig') as r:
         raw_rows = list(csv.DictReader(r, delimiter='\t'))
-    exclude_labels = {'NONE', ''}
-    for row in filter(lambda row: row['STANCE'] not in exclude_labels, raw_rows):
+    bad_count = 0
+    for row in raw_rows:
+        if row['STANCE'] == '':
+            bad_count += 1
+            continue
         target = target_map[row['TARGET']]
         samples_by_target[target].append({
             "Context": row['TEXT'],
             "Target": target,
-            "StanceType": "bi",
+            "StanceType": "tri",
             "Stance": label_map[row['STANCE']],
             'Lang': "zh"
         })
@@ -147,9 +158,11 @@ def part_nlpcc(in_dir, fold_dirs):
         file_label = file_labels[target]
         write_corpora(fold_dirs, target_train_folds, target_val_folds, target_test_folds, f"zh_{file_label}_" + "{part}.csv")
 
+    return sum(len(v) for v in samples_by_target.values())
+
 
 def part_sardistance(in_dir, fold_dirs):
-    label_map = {'AGAINST': 0, 'FAVOR': 1}
+    label_map = {'AGAINST': 0, 'FAVOR': 1, 'NONE': 2}
     train_in_path       = os.path.join(in_dir, "it_sardinia_train.csv")
     test_in_path        = os.path.join(in_dir, "it_sardinia_test.csv")
     test_labels_in_path = os.path.join(in_dir, "it_sardinia_test_labels.csv")
@@ -165,37 +178,38 @@ def part_sardistance(in_dir, fold_dirs):
     for (data, label) in zip(raw_test_rows, raw_test_label_rows):
         assert data['tweet_id'] == label['tweet_id']
         raw_label = label['label']    
-        if raw_label not in label_map:
-            continue
         normed_rows.append({
             "Context": data['text'],
             "Target": TARGET,
             "Stance": label_map[raw_label],
-            "StanceType": "bi",
+            "StanceType": "tri",
             "Lang": "it"
         })
     with open(train_in_path, 'r') as r:
         raw_rows = list(csv.DictReader(r))
-        for row in filter(lambda row: row['label'] in label_map, raw_rows):
+        for row in raw_rows:
             label = label_map[row['label']]
             normed_rows.append({
                 "Context": row['text'],
                 'Target': TARGET,
                 'Stance': label,
-                'StanceType': 'bi',
+                'StanceType': 'tri',
                 'Lang': 'it'
             })
     seed_and_shuffle(normed_rows)
     train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia_{part}.csv")
+    return len(normed_rows)
 
 def part_et_data(in_dir, fold_dirs):
     in_path = os.path.join(in_dir, 'et_immigration.csv')
     label_map = {
+        # Against
         '1': 0,
         '2': 0,
         # Neutral
-        # '3': 2,
+        '3': 2,
+        # Favor
         '4': 1,
         '5': 1,
         # Not related
@@ -203,13 +217,35 @@ def part_et_data(in_dir, fold_dirs):
     }
     with open(in_path, 'r') as r:
         raw_rows = list(csv.DictReader(r))
-    rows = [{
-        "Context": row['sentence'],
-        "Target": "Immigration",
-        "Stance": label_map[row['stanceConsolidated']],
-        "StanceType": "bi",
-        "Lang": "et"
-    } for row in raw_rows if row['stanceConsolidated'] in label_map]
+    rows = []
+    unrel_rows = []
+    for row in raw_rows:
+        stance = row['stanceConsolidated']
+        if stance in label_map:
+            rows.append({
+                "Context": row['sentence'],
+                "Target": "Immigration",
+                "Stance": label_map[stance],
+                "StanceType": "tri",
+                "Lang": "et"
+            })
+        else:
+            assert stance == 'MH', stance
+            unrel_rows.append({
+                "Context": row['sentence'],
+                "Target": "Unrelated",
+                "Stance": 2,
+                "StanceType": "tri",
+                "Lang": "et"
+            })
+    n_unrel = int(len(rows) * UNREL_RATIO)
+    assert len(unrel_rows) >= n_unrel
+    seed_and_shuffle(unrel_rows)
+    unrel_rows = unrel_rows[:n_unrel]
+    unrel_train, unrel_val, unrel_test = split_rows_simple(unrel_rows, len(fold_dirs))
+    write_corpora(fold_dirs, unrel_train, unrel_val, unrel_test, "et_unrelated_{part}.csv")
+    
+
     seed_and_shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_stance(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration_{part}.csv")
@@ -227,9 +263,10 @@ def part_fr_election_data(in_dir, fold_dirs):
         'FAVOUR': 1,
         'agains': 0,
         'AGAINST': 0,
-        # 'none': 2,
-        # 'NONE': 2
+        'none': 2,
+        'NONE': 2
     }
+    row_count = 0
     for (in_name, path_template, target) in entries:
         with open(os.path.join(in_dir, in_name), 'r') as r:
             raw_rows = list(csv.DictReader(r))
@@ -237,24 +274,27 @@ def part_fr_election_data(in_dir, fold_dirs):
             "Context": URI_REGEX.sub("", row['Tweet']),
             "Target": target,
             "Stance": label_map[row['Stance']],
-            "StanceType": "bi",
+            "StanceType": "tri",
             "Lang": "fr"
-        } for row in raw_rows if row['Stance'] in label_map]
+        } for row in raw_rows]
+        row_count += len(normed_rows)
         seed_and_shuffle(normed_rows)
         train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
         write_corpora(fold_dirs, train_folds, val_folds, test_folds, path_template)
+    return row_count
 
-def part_cstance_data(in_dir, fold_dirs):
+def part_cstance_data(in_dir, fold_dirs, n_samples):
     in_path = os.path.join(in_dir, 'zh_cstance.csv')
-    MAX_ROWS = 1000
     with open(in_path, 'r', encoding='utf-8-sig') as r:
-        raw_rows = list(islice(csv.DictReader(r), MAX_ROWS))
+        raw_rows = list(csv.DictReader(r))
+    assert len(raw_rows) >= n_samples
+    seed_and_shuffle(raw_rows)
+    raw_rows = raw_rows[:n_samples]
     rows = [{"Context": raw_row['Text'],
             "Target": "Unrelated",
             'StanceType': 'tri',
             "Stance": 2, # Neutral
             'Lang': 'zh'} for raw_row in raw_rows]
-    seed_and_shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "zh_unrelated_{part}.csv")
 
@@ -281,41 +321,38 @@ def part_enc_data(in_dir, fold_dirs):
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
     write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_unrelated_{part}.csv")
 
-def part_globalvoices_data(in_dir, fold_dirs, out_dir):
-    entries = [
-        ("ca", 3300),
-        ("es", 3300),
-        ("fr", 500),
-        ("it", 2000),
+def texts_to_samples(lang, texts):
+    return [
+        {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": lang}
+        for t in texts
     ]
-    MIN_CHARS = 128
 
-    def texts_to_samples(lang, texts):
-        return [
-            {"Context": t, "Target": "Unrelated", "StanceType": "tri", "Stance": 2, "Lang": lang}
-            for t in texts
-        ]
+MIN_GV_CHARS = 128
+"""
+Minimum chars for GlobalVoices
+"""
 
-    for (lang, n_samples) in entries:
-        in_path = os.path.join(in_dir, f"{lang}_globalvoices.txt")
-        with open(in_path, 'r') as r:
-            samples = [l.strip() for l in r.readlines()]
-        samples = list(filter(lambda l: len(l) >= MIN_CHARS, samples))
-        assert len(samples) >= n_samples
-        seed_and_shuffle(samples)
-        samples = samples[:n_samples]
-        samples = texts_to_samples(lang, samples)
-        train_folds, val_folds, test_folds = split_rows_simple(samples, len(fold_dirs))
-        write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated_{part}.csv")
+def part_global_voices(in_dir, fold_dirs, lang, n_samples):
+    in_path = os.path.join(in_dir, f"{lang}_globalvoices.txt")
+    with open(in_path, 'r') as r:
+        samples = [l.strip() for l in r.readlines()]
+    samples = list(filter(lambda l: len(l) >= MIN_GV_CHARS, samples))
+    assert len(samples) >= n_samples
+    seed_and_shuffle(samples)
+    samples = samples[:n_samples]
+    samples = texts_to_samples(lang, samples)
+    train_folds, val_folds, test_folds = split_rows_simple(samples, len(fold_dirs))
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated_{part}.csv")
 
+def get_en_globalvoices(in_dir, out_dir, n_samples=64000):
     # English is just for the embedding training
     in_path = os.path.join(in_dir, f"en_globalvoices.txt")
     with open(in_path, 'r') as r:
         samples = [l.strip() for l in r.readlines()]
-    samples = list(filter(lambda l: len(l) >= MIN_CHARS, samples))
+    samples = list(filter(lambda l: len(l) >= MIN_GV_CHARS, samples))
     assert len(samples) >= n_samples
     seed_and_shuffle(samples)
-    samples = samples[:64000]
+    samples = samples[:n_samples]
     samples = texts_to_samples('en', samples)
     write_corpus(os.path.join(out_dir, "en_unrelated.csv"), samples)
 
@@ -330,15 +367,24 @@ if __name__ == "__main__":
         fdir = os.path.join(out_dir, f"fold{i}")
         os.makedirs(fdir, exist_ok=True)
         fold_dirs.append(fdir)
-    # Unrelated Data
-    part_enc_data(in_dir, fold_dirs)
-    part_cstance_data(in_dir, fold_dirs)
-    part_globalvoices_data(in_dir, fold_dirs, out_dir)
-    # Core Data
-    part_cic(in_dir, fold_dirs)
-    part_nlpcc(in_dir, fold_dirs)
-    part_sardistance(in_dir, fold_dirs)
+
+    # et subroutine already takes care of Unrelated data
     part_et_data(in_dir, fold_dirs)
-    part_fr_election_data(in_dir, fold_dirs)
+    ca_count, es_count = part_cic(in_dir, fold_dirs)
+    fr_count = part_fr_election_data(in_dir, fold_dirs)
+    zh_count = part_nlpcc(in_dir, fold_dirs)
+    it_count = part_sardistance(in_dir, fold_dirs)
+
+    part_global_voices(in_dir, fold_dirs, 'ca', int(ca_count * UNREL_RATIO))
+    part_global_voices(in_dir, fold_dirs, 'es', int(es_count * UNREL_RATIO))
+    part_global_voices(in_dir, fold_dirs, 'it', int(it_count * UNREL_RATIO))
+    part_global_voices(in_dir, fold_dirs, 'fr', int(fr_count * UNREL_RATIO))
+    part_cstance_data(in_dir, fold_dirs, int(zh_count * UNREL_RATIO))
+
+    # Unrelated Data
+    # part_enc_data(in_dir, fold_dirs)
+    # part_cstance_data(in_dir, fold_dirs)
+    # part_globalvoices_data(in_dir, fold_dirs, out_dir)
+    # Core Data
 
     
