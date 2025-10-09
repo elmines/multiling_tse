@@ -127,7 +127,7 @@ fi
 if [ $TARGET_TRANS -eq 1 ]
 then
         out_dir=$LOGS_ROOT/fold${fold}_seed${seed}_target_translate
-        if [ -e $out_dir -a ! -z $(ls $out_dir) ]
+        if [ -e $out_dir ] && [ ! -z $(ls $out_dir) ]
         then
             echo Not overwriting existing $out_dir
             exit 1
