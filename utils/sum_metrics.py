@@ -37,7 +37,7 @@ all_labels = [
 if task == "target":
     labels = all_labels
     paths = glob.glob(os.path.join(in_dir, "*target_test", "metrics.csv"))
-    metric_keys = ["test/target/micro_f1"] + [f"test/target/micro_f1/{l}" for l in labels]
+    metric_keys = [f"test/target/f1/class_{i}" for i in range(11)] + ["test/target/micro_f1"] + [f"test/target/macro_f1"]
 elif task == 'stance':
     labels = [l for l in all_labels if "unrelated" not in l]
     paths = glob.glob(os.path.join(in_dir, "*stance_test", "metrics.csv"))
