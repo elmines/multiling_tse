@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import glob
 import argparse
 import os
 import sys
@@ -8,12 +8,10 @@ import pathlib
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-i", type=pathlib.Path, required=True)
-parser.add_argument("--merged", action="store_true")
-parser.add_argument("--task", choices=("target", "tse", "stance"), default='target')
+parser.add_argument("--task", choices=("target", "tse", "stance", "tse_gt"), default='target')
 args = parser.parse_args()
 
 in_dir = args.i
-merged = bool(args.merged)
 task = args.task
 
 all_labels = [
@@ -36,29 +34,31 @@ all_labels = [
     "zh_unrelated"
 ]
 
-merged_stem = "_merged" if merged else ""
-path_template = "fold{fold}_seed0" + merged_stem 
 if task == "target":
     labels = all_labels
-    path_template += "_target_test"
-    metric_keys = ["test/target/micro_f1"] + [f"test/target/micro_f1/{l}" for l in labels]
+    paths = glob.glob(os.path.join(in_dir, "*target_test", "metrics.csv"))
+    metric_keys = [f"test/target/f1/class_{i}" for i in range(11)] + ["test/target/micro_f1"] + [f"test/target/macro_f1"]
 elif task == 'stance':
     labels = [l for l in all_labels if "unrelated" not in l]
-    path_template += "_stance_test"
+    paths = glob.glob(os.path.join(in_dir, "*stance_test", "metrics.csv"))
     metric_keys = ["test/stance/bimacro_f1"] + [f"test/stance/bimacro_f1/{l}" for l in labels]
+elif task == 'tse_gt':
+    labels = [l for l in all_labels if "unrelated" not in l]
+    paths = glob.glob(os.path.join(in_dir, "*tse_test_gt", "metrics.csv"))
+    metric_keys = ["test/tse/f1"] + [f"test/tse/f1/{l}" for l in labels]
 else:
     assert task == 'tse'
     labels = [l for l in all_labels if "unrelated" not in l]
-    path_template += "_tse_test"
+    paths = glob.glob(os.path.join(in_dir, "*tse_test", "metrics.csv"))
     metric_keys = ["test/tse/f1"] + [f"test/tse/f1/{l}" for l in labels]
 metric_entries = {k:[] for k in metric_keys}
+assert len(paths) == 5
 
-for i in range(5):
-    p = os.path.join(in_dir, path_template.format(fold=i), "metrics.csv")
+for p in paths:
     with open(p, 'r') as r:
         row = next(csv.DictReader(r))
     for k in metric_keys:
-        metric_entries[k].append(float(row[k]))
+        metric_entries[k].append(float(row.get(k, 0.0)))
 
 metric_means = {k:sum(v)/len(v) for k,v in metric_entries.items()}
 writer = csv.DictWriter(sys.stdout, fieldnames=metric_keys)

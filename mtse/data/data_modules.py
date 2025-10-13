@@ -16,7 +16,7 @@ from typing import Tuple, List, Tuple, Optional, Generator
 from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .target_pred import TargetPred
 from .dataset import MapDataset
-from .transforms import Transform
+from .transforms import Transform, TargetRename
 from .corpus import StanceCorpus, TargetInputType
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
@@ -58,6 +58,7 @@ class DirDataModule(BaseDataModule):
                  data_dir: pathlib.Path,
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  target_input: TargetInputType = "label", 
+                 exclude_patterns: List[str] = [],
                  preds_dir: Optional[pathlib.Path] = None,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
@@ -69,7 +70,12 @@ class DirDataModule(BaseDataModule):
         self.__val_ds: Dataset = None
         # Allow multiple datasets for eval purposes
 
-        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_test.csv")))
+        all_paths = glob.glob(os.path.join(self.data_dir, "*_test.csv"))
+        excluded = []
+        for patt in exclude_patterns:
+            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
+        self.__excluded = set(excluded)
+        self.__test_paths = sorted(set(all_paths) - self.__excluded)
         self.__testloader_labels = list(map(DirDataModule._extract_label, self.__test_paths))
 
         self.__test_datasets: List[Dataset] = None
@@ -98,8 +104,8 @@ class DirDataModule(BaseDataModule):
     def _setup_train(self):
         if self.__train_ds is not None:
             return
-        train_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_train.csv")))
-        val_paths = sorted(glob.glob(os.path.join(self.data_dir, "*_val.csv")))
+        train_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_train.csv"))) - self.__excluded)
+        val_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_val.csv"))) - self.__excluded)
 
         train_samples = []
         for train_path in train_paths:
@@ -147,16 +153,16 @@ class TargetPredictionDataModule(BaseDataModule):
     Only reads a CSV file of target predictions.
     Meant for use with the PassthroughModule
     """
+
+
     def __init__(self,
                  data_dir: pathlib.Path,
                  targets_path: pathlib.Path,
                  suffix_pattern: str = ".target_gens.csv",
+                 exclude_patterns: List[str] = [],
                  with_generated: bool = False,
                  with_untranslated: bool = False,
-
-                 # FIXME: Don't make a variable for something
-                 # so experiment-specific
-                 merge_independence: bool = False,
+                 transforms: List[Transform] = []
                  ):
         super().__init__()
         # Inheriting from the TargetMixin breaks the super()
@@ -167,31 +173,30 @@ class TargetPredictionDataModule(BaseDataModule):
         self.targets = target_mixin.targets
         self.with_generated = with_generated
         self.with_untranslated = with_untranslated
-        self.merge_independence = merge_independence
 
         self.datasets = []
+        self.transforms = transforms
 
-        self.__test_paths = sorted(glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}")))
+        all_paths = glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}"))
+        excluded = []
+        for patt in exclude_patterns:
+            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
+        self.__test_paths = sorted(set(all_paths) - set(excluded))
         self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
 
     @property
     def testloader_labels(self):
         return self.__testloader_labels
 
-    @staticmethod
-    def merge_independence_targets(s: TargetPred):
-        if s.gt_target in INDEPENDENCE_TARGETS:
-            s.gt_target = INDEPENDENCE
-        if s.mapped_target in INDEPENDENCE_TARGETS:
-            s.mapped_target = INDEPENDENCE
-
     def prepare_data(self):
         self.datasets.clear()
         for path in self.__test_paths:
             samples = []
-            for pred in parse_target_preds(path):
-                if self.merge_independence:
-                    self.merge_independence_targets(pred)
+            pred_iter = parse_target_preds(path)
+
+            for pred in pred_iter:
+                for t in self.transforms:
+                    t(pred) # Transforms are in-place
 
                 s = {
                     "target": torch.tensor(self.targets.index(pred.gt_target)),

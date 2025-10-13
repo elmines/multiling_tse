@@ -87,8 +87,7 @@ fieldnames = [
     "Stance",
     "Context",
     "UntranslatedCandidates",
-    "TranslatedCandidates",
-    "Generated Target",
+    "Untranslated Target",
     "Mapped Target",
 ]
 
@@ -98,9 +97,8 @@ fieldmap = {
     "GT Target": "GoldTarget",
     "Stance": "GoldStance",
     "Context": "Context",
-    "UntranslatedCandidates": "UntranslatedCandidates",
-    "TranslatedCandidates": "TranslatedCandidates",
-    "Generated Target": "ChosenCandidate",
+    "UntranslatedCandidates": "Candidates",
+    "Untranslated Target": "ChosenCandidate",
     "Mapped Target": "MappedTarget"
 }
 

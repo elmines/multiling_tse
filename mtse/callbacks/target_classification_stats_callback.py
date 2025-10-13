@@ -16,7 +16,7 @@ def _compute_corpus_metrics(tp, fp, fn):
     agg_fp = torch.sum(fp)
     agg_fn = torch.sum(fn)
     _, _2, micro_f1 = _compute_class_metrics(agg_tp, agg_fp, agg_fn)
-    return macro_f1, micro_f1
+    return class_f1, macro_f1, micro_f1
 
 
 class TargetClassificationStatsCallback(Callback):
@@ -66,10 +66,10 @@ class TargetClassificationStatsCallback(Callback):
         assert stats_by_corp
         results = dict()
         if len(stats_by_corp) == 1:
-            results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*stats_by_corp[0].transpose(1, 0))
+            class_f1s, results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*stats_by_corp[0].transpose(1, 0))
         else:
             for (dataloader_idx, corp_stats) in stats_by_corp.items():
-                macro_f1, micro_f1 = _compute_corpus_metrics(*corp_stats.transpose(1, 0))
+                _, macro_f1, micro_f1 = _compute_corpus_metrics(*corp_stats.transpose(1, 0))
                 nsamples = self.__counts_by_corp[dataloader_idx]
                 if dataloader_idx < len(self.dataloader_labels):
                     dataloader_idx = self.dataloader_labels[dataloader_idx]
@@ -77,7 +77,11 @@ class TargetClassificationStatsCallback(Callback):
                 results[f'micro_f1/{dataloader_idx}'] = micro_f1
                 results[f'nsamples/{dataloader_idx}'] = nsamples
             global_stats = sum(stats_by_corp.values())
-            results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*global_stats.transpose(1, 0))
+            class_f1s, results['macro_f1'], results['micro_f1'] = _compute_corpus_metrics(*global_stats.transpose(1, 0))
+
+        for (i, c) in enumerate(class_f1s):
+            results[f'f1/class_{i}'] = c
+
         results['nsamples'] = sum(self.__counts_by_corp.values())
         results = {f"{stage}/target/{k}":v for k,v in results.items()}
         for (k, v) in results.items():
