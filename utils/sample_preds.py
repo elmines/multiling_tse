@@ -13,9 +13,13 @@ import csv
 in_dir = sys.argv[1]
 random.seed(0)
 
-fold_paths = glob.glob(os.path.join(in_dir, f"fold*_seed*_full_target_preds.csv")) 
-# Randomly choose a fold
-fold_path = random.choice(fold_paths)
+fold_paths = sorted(glob.glob(os.path.join(in_dir, f"fold*_seed*_full_target_preds.csv")))
+if len(sys.argv) > 2:
+    fold_ind = int(sys.argv[2])
+    fold_path = fold_paths[fold_ind]
+else:
+    # Randomly choose a fold
+    fold_path = random.choice(fold_paths)
 print(fold_path)
 
 lang_sets = [
@@ -42,11 +46,19 @@ def print_rule():
     print(r"\hline")
 
 print(r"\begin{table*}")
-print(r"\small")
-print(r"\begin{center}")
-print(r"\begin{tabularx}{\linewidth}{|X|X|X|X|}")
+print(r"\scriptsize{")
+print(r"\begin{tabular}{p{.09in}p{2.06in}p{1.045in}", end="")
+print(r">{\raggedright\arraybackslash}p{1.09in}", end="")
+print(r">{\raggedright\arraybackslash}p{1.08in}", end="")
+print(r"}")
 print_rule()
-row_print("Document", "Generated Targets", "Mapped Target", "Groundtruth Target")
+print(r"\hspace*{-.03in}")
+
+row_print(r"\textbf{Lang}",
+          r"\textbf{Document}",
+          r"\textbf{Generated Targets}",
+          r"\textbf{Mapped Target}",
+          r"\textbf{Groundtruth Target}")
 print_rule()
 
 for lang_set in lang_sets:
@@ -69,11 +81,12 @@ for lang_set in lang_sets:
             candidates_strbuilder.append(c)
     candidates_str = ';'.join(candidates_strbuilder)
 
-    row_print(document, candidates_str, row['MappedTarget'], row['GoldTarget'])
+    lang = partition.split('_')[0]
+    row_print(lang, document, candidates_str, row['MappedTarget'], row['GoldTarget'])
     print_rule()
 
-print(r"\end{tabularx}")
-print(r"\end{center}")
-print(r"\caption{Randomly selected target predictions. The chosen candidate is bolded.}")
+print(r"\end{tabular}")
+print(r"}")
+print(r"\caption{Randomly selected target predictions. The chosen candidate is \textbf{bold}.}")
 print(r"\label{tab:sample_preds}")
 print(r"\end{table*}")
