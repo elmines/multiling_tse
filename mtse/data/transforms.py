@@ -47,7 +47,7 @@ class TargetRename(Transform):
             if orig in self.renames:
                 setattr(sample, prop, self.renames[orig])
 
-class LiPreprocess(Transform):
+class ClassicPreprocess(Transform):
     """
     Performs the preprocessing logic from Li et al. (2023)'s work
     """
@@ -97,7 +97,7 @@ class LiPreprocess(Transform):
     def __init__(self,
                  scrub_targets: bool = False,
                  remove_se_hashtag: bool = True):
-        self._keyword_dict = LiPreprocess.get_keyword_dict()
+        self._keyword_dict = ClassicPreprocess.get_keyword_dict()
         self.scrub_targets = scrub_targets
         self.remove_se_hashtag = remove_se_hashtag
 
@@ -126,7 +126,7 @@ class LiPreprocess(Transform):
             context = _remove_semeval_tag(context)
         # 5. Normalize slang and split hashtags/mentions
         converted = []
-        for phrase in LiPreprocess.PHRASE_PATTERN.findall(context):
+        for phrase in ClassicPreprocess.PHRASE_PATTERN.findall(context):
             lowered = phrase.lower()
             if lowered in self._keyword_dict:
                 # The keyword dict actually has some uppercase words,
@@ -149,7 +149,7 @@ class LiPreprocess(Transform):
         context = context.lower()
         # 2. Remove target keywords
         if self.scrub_targets:
-            context = LiPreprocess.TARGET_PATT.sub('', context)
+            context = ClassicPreprocess.TARGET_PATT.sub('', context)
         context = self._clean_text(context)
         sample.context = context
 
@@ -164,5 +164,5 @@ __all__ = [
     "Transform",
     "TargetRename",
     "SemHashtagRemoval",
-    "LiPreprocess",
+    "ClassicPreprocess",
 ]

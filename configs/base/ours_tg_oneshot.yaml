@@ -46,7 +46,7 @@ data:
       init_args:
         path: data/kptimes/train.jsonl
         corpus_type: kptimes
-        transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+        transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
 
         # About 51,000 samples in the stance train corpus,
         # so we roughly match that here
@@ -57,10 +57,10 @@ data:
         init_args:
           path: data/li_tse/raw_val_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     stance_train_corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/li_tse/raw_train_all_onecol.csv
           corpus_type: li
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]

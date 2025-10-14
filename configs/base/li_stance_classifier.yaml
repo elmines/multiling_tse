@@ -43,12 +43,12 @@ data:
     stance_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     target_train_corpus:
       path: data/li_tse/raw_train_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     val_corpus:
       path: data/li_tse/raw_val_all_onecol.csv
       corpus_type: li
-      transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]

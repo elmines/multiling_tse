@@ -40,13 +40,13 @@ data:
         init_args:
           path: data/kptimes/train.jsonl
           corpus_type: kptimes
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
           limit_n: 1000000
       - class_path: mtse.data.StanceCorpus
         init_args:
           path: data/kptimes/dev.jsonl
           corpus_type: kptimes
-          transforms: [ {"class_path": "mtse.data.LiPreprocess"} ]
+          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     ratios:
       - [1.0, 0.0, 0.0]
       - [0.0, 1.0, 0.0]
