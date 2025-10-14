@@ -1,14 +1,14 @@
-seed_everything: 0 # Li's seeds were 0,112,343
+seed_everything: 0 # His seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
       save_dir: ./
 
-  # No early stopping-- Li just does 5 epochs
+  # No early stopping-- He just does 5 epochs
   max_epochs: 5 
 
-  # Li does use model checkpointing for his stance training
+  # He does use model checkpointing for his stance training
   # But he uses F1 score for just stance (not the targets)
   callbacks:
 
@@ -25,7 +25,7 @@ trainer:
         auto_insert_metric_name: false
 
 
-  # Li didn't specify, so neither will we
+  # He didn't specify, so neither will we
   deterministic: null
 
 model:

@@ -28,7 +28,7 @@ class _StanceClassifierModule(BaseModule):
         self.targets = [UNRELATED_TARGET] + targets
         self.use_target_gt = use_target_gt
 
-class LiStanceClassifierModule(_StanceClassifierModule):
+class ClassicStanceClassifierModule(_StanceClassifierModule):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
@@ -43,8 +43,8 @@ class LiStanceClassifierModule(_StanceClassifierModule):
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
 
-        self.bert = RobertaModel.from_pretrained(LiStanceClassifierModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiStanceClassifierModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(ClassicStanceClassifierModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(ClassicStanceClassifierModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.max_length: int = 128
         hidden_size = config.hidden_size
@@ -87,7 +87,7 @@ class LiStanceClassifierModule(_StanceClassifierModule):
         return self.__encoder
 
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k not in LiStanceClassifierModule.NON_BERT_KEYS}
+        bert_kwargs = {k:v for k,v in kwargs.items() if k not in ClassicStanceClassifierModule.NON_BERT_KEYS}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
 
@@ -100,13 +100,13 @@ class LiStanceClassifierModule(_StanceClassifierModule):
             loss = torch.nn.functional.cross_entropy(stance_logits, kwargs['stance'])
 
             target_preds = kwargs.get('target' if self.use_target_gt else 'target_pred')
-            return LiStanceClassifierModule.Output(target_preds=target_preds,
+            return ClassicStanceClassifierModule.Output(target_preds=target_preds,
                                           stance_preds=torch.argmax(stance_logits, dim=1),
                                           loss=loss)
         else:
             target_logits = self.target_classifier(cls_hidden_state)
             loss = torch.nn.functional.cross_entropy(target_logits, kwargs['target'])
-            return LiStanceClassifierModule.Output(target_preds=torch.argmax(target_logits, dim=1),
+            return ClassicStanceClassifierModule.Output(target_preds=torch.argmax(target_logits, dim=1),
                                           loss=loss)
 
     def training_step(self, batch, batch_idx):
@@ -119,7 +119,7 @@ class LiStanceClassifierModule(_StanceClassifierModule):
         return self(**batch)
 
     class Encoder(Encoder):
-        def __init__(self, module: LiStanceClassifierModule):
+        def __init__(self, module: ClassicStanceClassifierModule):
             super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer

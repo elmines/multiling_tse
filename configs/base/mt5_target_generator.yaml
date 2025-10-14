@@ -19,7 +19,7 @@ trainer:
 
 model:
   # We only train the target generation portion
-  class_path: mtse.modules.LiTargetGenerator
+  class_path: mtse.modules.ClassicTargetGenerator
 
   init_args:
     targets_path: static/multiling_targets.txt # Doesn't matter here but have to supply it

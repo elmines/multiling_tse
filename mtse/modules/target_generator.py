@@ -10,7 +10,7 @@ from .mixins import TargetMixin
 from ..data import Encoder, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import LANG_TO_ID
 
-class LiTargetGenerator(BaseModule, TargetMixin):
+class ClassicTargetGenerator(BaseModule, TargetMixin):
 
     PRETRAINED_MODEL = "facebook/bart-base"
 
@@ -33,8 +33,8 @@ class LiTargetGenerator(BaseModule, TargetMixin):
             self.bart = MT5ForConditionalGeneration.from_pretrained("google/mt5-base")
             self.tokenizer: PreTrainedTokenizerFast = T5Tokenizer.from_pretrained("google/mt5-base", normalization=True)
         else:
-            self.bart = BartForConditionalGeneration.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL)
-            self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(LiTargetGenerator.PRETRAINED_MODEL, normalization=True)
+            self.bart = BartForConditionalGeneration.from_pretrained(ClassicTargetGenerator.PRETRAINED_MODEL)
+            self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(ClassicTargetGenerator.PRETRAINED_MODEL, normalization=True)
         self.__encoder = self.Encoder(self)
 
     def configure_optimizers(self):
@@ -85,7 +85,7 @@ class LiTargetGenerator(BaseModule, TargetMixin):
             return self._predict_targets(batch)
 
     class Encoder(Encoder):
-        def __init__(self, module: LiTargetGenerator):
+        def __init__(self, module: ClassicTargetGenerator):
             super().__init__()
             self.module = module
             self.tokenizer = module.tokenizer
@@ -114,4 +114,4 @@ class LiTargetGenerator(BaseModule, TargetMixin):
                 encoding['lang'] = keyed_scalar_stack(samples, 'lang')
             return encoding
 
-__all__ = ["LiTargetGenerator"]
+__all__ = ["ClassicTargetGenerator"]

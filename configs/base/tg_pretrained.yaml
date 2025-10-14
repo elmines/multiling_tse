@@ -1,11 +1,11 @@
-seed_everything: 0 # Li's seeds were 0,112,343
+seed_everything: 0 # His seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
       save_dir: ./
 
-  # No early stopping-- Li just does 5 epochs
+  # No early stopping-- He just does 5 epochs
   max_epochs: 5 
 
   val_check_interval: 500

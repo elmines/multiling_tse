@@ -337,7 +337,7 @@ class MixedTrainingDataModule(BaseDataModule):
 
 class LiMultiTaskTrainingDataModule(BaseDataModule):
     """
-    Datamodule for modelled from Li et al.'s approach of 
+    Datamodule for modelled from His approach of 
     training a BERT model to predict stance with an auxiliary
     target prediction objective
     """

@@ -1,12 +1,12 @@
-seed_everything: 0 # Li's seeds were 0,112,343
+seed_everything: 0 # his seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
       save_dir: ./
 
-  # No early stopping-- Li just does 5 epochs
-  # Fixed five epochs from Li
+  # No early stopping-- He just does 5 epochs
+  # Fixed five epochs from Him
   max_epochs: 5 
 
   callbacks:
@@ -20,11 +20,11 @@ trainer:
       init_args:
         n_classes: 19
 
-  # Li did gradient norm clipping to 1.
+  # He did gradient norm clipping to 1.
   gradient_clip_val: 1.
   gradient_clip_algorithm: norm
 
-  # Li didn't specify, so neither will we
+  # He didn't specify, so neither will we
   deterministic: null
 
 model:

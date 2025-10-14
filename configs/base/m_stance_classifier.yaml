@@ -1,14 +1,14 @@
-seed_everything: 0 # Li's seeds were 0,112,343
+seed_everything: 0 # His seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
     init_args:
       save_dir: ./
 
-  # No early stopping-- Li just does 5 epochs
+  # No early stopping-- He just does 5 epochs
   max_epochs: 5 
 
-  # Li does use model checkpointing for his stance training
+  # He does use model checkpointing for his stance training
   # But he uses F1 score for just stance (not the targets)
   callbacks:
 
@@ -23,13 +23,13 @@ trainer:
         filename: "epoch={epoch:02d}-bimacro_f1={val/stance/bimacro_f1:.3f}"
         auto_insert_metric_name: false
 
-  # These are Li's settings, for both training and inference
+  # These are His settings, for both training and inference
   # Doesn't set these for target classification
   deterministic: true
   benchmark: false
 
 model:
-  class_path: mtse.modules.LiStanceClassifierModule
+  class_path: mtse.modules.ClassicStanceClassifierModule
   init_args:
     # Must include targets_path explicitly
     # targets_path: static/multiling_targets.txt

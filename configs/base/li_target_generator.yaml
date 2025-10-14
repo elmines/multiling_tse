@@ -1,4 +1,4 @@
-seed_everything: 0 # Li's seeds were 0,112,343
+seed_everything: 0 # His seeds were 0,112,343
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
@@ -25,7 +25,7 @@ trainer:
 
 model:
   # We only train the target generation portion
-  class_path: mtse.modules.LiTargetGenerator
+  class_path: mtse.modules.ClassicTargetGenerator
   init_args:
     targets_path: static/li_merged_targets.txt
     predict_targets: false
