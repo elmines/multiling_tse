@@ -12,9 +12,9 @@ SCRUB_TARGETS=${SCRUB_TARGETS:-0}
 
 if [ $SCRUB_TARGETS -eq 1 ]
 then
-    DEFAULT_EXP_NAME=MultiMinesTClsWithScrub
+    DEFAULT_EXP_NAME=MultiOursTClsWithScrub
 else
-    DEFAULT_EXP_NAME=MultiMinesTCls
+    DEFAULT_EXP_NAME=MultiOursTCls
 fi
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
@@ -35,7 +35,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/mines_tc_oneshot.yaml \
+            -c configs/base/ours_tc_oneshot.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed} \
             --seed_everything $seed \

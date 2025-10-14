@@ -1,9 +1,9 @@
-# multiling_tse
+# Multilingual Target Stance Extraction
 
 ## Repo Structure
 
 `mtse/`: The main python libary
-`scripts/`: Any script that requires you to have the dependencies installed
+`scripts/`: Any script that requires you to have the Python dependencies installed
 `utils/`: Any script that doesn't require anything beyond bash and a Python3 interpreter
 
 ## Dependencies
@@ -32,7 +32,7 @@ python -m pip install .
 utils/kptimes_download.sh
 ```
 
-## Multilingual Experiments
+## Multilingual (LREC 2026) Experiments
 
 ### Getting the Data
 

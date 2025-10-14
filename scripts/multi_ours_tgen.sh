@@ -11,7 +11,7 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 SEEDS=${@:- 0 1 2}
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiMinesTGen}
+EXP_NAME=${EXP_NAME:-MultiOursTGen}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
@@ -41,7 +41,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/mines_tg_oneshot.yaml \
+            -c configs/base/ours_tg_oneshot.yaml \
             --model.embeddings_path $(embed_path $seed) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed} \
