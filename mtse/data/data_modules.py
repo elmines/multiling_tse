@@ -335,7 +335,7 @@ class MixedTrainingDataModule(BaseDataModule):
     def val_dataloader(self):
         return DataLoader(self.__val_ds, shuffle=False, batch_size=self.batch_size, collate_fn=self.encoder.collate)
 
-class LiMultiTaskTrainingDataModule(BaseDataModule):
+class ClassicMultiTaskTrainingDataModule(BaseDataModule):
     """
     Datamodule for modelled from His approach of 
     training a BERT model to predict stance with an auxiliary
