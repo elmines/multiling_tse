@@ -2,9 +2,9 @@
 
 ## Repo Structure
 
-`mtse/`: The main python libary
-`scripts/`: Any script that requires you to have the Python dependencies installed
-`utils/`: Any script that doesn't require anything beyond bash and a Python3 interpreter
+- `mtse/`: The main python libary
+- `scripts/`: Any script that requires you to have the Python dependencies installed
+- `utils/`: Any script that doesn't require anything beyond bash and a Python3 interpreter
 
 ## Dependencies
 
@@ -24,19 +24,12 @@ However, we did also make the `mtse/` module `pip`-installable if you're using i
 python -m pip install .
 ```
 
-## Common Instructions
-
-### Data Downloads
-
-```bash
-utils/kptimes_download.sh
-```
-
-## Multilingual (LREC 2026) Experiments
+## Multilingual Experiments
 
 ### Getting the Data
 
 ```bash
+utils/kptimes_download.sh
 utils/multiling_download.sh
 ```
 The script will give you two password prompts for the Sardistance dataset.
@@ -45,18 +38,38 @@ To get the passwords, request access from the organizers [here](https://forms.gl
 ### Preprocessing
 
 ```bash
-utils/multiling_preproc.sh
+utils/preproc_mling.py
+utils/part_kptimes.py
 # trans_kptimes.sh uses a HuggingFace model,
 # so we need the conda environment here
 conda activate ./venv
 scripts/trans_kptimes.sh
 ```
 
+### Execution
+In theory this will run the 5-fold cross validation for each of our three target pools (Full, LLM, Manual).
+In practice, it's best to run these as separate jobs.
+```bash
+for fold in {0..4}
+do
+    SAVE_DIR=./lightning_logs ALL=1                                   scripts/mling_tgen.sh $fold
+    SAVE_DIR=./lightning_logs ALL=1 TARGET_TYPE=llm   EXP_NAME=Llm    scripts/mling_tgen.sh $fold
+    SAVE_DIR=./lightning_logs ALL=1 TARGET_TYPE=short EXP_NAME=Manual scripts/mling_tgen.sh $fold
+done
+```
+
 ## English Experiments
 
-### Getting the Data
+These are not for LREC 2026.
 
-Download the `raw_(train|val|test)_all_onecol.csv` files from their [Google Drive](https://drive.google.com/drive/folders/16asK-Ouv6BwXuqUU-J7NwSQS9_k5E4_d)
+### Data
+
+First download the KPTimes data
+```bash
+utils/kptimes_download.sh
+```
+
+Download the `raw_(train|val|test)_all_onecol.csv` files from Li et al. (2023)'s [Google Drive](https://drive.google.com/drive/folders/16asK-Ouv6BwXuqUU-J7NwSQS9_k5E4_d)
 and copy them to [./data/li_tse](./data/li_tse).
 
 ### Preprocessing
