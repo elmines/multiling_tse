@@ -81,7 +81,7 @@ then
     mkdir -p $LOGS_ROOT
     python -m mtse.train_ft \
         --corpus_type standard \
-        -i data/multiling/en_unrelated_all.csv \
+        -i data/multiling/en_unrelated.csv \
         --seed $seed \
         --embed 256 \
         -o $(embed_path $seed) \
