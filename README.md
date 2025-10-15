@@ -1,14 +1,14 @@
-# Multilingual Target Stance Extraction
+# Multilingual Target-Stance Extraction
 
 ## Repo Structure
 
 - `mtse/`: The main python libary
 - `scripts/`: Any script that requires you to have the Python dependencies installed
-- `utils/`: Any script that doesn't require anything beyond bash and a Python3 interpreter
+- `utils/`: Any script that relies solely on bash or the Python STL
 
 ## Dependencies
 
-### System
+### Bash
 
 - `sudo apt-get install curl wget`
 
