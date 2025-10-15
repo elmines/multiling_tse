@@ -47,8 +47,8 @@ scripts/trans_kptimes.sh
 ```
 
 ### Execution
-In theory this will run the 5-fold cross validation for each of our three target pools (Full, LLM, Manual).
-In practice, it's best to run these as separate jobs.
+This simple loop will run the 5-fold cross validation for each of our three target pools (Full, LLM, Manual).
+In practice, it's best to run these as 15 separate jobs.
 ```bash
 for fold in {0..4}
 do
