@@ -41,14 +41,14 @@ data:
     # Notice no target_pred_path values
     # He only uses GT targets during stance training
     stance_train_corpus:
-      path: data/li_tse/raw_train_all_onecol.csv
+      path: data/classic_tse/raw_train_all_onecol.csv
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     target_train_corpus:
-      path: data/li_tse/raw_train_all_onecol.csv
+      path: data/classic_tse/raw_train_all_onecol.csv
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
     val_corpus:
-      path: data/li_tse/raw_val_all_onecol.csv
+      path: data/classic_tse/raw_val_all_onecol.csv
       corpus_type: li
       transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]

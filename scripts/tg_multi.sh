@@ -21,7 +21,7 @@ then
         python -m mtse.train_ft \
             --seed $seed \
             --corpus_type li \
-            -i data/li_tse/raw_train_all_onecol.csv \
+            -i data/classic_tse/raw_train_all_onecol.csv \
             -o $LOGS_ROOT/ft_seed${seed}.model
     done
 else

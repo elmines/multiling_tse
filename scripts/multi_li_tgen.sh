@@ -28,7 +28,7 @@ then
     do
         python -m mtse.train_ft \
             --corpus_type li \
-            -i data/li_tse/raw_train_all_onecol.csv \
+            -i data/classic_tse/raw_train_all_onecol.csv \
             --seed $seed \
             --embed 256 \
             -o $(embed_path $seed) \
@@ -43,7 +43,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_target_generator.yaml \
+            -c configs/base/classic_target_generator.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
             --seed_everything $seed 
@@ -61,12 +61,12 @@ then
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --return_predictions false \
             --model.predict_targets true \
-            --data configs/data/li_tc_predict.yaml \
+            --data configs/data/classic_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
-            --trainer.callbacks.targets_path static/li_merged_targets.txt \
+            --trainer.callbacks.targets_path static/classic_merged_targets.txt \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt
     done
 else
@@ -86,13 +86,13 @@ then
         python -m mtse test \
             --model mtse.modules.PassthroughModule \
             --data mtse.data.TargetPredictionDataModule \
-            --data.targets_path static/li_merged_targets.txt \
+            --data.targets_path static/classic_merged_targets.txt \
             --data.csv_paths $csv_paths \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/classic_merged_targets.txt) )) \
             $EXTRA_ARGS
     done
 else
@@ -104,7 +104,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_stance_classifier.yaml \
+            -c configs/base/classic_stance_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_stance \
             --seed_everything $seed
@@ -120,7 +120,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
-            --data configs/data/li_stance_test.yaml \
+            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
@@ -137,7 +137,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
@@ -155,7 +155,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test_gt \

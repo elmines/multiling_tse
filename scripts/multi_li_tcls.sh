@@ -48,7 +48,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_target_classifier.yaml \
+            -c configs/base/classic_target_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target \
             --seed_everything $seed \
@@ -74,7 +74,7 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --data configs/data/li_tc_test.yaml \
+            --data configs/data/classic_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
@@ -101,11 +101,11 @@ then
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --return_predictions false \
-            --data configs/data/li_tc_predict.yaml \
+            --data configs/data/classic_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.targets_path static/li_merged_targets.txt \
+            --trainer.callbacks.targets_path static/classic_merged_targets.txt \
             --trainer.callbacks.target_level mapped \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
@@ -129,7 +129,7 @@ then
     for seed in $SEEDS
     do
         python -m mtse fit \
-            -c configs/base/li_stance_classifier.yaml \
+            -c configs/base/classic_stance_classifier.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_stance \
             --seed_everything $seed \
@@ -146,7 +146,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
-            --data configs/data/li_stance_test.yaml \
+            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
@@ -163,7 +163,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
@@ -181,7 +181,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test_gt \

@@ -13,7 +13,7 @@ do
         do
             python -m mtse.train_ft \
                 --corpus_type li \
-                -i data/li_tse/raw_train_all_onecol.csv \
+                -i data/classic_tse/raw_train_all_onecol.csv \
                 --seed $seed \
                 --embed $embed \
                 --epochs $epochs \

@@ -26,7 +26,7 @@ then
     do
         python -m mtse.train_ft \
             --corpus_type li \
-            -i data/li_tse/raw_train_all_onecol.csv \
+            -i data/classic_tse/raw_train_all_onecol.csv \
             --seed $seed \
             --embed 256 \
             -o $(embed_path $seed) \
@@ -57,10 +57,10 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/li_tc_test.yaml \
+            --data configs/data/classic_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/li_merged_targets.txt) )) \
+            --trainer.callbacks.n_classes $((1 + $(wc -l < static/classic_merged_targets.txt) )) \
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
     done
 else
@@ -74,7 +74,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/li_stance_test.yaml \
+            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
@@ -91,7 +91,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.logger.version seed${seed}_tse_test 
     done
 else
@@ -106,7 +106,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.logger.version seed${seed}_tse_test_gt \
             --model.use_target_gt true 
     done

@@ -10,10 +10,10 @@ from .base_module import BaseModule
 from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
 from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
 
-class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
+class OneShotTClsModule(BaseModule, TargetMixin):
     """
     One-shot module doing target-clasification,
-    designed to be as close as possible to Li et al.'s individual target and stance models.
+    designed to be as close as possible to Li et al.'s (2023) individual target and stance models.
 
     """
 
@@ -36,8 +36,8 @@ class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
         TargetMixin.__init__(self, targets_path)
         self.stance_type = STANCE_TYPE_MAP[stance_type]
         self.use_target_gt = use_target_gt
-        self.bert = RobertaModel.from_pretrained(LiBasedOneShotTClsModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiBasedOneShotTClsModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(OneShotTClsModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(OneShotTClsModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         hidden_size = config.hidden_size
 
@@ -73,7 +73,7 @@ class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
 
 
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k not in LiBasedOneShotTClsModule.NON_BERT_KEYS}
+        bert_kwargs = {k:v for k,v in kwargs.items() if k not in OneShotTClsModule.NON_BERT_KEYS}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
         target_logits = self.target_classifier(cls_hidden_state)
@@ -93,13 +93,13 @@ class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
     def _infer_step(self, batch):
         target_logits, stance_logits = self(**batch)
         target_preds = batch['target'] if self.use_target_gt else torch.argmax(target_logits, dim=-1)
-        return LiBasedOneShotTClsModule.Output(
+        return OneShotTClsModule.Output(
             target_preds=target_preds,
             stance_preds=torch.argmax(stance_logits, dim=-1)
         )
 
     class Encoder(Encoder):
-        def __init__(self, module: LiBasedOneShotTClsModule):
+        def __init__(self, module: OneShotTClsModule):
             super().__init__()
             self.module = module
             self.tokenizer: PreTrainedTokenizerFast = module.tokenizer
@@ -115,4 +115,4 @@ class LiBasedOneShotTClsModule(BaseModule, TargetMixin):
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')
             return rdict
 
-__all__ = ["LiBasedOneShotTClsModule"]
+__all__ = ["OneShotTClsModule"]

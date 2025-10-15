@@ -4,7 +4,7 @@ init_args:
   corpora:
     - class_path: mtse.data.StanceCorpus
       init_args:
-        path: data/li_tse/raw_val_all_onecol.csv
+        path: data/classic_tse/raw_val_all_onecol.csv
         corpus_type: li
         transforms: [ {"class_path": "mtse.data.ClassicPreprocess", "init_args": {"scrub_targets": true}} ]
   ratios: [ [0.0, 0.0, 1.0] ]

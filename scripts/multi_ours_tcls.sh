@@ -57,7 +57,7 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/li_tc_test.yaml \
+            --data configs/data/classic_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes 19 \
@@ -81,7 +81,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/li_stance_test.yaml \
+            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt \
@@ -106,7 +106,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.logger.version seed${seed}_tse_test \
             $EXTRA_ARGS
     done
@@ -129,7 +129,7 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/li_tse_test.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.logger.version seed${seed}_tse_test_gt \
             --model.use_target_gt true \
             $EXTRA_ARGS

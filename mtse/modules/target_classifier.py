@@ -57,7 +57,7 @@ class _TargetClassifierModule(BaseModule, TargetMixin):
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             return rdict
 
-class LiTargetClassifierModule(_TargetClassifierModule):
+class ClassicTargetClassifierModule(_TargetClassifierModule):
     """
     Modelled from code in paper https://aclanthology.org/2023.acl-long.560/
 
@@ -69,8 +69,8 @@ class LiTargetClassifierModule(_TargetClassifierModule):
 
     def __init__(self, **parent_kwargs):
         super().__init__(**parent_kwargs)
-        self.bert = RobertaModel.from_pretrained(LiTargetClassifierModule.PRETRAINED_MODEL)
-        self.tokenizer = BertweetTokenizer.from_pretrained(LiTargetClassifierModule.PRETRAINED_MODEL, normalization=True)
+        self.bert = RobertaModel.from_pretrained(ClassicTargetClassifierModule.PRETRAINED_MODEL)
+        self.tokenizer = BertweetTokenizer.from_pretrained(ClassicTargetClassifierModule.PRETRAINED_MODEL, normalization=True)
         config = self.bert.config
         self.__max_length: Optional[int] = getattr(config, "max_position_embeddings", None)
         hidden_size = config.hidden_size
@@ -83,7 +83,7 @@ class LiTargetClassifierModule(_TargetClassifierModule):
         def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
             assert predict_task is None or predict_task == PredictTask.TARGET
             assert sample.target_label is not None
-            # This looks clunky, but trying to imitate Li's original code
+            # This looks clunky, but trying to imitate Li et al.'s (2023) original code
             encoding = self.tokenizer.encode_plus(text=sample.context, 
                                       padding="max_length", max_length=128, add_special_tokens=True,
                                       return_attention_mask=True)
@@ -136,4 +136,4 @@ class LiTargetClassifierModule(_TargetClassifierModule):
         return target_logits
 
 
-__all__ = ["_TargetClassifierModule", "LiTargetClassifierModule"]
+__all__ = ["_TargetClassifierModule", "ClassicTargetClassifierModule"]

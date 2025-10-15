@@ -50,7 +50,7 @@ def extract_indices(corpus_path):
 
 if __name__ == "__main__":
 
-    data_dir = os.path.join("data", "li_tse")
+    data_dir = os.path.join("data", "classic_tse")
     add_dir_prefix = lambda slices: {os.path.join(data_dir, k):v for k,v in slices.items()}
 
     for part in ['val', 'train']:
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         ))
         part_corpus(source_path, add_dir_prefix(corpora_inds))
 
-    # Use the exact indices that Li et al. used here, since we know them explicitly
+    # Use the exact indices that Li et al. (2023) used here, since we know them explicitly
     test_inds = {
        "test_semeval.csv": list(range(1080)),
        "test_am.csv": list(range(1880, 6989)),

@@ -39,12 +39,12 @@ data:
     stance_val_corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/li_tse/raw_val_all_onecol.csv
+          path: data/classic_tse/raw_val_all_onecol.csv
           corpus_type: li
           transforms: [ {"class_path": "mtse.data.ClassicPreprocess", "init_args": {"scrub_targets": true}} ]
     stance_train_corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/li_tse/raw_train_all_onecol.csv
+          path: data/classic_tse/raw_train_all_onecol.csv
           corpus_type: li
           transforms: [ {"class_path": "mtse.data.ClassicPreprocess", "init_args": {"scrub_targets": true}} ]

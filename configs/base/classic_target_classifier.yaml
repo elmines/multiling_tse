@@ -28,7 +28,7 @@ trainer:
   deterministic: null
 
 model:
-  class_path: mtse.modules.LiTargetClassifierModule
+  class_path: mtse.modules.ClassicTargetClassifierModule
   init_args:
     targets_path: static/li_merged_targets.txt
 data:
@@ -39,10 +39,10 @@ data:
     corpora:
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/li_tse/raw_train_all_onecol.csv
+          path: data/classic_tse/raw_train_all_onecol.csv
           corpus_type: li
       - class_path: mtse.data.StanceCorpus
         init_args:
-          path: data/li_tse/raw_val_all_onecol.csv
+          path: data/classic_tse/raw_val_all_onecol.csv
           corpus_type: li
     ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]

@@ -346,7 +346,7 @@ def part_global_voices(in_dir, fold_dirs, lang, n_samples):
 
 def get_en_globalvoices(in_dir, out_dir, n_samples=64000):
     """
-    The Li et al. in their TSE paper used ~51,000 samples to train their FT
+    Li et al. in their TSE paper used ~51,000 samples to train their FT
     embeddings; we use 64000 just to be safe
     """
     # English is just for the embedding training

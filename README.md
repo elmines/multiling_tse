@@ -70,7 +70,7 @@ utils/kptimes_download.sh
 ```
 
 Download the `raw_(train|val|test)_all_onecol.csv` files from Li et al. (2023)'s [Google Drive](https://drive.google.com/drive/folders/16asK-Ouv6BwXuqUU-J7NwSQS9_k5E4_d)
-and copy them to [./data/li_tse](./data/li_tse).
+and copy them to [./data/classic_tse](./data/classic_tse).
 
 ### Preprocessing
 Run `python3 scripts/split_tse.py` to split the merged TSE corpus into its component corpora (SemEval 2016, P-Stance, etc.).
