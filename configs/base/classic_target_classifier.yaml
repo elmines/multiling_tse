@@ -30,19 +30,12 @@ trainer:
 model:
   class_path: mtse.modules.ClassicTargetClassifierModule
   init_args:
-    targets_path: static/li_merged_targets.txt
+    targets_path: static/classic_merged_targets.txt
 data:
-  class_path: mtse.data.SplitDataModule
+  class_path: mtse.data.PattDataModule
   init_args:
     batch_size: 128
     transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    corpora:
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_train_all_onecol.csv
-          corpus_type: li
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_val_all_onecol.csv
-          corpus_type: li
-    ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
+    train_patts: [data/classic/*.train.tsv]
+    val_patts:   [data/classic/*.val.tsv]
+    test_patts:  [data/classic/*.test.tsv]

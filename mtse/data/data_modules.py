@@ -4,6 +4,7 @@ import os
 import pathlib
 import glob
 import pdb
+from functools import reduce
 # 3rd Party
 import random
 import torch
@@ -50,19 +51,19 @@ class BaseDataModule(L.LightningDataModule):
         for t in self.transforms:
             self._encoder.add_transform(t)
 
-class DirDataModule(BaseDataModule):
+class PattDataModule(BaseDataModule):
     """
     Looks for files with suffixies _train.csv, _val.csv, _test.csv
     """
     def __init__(self,
-                 data_dir: pathlib.Path,
+                 train_patts: List[pathlib.Path],
+                 val_patts: List[pathlib.Path],
+                 test_patts: List[pathlib.Path],
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  target_input: TargetInputType = "label", 
-                 exclude_patterns: List[str] = [],
                  preds_dir: Optional[pathlib.Path] = None,
-                 **parent_kwargs):
-        super().__init__(**parent_kwargs)
-        self.data_dir = data_dir
+                 transforms: List[Transform] = None):
+        super().__init__(transforms=transforms)
         self.preds_dir = preds_dir
         self.batch_size = batch_size
         self.target_input = target_input
@@ -70,19 +71,22 @@ class DirDataModule(BaseDataModule):
         self.__val_ds: Dataset = None
         # Allow multiple datasets for eval purposes
 
-        all_paths = glob.glob(os.path.join(self.data_dir, "*_test.csv"))
-        excluded = []
-        for patt in exclude_patterns:
-            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
-        self.__excluded = set(excluded)
-        self.__test_paths = sorted(set(all_paths) - self.__excluded)
-        self.__testloader_labels = list(map(DirDataModule._extract_label, self.__test_paths))
-
+        self.__train_paths = PattDataModule._get_paths(train_patts)
+        self.__val_paths = PattDataModule._get_paths(val_patts)
+        self.__test_paths = PattDataModule._get_paths(test_patts)
+        self.__testloader_labels = list(map(PattDataModule._extract_label, self.__test_paths))
         self.__test_datasets: List[Dataset] = None
 
     @staticmethod
+    def _get_paths(patterns: List[pathlib.Path]):
+        all_paths = []
+        for p in patterns:
+            all_paths.extend(glob.glob(str(p)))
+        return sorted(set(all_paths))
+
+    @staticmethod
     def _extract_label(file_path):
-        return os.path.basename(file_path).split("_test.csv")[0]
+        return os.path.basename(file_path).split(".")[0]
 
     @property
     def testloader_labels(self):
@@ -91,7 +95,7 @@ class DirDataModule(BaseDataModule):
     def _parse_path(self, path) -> Generator[Sample, None, None]:
         target_preds_path = None
         if self.preds_dir is not None:
-            label = DirDataModule._extract_label(path)
+            label = PattDataModule._extract_label(path)
             target_preds_path = os.path.join(self.preds_dir, label + ".target_preds.csv")
             if not os.path.exists(target_preds_path):
                 raise ValueError(f'Could not find target preds for "{label}" at expected path "{target_preds_path}"')
@@ -104,17 +108,14 @@ class DirDataModule(BaseDataModule):
     def _setup_train(self):
         if self.__train_ds is not None:
             return
-        train_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_train.csv"))) - self.__excluded)
-        val_paths = sorted(set(glob.glob(os.path.join(self.data_dir, "*_val.csv"))) - self.__excluded)
-
         train_samples = []
-        for train_path in train_paths:
+        for train_path in self.__train_paths:
             sample_iter = tqdm(self._parse_path(train_path), desc=f"Parsing {train_path}")
             sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
             train_samples.extend(sample_iter)
         self.__train_ds = MapDataset(train_samples)
         val_samples = []
-        for val_path in val_paths:
+        for val_path in self.__val_paths:
             sample_iter = tqdm(self._parse_path(val_path), desc=f"Parsing {val_path}")
             sample_iter = map(lambda s: self.encoder.encode(s, inference=True), sample_iter)
             val_samples.extend(sample_iter)
