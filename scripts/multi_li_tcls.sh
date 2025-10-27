@@ -142,11 +142,12 @@ then
     for seed in $SEEDS
     do
         # We override the existing callback because we're not testing TSE this time
+        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
+            -c $train_dir/config.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt
+            --ckpt_path $train_dir/checkpoints/*ckpt
     done
 else
     echo "Skipping stance testing"
@@ -160,8 +161,8 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/classic_tse_test.yaml \
-            --data.corpora.target_preds_path $LOGS_ROOT/seed${seed}_target_predict/target_preds.1.txt \
+            --data.preds_dir $LOGS_ROOT/seed${seed}_target_predict \
+            --data.target_input pred \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             --trainer.logger.version seed${seed}_tse_test
@@ -174,16 +175,11 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
     for seed in $SEEDS
     do
-        train_dir=$LOGS_ROOT/seed${seed}_stance
         python -m mtse test \
-            -c $train_dir/config.yaml \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/classic_tse_test.yaml \
-            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
-            --trainer.callbacks.full_metrics true \
-            --trainer.logger.version seed${seed}_tse_test_gt \
-            --data.corpora.target_input label \
-            --model.use_target_gt true
+            -c $LOGS_ROOT/seed${seed}_tse_test/config.yaml \
+            --data.target_input label \
+            --model.use_target_gt true \
+            --trainer.logger.version seed${seed}_tse_test_gt
     done
 else
     echo "Skipping gt tse testing"
