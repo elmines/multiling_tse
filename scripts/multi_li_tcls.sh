@@ -8,7 +8,7 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0 1 2}
+SEEDS=${@:- 0}
 
 WITH_SE_BUG=${WITH_SE_BUG:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
@@ -74,7 +74,6 @@ then
     do
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --data configs/data/classic_tc_test.yaml \
             --trainer.logger.version seed${seed}_target_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
             $EXTRA_ARGS
@@ -101,7 +100,6 @@ then
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --return_predictions false \
-            --data configs/data/classic_tc_predict.yaml \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \

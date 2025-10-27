@@ -182,7 +182,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             # If we have target_preds, the mapping has already been done
             # For simplicity, ignore any target_gen fields
             target_preds = [self.targets[p] for p in prediction.target_preds.flatten().detach().cpu().tolist()]
-            untrans_preds = batch.get('target_untrans', freeform_preds)
+            untrans_preds = batch.get('target_untrans', target_preds)
             assert len(untrans_preds) == len(target_preds)
 
             if hasattr(prediction, "sample_inds"):

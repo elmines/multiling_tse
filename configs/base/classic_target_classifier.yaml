@@ -36,6 +36,6 @@ data:
   init_args:
     batch_size: 128
     transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    train_patts: [data/classic/*.train.tsv]
-    val_patts:   [data/classic/*.val.tsv]
-    test_patts:  [data/classic/*.test.tsv]
+    train_patts: [data/classic/*.train.csv]
+    val_patts:   [data/classic/*.val.csv]
+    test_patts:  [data/classic/*.test.csv]
