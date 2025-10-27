@@ -144,7 +144,6 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $LOGS_ROOT/seed${seed}_stance/config.yaml \
-            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}_stance/checkpoints/*ckpt

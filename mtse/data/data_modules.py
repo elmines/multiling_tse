@@ -31,9 +31,9 @@ class BaseDataModule(L.LightningDataModule):
     """
 
     def __init__(self,
-                 transforms: List[Transform] = []):
+                 transforms: Optional[List[Transform]] = None):
         super().__init__()
-        self.transforms = transforms
+        self.transforms = transforms or []
         self._encoder: Encoder = None
 
     @property
@@ -62,7 +62,7 @@ class PattDataModule(BaseDataModule):
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  target_input: TargetInputType = "label", 
                  preds_dir: Optional[pathlib.Path] = None,
-                 transforms: List[Transform] = None):
+                 transforms: Optional[List[Transform]] = None):
         super().__init__(transforms=transforms)
         self.preds_dir = preds_dir
         self.batch_size = batch_size

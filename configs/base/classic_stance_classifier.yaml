@@ -7,8 +7,8 @@ trainer:
 
   max_epochs: 5 
 
-  # He does use model checkpointing for his stance training
-  # But he uses F1 score for just stance (not the targets)
+  # TSE authors use model checkpointing for their stance training
+  # But they use F1 score for just stance (not the targets)
   callbacks:
 
     # Calculate the stance F1
@@ -22,7 +22,7 @@ trainer:
         filename: "epoch={epoch:02d}-bimacro_f1={val/stance/bimacro_f1:.3f}"
         auto_insert_metric_name: false
 
-  # These are his settings, for both training and inference
+  # These are their settings, for both training and inference
   # Doesn't set these for target classification
   deterministic: true
   benchmark: false
@@ -30,25 +30,15 @@ trainer:
 model:
   class_path: mtse.modules.ClassicStanceClassifierModule
   init_args:
-    targets_path: static/li_merged_targets.txt
+    targets_path: static/classic_merged_targets.txt
     stance_type: tri
 data:
-  class_path: mtse.data.ClassicMultiTaskTrainingDataModule
+  class_path: mtse.data.PattDataModule
   init_args:
-    # He cut the batch size down to 64 for the stance training
+    # TSE authors cut the batch size down to 64 for the stance training
     batch_size: 64
-
     # Notice no target_pred_path values
-    # He only uses GT targets during stance training
-    stance_train_corpus:
-      path: data/classic_tse/raw_train_all_onecol.csv
-      corpus_type: li
-      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    target_train_corpus:
-      path: data/classic_tse/raw_train_all_onecol.csv
-      corpus_type: li
-      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    val_corpus:
-      path: data/classic_tse/raw_val_all_onecol.csv
-      corpus_type: li
-      transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
+    # They only uses GT targets during stance training
+    train_patts: [data/classic/*.train.csv]
+    val_patts:   [data/classic/*.val.csv]
+    test_patts:  [data/classic/*.test.csv]
