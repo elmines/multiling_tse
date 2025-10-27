@@ -6,6 +6,9 @@ from itertools import product
 
 # Can't hard-code your email in here--don't want that published on GitHub
 user_email = sys.argv[1]
+repo_dir = os.path.join( os.path.abspath(os.path.dirname(sys.argv[0])), "..")
+
+
 sbatch_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
@@ -24,8 +27,7 @@ export XDG_RUNTIME_DIR=$SLURM_TMPDIR
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 date
 hostname
-script_dir=$(dirname $0)
-cd $script_dir/..
+cd {repo_dir}
 pwd
 
 source "/apps/conda/25.3.1/etc/profile.d/conda.sh"
@@ -46,7 +48,10 @@ for seed, variant  in product(range(3), variants):
     suffix, var_settings = variant
     name = f"multi_li_tcls_seed{seed}{suffix}"
     command = f"{var_settings} scripts/multi_li_tcls.sh {seed}"
-    bash_code = sbatch_template.format(name=name, command=command, user_email=user_email)
+    bash_code = sbatch_template.format(name=name,
+                                       command=command,
+                                       user_email=user_email,
+                                       repo_dir=repo_dir)
     out_path = f"{name}.sh"
     with open(out_path, 'w') as w:
         w.write(bash_code)
