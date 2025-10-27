@@ -8,7 +8,7 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0}
+seed=${1:- 0}
 
 WITH_SE_BUG=${WITH_SE_BUG:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
@@ -45,15 +45,12 @@ then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
     fi
 
-    for seed in $SEEDS
-    do
-        python -m mtse fit \
-            -c configs/base/classic_target_classifier.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target \
-            --seed_everything $seed \
-            $EXTRA_ARGS
-    done
+    python -m mtse fit \
+        -c configs/base/classic_target_classifier.yaml \
+        $LOGGER_ARGS \
+        --trainer.logger.version seed${seed}_target \
+        --seed_everything $seed \
+        $EXTRA_ARGS
 else
     echo "Skipping target fitting"
 fi
@@ -70,14 +67,11 @@ then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
     fi
 
-    for seed in $SEEDS
-    do
-        python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --trainer.logger.version seed${seed}_target_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
-            $EXTRA_ARGS
-    done
+    python -m mtse test \
+        -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+        --trainer.logger.version seed${seed}_target_test \
+        --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
+        $EXTRA_ARGS
 else
     echo "Skipping target testing"
 fi
@@ -94,20 +88,17 @@ then
         EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
     fi
 
-    for seed in $SEEDS
-    do
-        version=seed${seed}_target_predict
-        python -m mtse predict \
-            -c $LOGS_ROOT/seed${seed}_target/config.yaml \
-            --return_predictions false \
-            --trainer.logger.version $version \
-            --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
-            --trainer.callbacks.out_dir $LOGS_ROOT/$version \
-            --trainer.callbacks.targets_path static/classic_merged_targets.txt \
-            --trainer.callbacks.target_level mapped \
-            --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
-            $EXTRA_ARGS
-    done
+    version=seed${seed}_target_predict
+    python -m mtse predict \
+        -c $LOGS_ROOT/seed${seed}_target/config.yaml \
+        --return_predictions false \
+        --trainer.logger.version $version \
+        --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
+        --trainer.callbacks.out_dir $LOGS_ROOT/$version \
+        --trainer.callbacks.targets_path static/classic_merged_targets.txt \
+        --trainer.callbacks.target_level mapped \
+        --ckpt_path $LOGS_ROOT/seed${seed}_target/checkpoints/*ckpt \
+        $EXTRA_ARGS
 else
     echo "Skipping target prediction"
 fi
@@ -124,63 +115,51 @@ then
         EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.scrub_targets true"
     fi
 
-    for seed in $SEEDS
-    do
-        python -m mtse fit \
-            -c configs/base/classic_stance_classifier.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_stance \
-            --seed_everything $seed \
-            $EXTRA_ARGS
-    done
+    python -m mtse fit \
+        -c configs/base/classic_stance_classifier.yaml \
+        $LOGGER_ARGS \
+        --trainer.logger.version seed${seed}_stance \
+        --seed_everything $seed \
+        $EXTRA_ARGS
 else
     echo "Skipping stance fitting"
 fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        # We override the existing callback because we're not testing TSE this time
-        train_dir=$LOGS_ROOT/seed${seed}_stance
-        python -m mtse test \
-            -c $train_dir/config.yaml \
-            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $train_dir/checkpoints/*ckpt
-    done
+    # We override the existing callback because we're not testing TSE this time
+    train_dir=$LOGS_ROOT/seed${seed}_stance
+    python -m mtse test \
+        -c $train_dir/config.yaml \
+        --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
+        --trainer.logger.version seed${seed}_stance_test \
+        --ckpt_path $train_dir/checkpoints/*ckpt
 else
     echo "Skipping stance testing"
 fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}_stance
-        python -m mtse test \
-            -c $train_dir/config.yaml \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data.preds_dir $LOGS_ROOT/seed${seed}_target_predict \
-            --data.target_input pred \
-            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
-            --trainer.callbacks.full_metrics true \
-            --trainer.logger.version seed${seed}_tse_test
-    done
+    train_dir=$LOGS_ROOT/seed${seed}_stance
+    python -m mtse test \
+        -c $train_dir/config.yaml \
+        --ckpt_path $train_dir/checkpoints/*ckpt \
+        --data.preds_dir $LOGS_ROOT/seed${seed}_target_predict \
+        --data.target_input pred \
+        --trainer.callbacks mtse.callbacks.TSEStatsCallback \
+        --trainer.callbacks.full_metrics true \
+        --trainer.logger.version seed${seed}_tse_test
 else
     echo "Skipping tse testing"
 fi
 
 if [ $GT_TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}_tse_test/config.yaml \
-            --data.target_input label \
-            --model.use_target_gt true \
-            --trainer.logger.version seed${seed}_tse_test_gt
-    done
+    python -m mtse test \
+        -c $LOGS_ROOT/seed${seed}_tse_test/config.yaml \
+        --data.target_input label \
+        --model.use_target_gt true \
+        --trainer.logger.version seed${seed}_tse_test_gt
 else
     echo "Skipping gt tse testing"
 fi
