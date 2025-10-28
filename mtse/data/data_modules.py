@@ -51,6 +51,13 @@ class BaseDataModule(L.LightningDataModule):
         for t in self.transforms:
             self._encoder.add_transform(t)
 
+def get_paths(patterns: List[pathlib.Path]):
+    all_paths = []
+    for p in patterns:
+        all_paths.extend(glob.glob(str(p)))
+    return sorted(set(all_paths))
+
+ 
 class PattDataModule(BaseDataModule):
     """
     Looks for files with suffixies _train.csv, _val.csv, _test.csv
@@ -71,18 +78,11 @@ class PattDataModule(BaseDataModule):
         self.__val_ds: Dataset = None
         # Allow multiple datasets for eval purposes
 
-        self.__train_paths = PattDataModule._get_paths(train_patts)
-        self.__val_paths = PattDataModule._get_paths(val_patts)
-        self.__test_paths = PattDataModule._get_paths(test_patts)
+        self.__train_paths = get_paths(train_patts)
+        self.__val_paths = get_paths(val_patts)
+        self.__test_paths = get_paths(test_patts)
         self.__testloader_labels = list(map(PattDataModule._extract_label, self.__test_paths))
         self.__test_datasets: List[Dataset] = None
-
-    @staticmethod
-    def _get_paths(patterns: List[pathlib.Path]):
-        all_paths = []
-        for p in patterns:
-            all_paths.extend(glob.glob(str(p)))
-        return sorted(set(all_paths))
 
     @staticmethod
     def _extract_label(file_path):
@@ -343,16 +343,14 @@ class ClassicMultiTaskTrainingDataModule(BaseDataModule):
     target prediction objective
     """
     def __init__(self,
-                 stance_train_corpus: StanceCorpus,
-                 target_train_corpus: StanceCorpus,
-                 val_corpus: StanceCorpus,
+                 train_patts: List[pathlib.Path],
+                 val_patts: List[pathlib.Path],
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
 
-        self.stance_train_corpus = stance_train_corpus
-        self.target_train_corpus = target_train_corpus
-        self.val_corpus = val_corpus
+        self.__train_paths = get_paths(train_patts)
+        self.__val_paths = get_paths(val_patts)
         self.batch_size = batch_size
 
         self.__train_ds: Dataset = None
@@ -362,6 +360,13 @@ class ClassicMultiTaskTrainingDataModule(BaseDataModule):
     def setup(self, stage):
         if self.__train_ds and self.__val_ds and self.__n_stance is not None:
             return
+
+        raw_stance_samples = [StanceCorpus(p) for p in self.__train_paths]
+
+        val_corpora = [StanceCorpus(p) for p in self.__val_paths]
+
+
+        # Li et al. do not use NEUTRAL samples for the auxiliary target prediction task
         permitted_stances = {'favor', 'against'}
         raw_target_samples = [s for s in self.target_train_corpus if s.target_label != UNRELATED_TARGET and s.stance.name in permitted_stances]
         raw_stance_samples = [s for s in self.stance_train_corpus if s.target_label != UNRELATED_TARGET]
