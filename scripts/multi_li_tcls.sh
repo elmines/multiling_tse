@@ -103,18 +103,15 @@ else
     echo "Skipping target prediction"
 fi
 
+# You won't see any more WITH_SE_BUG below--
+# Li et al. only had that bug in the target prediction portion of the code
+
 if [ $STANCE_FIT -eq 1 ]
 then
     EXTRA_ARGS=""
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.remove_se_hashtag false"
-        EXTRA_ARGS="$EXTRA_ARGS --data.stance_train_corpus.transforms.remove_se_hashtag false"
-        EXTRA_ARGS="$EXTRA_ARGS --data.val_corpus.transforms.remove_se_hashtag false"
-    fi
     if [ $SCRUB_TARGETS -eq 1 ]
     then
-        # Li et al. never did target scrubbing for stance prediction
+        # Li et al. only did target scrubbing when predicting targets
         EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.scrub_targets true"
     fi
 
@@ -130,19 +127,12 @@ fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    TRANSFORM_ARGS=("--data.transforms" '[mtse.data.ClassicPreprocess]')
-    if [ $WITH_SE_BUG -eq 1 ]
-    then
-        TRANSFORM_ARGS+=("--data.transforms.remove_se_hashtag" "false")
-    fi
-    # Li et al. never did target scrubbing for stance prediction
-
     train_dir=$LOGS_ROOT/seed${seed}_stance
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
         --data configs/data/classic_stance_infer.yaml \
-        "${TRANSFORM_ARGS[@]}" \
+        --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
         --trainer.logger.version seed${seed}_stance_test
 else
@@ -153,11 +143,10 @@ function get_tse_transform_arg
 {
     use_gt=$1
     target_map_path="$LOGS_ROOT/seed${seed}_target_predict/target_pred_map.json"
-    remove_se_hashtag=$( [ $WITH_SE_BUG -eq 1 ] && echo 'false' || echo 'true' )
     set_to_input=$( [ $use_gt -eq 1 ] && echo 'false' || echo 'true' )
     # Don't have to worry about target scrubbing here
-    TRANSFORM_ARG="{class_path: mtse.data.ClassicPreprocess, init_args: {remove_se_hashtag: $remove_se_hashtag}},"
-    TRANSFORM_ARG="$TRANSFORM_ARG{class_path: mtse.data.SetTargetPred, init_args: {map_file: $target_map_path, set_to_input: $set_to_input}}"
+    TRANSFORM_ARG="{class_path: mtse.data.SetTargetPred, init_args: {map_file: $target_map_path, set_to_input: $set_to_input}}"
+    TRANSFORM_ARG="$TRANSFORM_ARG,{class_path: mtse.data.ClassicPreprocess}"
     TRANSFORM_ARG="[$TRANSFORM_ARG]"
     echo "$TRANSFORM_ARG"
 }
