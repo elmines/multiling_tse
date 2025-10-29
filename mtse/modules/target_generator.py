@@ -106,7 +106,7 @@ class ClassicTargetGenerator(BaseModule, TargetMixin):
                 assert sample.lang
                 encoding['lang'] = torch.tensor(LANG_TO_ID[sample.lang], dtype=torch.long)
             return encoding
-        def collate(self, samples):
+        def _collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
             if "target" in samples[0]:
                 encoding['target'] = keyed_scalar_stack(samples, 'target')

@@ -4,7 +4,8 @@ import os
 import pathlib
 import glob
 import pdb
-from functools import reduce
+from collections import Counter, defaultdict
+from itertools import batched, chain
 # 3rd Party
 import random
 import torch
@@ -18,7 +19,7 @@ from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
 from .target_pred import TargetPred
 from .dataset import MapDataset
 from .transforms import Transform, TargetRename
-from .corpus import StanceCorpus, TargetInputType
+from .corpus import StanceCorpus, TargetInputType, CorpusLike
 from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
 from .target_pred import parse_target_preds
 from .sample import Sample
@@ -51,11 +52,33 @@ class BaseDataModule(L.LightningDataModule):
         for t in self.transforms:
             self._encoder.add_transform(t)
 
-def get_paths(patterns: List[pathlib.Path]):
-    all_paths = []
-    for p in patterns:
-        all_paths.extend(glob.glob(str(p)))
-    return sorted(set(all_paths))
+
+def get_dataloader_labels(corpora: List[CorpusLike]):
+    labels_list = [c.name if c.name else f"loader_{i}"
+                   for i, c in enumerate(corpora)]
+    label_counts = Counter(labels_list)
+    dups = [k for k,v in label_counts.items() if v > 1]
+    if dups:
+        raise ValueError(f"Duplicate corpora labels {dups}")
+    return sorted(label_counts)
+
+class PathSampler(Sampler):
+    """
+    Guarantees that a batch will only have samples with the same source path
+    """
+    def __init__(self, source_paths: List[str], batch_size: int):
+        inds_by_path = defaultdict(list)
+        for ind, p in sorted(enumerate(source_paths), key=lambda pair: pair[1]):
+            inds_by_path[p].append(ind)
+        self.__inds_by_path = inds_by_path
+        self.__batch_size = batch_size
+
+    def __iter__(self):
+        return chain(*[batched(inds, self.__batch_size) for p, inds in sorted(self.__inds_by_path.items())])
+    
+    def __len__(self):
+        lens = [len(v) for v in self.__inds_by_path.values()]
+        return sum( (v // self.__batch_size) + bool(v % self.__batch_size) for v in lens)
 
  
 class PattDataModule(BaseDataModule):
@@ -63,30 +86,25 @@ class PattDataModule(BaseDataModule):
     Looks for files with suffixies _train.csv, _val.csv, _test.csv
     """
     def __init__(self,
-                 train_patts: List[pathlib.Path],
-                 val_patts: List[pathlib.Path],
-                 test_patts: List[pathlib.Path],
+                 train_corpus: Optional[CorpusLike] = None,
+                 val_corpus: Optional[CorpusLike] = None,
+                 test_corpora: Optional[List[CorpusLike]] = None,
                  batch_size: int = DEFAULT_BATCH_SIZE,
-                 target_input: TargetInputType = "label", 
-                 preds_dir: Optional[pathlib.Path] = None,
                  transforms: Optional[List[Transform]] = None):
         super().__init__(transforms=transforms)
-        self.preds_dir = preds_dir
         self.batch_size = batch_size
-        self.target_input = target_input
         self.__train_ds: Dataset = None
         self.__val_ds: Dataset = None
-        # Allow multiple datasets for eval purposes
 
-        self.__train_paths = get_paths(train_patts)
-        self.__val_paths = get_paths(val_patts)
-        self.__test_paths = get_paths(test_patts)
-        self.__testloader_labels = list(map(PattDataModule._extract_label, self.__test_paths))
+        self.__train_corpus = StanceCorpus.make_corpus(train_corpus) if train_corpus else None
+        self.__val_corpus = StanceCorpus.make_corpus(val_corpus) if val_corpus else None
+        self.__test_corpora = [StanceCorpus.make_corpus(c) for c in (test_corpora or [])]
+        self.__testloader_labels = get_dataloader_labels(self.__test_corpora)
+
+        self.__testloader_labels = [c.name for c in self.__test_corpora]
+        # Allow multiple datasets for eval purposes
         self.__test_datasets: List[Dataset] = None
 
-    @staticmethod
-    def _extract_label(file_path):
-        return os.path.basename(file_path).split(".")[0]
 
     @property
     def testloader_labels(self):
@@ -108,28 +126,18 @@ class PattDataModule(BaseDataModule):
     def _setup_train(self):
         if self.__train_ds is not None:
             return
-        train_samples = []
-        for train_path in self.__train_paths:
-            sample_iter = tqdm(self._parse_path(train_path), desc=f"Parsing {train_path}")
-            sample_iter = map(lambda s: self.encoder.encode(s, inference=False), sample_iter)
-            train_samples.extend(sample_iter)
-        self.__train_ds = MapDataset(train_samples)
-        val_samples = []
-        for val_path in self.__val_paths:
-            sample_iter = tqdm(self._parse_path(val_path), desc=f"Parsing {val_path}")
-            sample_iter = map(lambda s: self.encoder.encode(s, inference=True), sample_iter)
-            val_samples.extend(sample_iter)
-        self.__val_ds = MapDataset(val_samples)
+        if self.__train_corpus:
+            self.__train_ds = MapDataset(map(lambda s: self.encoder.encode(s, inference=False), self.__train_corpus))
+        if self.__val_corpus:
+            self.__val_ds = MapDataset(map(lambda s: self.encoder.encode(s, inference=True), self.__val_corpus))
 
     def _setup_test(self):
         if self.__test_datasets is not None:
             return
-        dses = []
-        for test_path in self.__test_paths:
-            sample_iter = tqdm(self._parse_path(test_path), desc=f"Parsing {test_path}")
-            ds = MapDataset( map(lambda s: self.encoder.encode(s, inference=True), sample_iter) )
-            dses.append(ds)
-        self.__test_datasets = dses
+        self.__test_datasets = [
+            MapDataset( map(lambda s: self.encoder.encode(s, inference=True), c) )
+            for c in self.__test_corpora
+        ]
 
     def setup(self, stage):
         if stage == 'fit':
@@ -143,9 +151,17 @@ class PattDataModule(BaseDataModule):
         return DataLoader(self.__val_ds,  batch_size=self.batch_size, collate_fn=self.encoder.collate)
 
     def test_dataloader(self):
-        return [torch.utils.data.DataLoader(ds,
-                                    batch_size=self.batch_size,
-                                    collate_fn=self.encoder.collate) for ds in self.__test_datasets]
+        loaders = []
+        for ds in self.__test_datasets:
+            sampler = PathSampler(
+                [s['source_path'] for s in ds],
+                batch_size=self.batch_size
+            )
+            loaders.append(torch.utils.data.DataLoader(ds,
+                                    batch_sampler=sampler,
+                                    collate_fn=self.encoder.collate)
+            )
+        return loaders
     def predict_dataloader(self):
         return self.test_dataloader()
 
@@ -238,30 +254,6 @@ class TargetPredictionDataModule(BaseDataModule):
     def test_dataloader(self):
         return self._dataloaders()
 
-class PredictDataModule(BaseDataModule):
-    def __init__(self,
-                 corpora: List[StanceCorpus],
-                 batch_size: int = DEFAULT_BATCH_SIZE,
-                 **parent_kwargs
-                 ):
-        super().__init__(**parent_kwargs)
-        self.batch_size = batch_size
-        self.corpora = corpora
-        self.__datasets: List[Dataset] = []
-
-    def setup(self, stage):
-        if self.__datasets:
-            return
-        for corpus in self.corpora:
-            samples = list(corpus)
-            encode_iter = tqdm(map(lambda s: self.encoder.encode(s, inference=True), samples), desc=f"Encoding {corpus}")
-            self.__datasets.append(MapDataset(encode_iter))
-
-    def predict_dataloader(self):
-        return [DataLoader(ds, batch_size=self.batch_size, collate_fn=self.encoder.collate) for ds in self.__datasets]
-    def test_dataloader(self):
-        return self.predict_dataloader()
-
 class TaskSampler(Sampler):
     def __init__(self,
                  task_a_indices: np.ndarray,
@@ -338,19 +330,21 @@ class MixedTrainingDataModule(BaseDataModule):
 
 class ClassicMultiTaskTrainingDataModule(BaseDataModule):
     """
-    Datamodule for modelled from His approach of 
+    Datamodule for modelled from Li et al.'s approach of 
     training a BERT model to predict stance with an auxiliary
     target prediction objective
     """
     def __init__(self,
-                 train_patts: List[pathlib.Path],
-                 val_patts: List[pathlib.Path],
+                 target_train_corpus: CorpusLike,
+                 stance_train_corpus: CorpusLike,
+                 val_corpus: CorpusLike,
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  **parent_kwargs):
         super().__init__(**parent_kwargs)
 
-        self.__train_paths = get_paths(train_patts)
-        self.__val_paths = get_paths(val_patts)
+        self.__target_train_corpus = StanceCorpus.make_corpus(target_train_corpus)
+        self.__stance_train_corpus = StanceCorpus.make_corpus(stance_train_corpus)
+        self.__val_corpus = StanceCorpus.make_corpus(val_corpus)
         self.batch_size = batch_size
 
         self.__train_ds: Dataset = None
@@ -361,22 +355,19 @@ class ClassicMultiTaskTrainingDataModule(BaseDataModule):
         if self.__train_ds and self.__val_ds and self.__n_stance is not None:
             return
 
-        raw_stance_samples = [StanceCorpus(p) for p in self.__train_paths]
-
-        val_corpora = [StanceCorpus(p) for p in self.__val_paths]
-
-
-        # Li et al. do not use NEUTRAL samples for the auxiliary target prediction task
+        
+        # For the auxiliary target task, Li et al. use the unrelated samples,
+        # and samples with targets and a non-Neutral stance
         permitted_stances = {'favor', 'against'}
-        raw_target_samples = [s for s in self.target_train_corpus if s.target_label != UNRELATED_TARGET and s.stance.name in permitted_stances]
-        raw_stance_samples = [s for s in self.stance_train_corpus if s.target_label != UNRELATED_TARGET]
+        raw_target_samples = [s for s in self.__target_train_corpus if s.target_label != UNRELATED_TARGET and s.stance.name in permitted_stances]
+        raw_stance_samples = [s for s in self.__stance_train_corpus if s.target_label != UNRELATED_TARGET]
         target_samples = [self.encoder.encode(s, predict_task=PredictTask.TARGET, inference=False)
                           for s in tqdm(raw_target_samples, desc='Encoding target train corpus')]
         stance_samples = [self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=False)
                           for s in tqdm(raw_stance_samples, desc='Encoding stance train corpus')]
         self.__n_stance = len(stance_samples)
         self.__train_ds = MapDataset(stance_samples + target_samples)
-        self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=True) for s in self.val_corpus])
+        self.__val_ds = MapDataset([self.encoder.encode(s, predict_task=PredictTask.STANCE, inference=True) for s in self.__val_corpus])
 
     def train_dataloader(self):
         sampler = TaskSampler(np.arange(self.__n_stance), np.arange(self.__n_stance, len(self.__train_ds)), self.batch_size)
@@ -384,53 +375,3 @@ class ClassicMultiTaskTrainingDataModule(BaseDataModule):
     def val_dataloader(self):
         return DataLoader(self.__val_ds, shuffle=False, batch_size=self.batch_size, collate_fn=self.encoder.collate)
     
-
-class SplitDataModule(BaseDataModule):
-    def __init__(self,
-                 corpora: List[StanceCorpus],
-                 ratios: List[Tuple[float, float, float]],
-                 batch_size: int = DEFAULT_BATCH_SIZE,
-                 **parent_kwargs
-                ):
-        super().__init__(**parent_kwargs)
-        self.batch_size = batch_size
-        self._corpora = corpora
-        self._ratios = ratios
-        assert len(self._corpora) == len(self._ratios)
-        self.__train_ds: Dataset = None
-        self.__val_ds: Dataset = None
-        self.__test_ds: Dataset = None
-        for r in ratios:
-            assert sum(r) == 1.
-
-
-    def setup(self, stage):
-        if self.__train_ds and self.__val_ds and self.__test_ds:
-            return
-
-        train_dses = []
-        val_dses = []
-        test_dses = []
-        for corpus, data_ratio in zip(self._corpora, self._ratios):
-            samples = list(corpus)
-
-            [train_raw, val_raw, test_raw] = random_split(MapDataset(samples), data_ratio)
-            train_encode = lambda s: self.encoder.encode(s, inference=False)
-            infer_encode = lambda s: self.encoder.encode(s, inference=True)
-            train_ds = MapDataset(map(train_encode, tqdm(train_raw, desc=f"Encoding train samples for {corpus}")))
-            val_ds = MapDataset(map(infer_encode, tqdm(val_raw, desc=f"Encoding val samples for {corpus}")))
-            test_ds = MapDataset(map(infer_encode, tqdm(test_raw, desc=f"Encoding test samples for {corpus}")))
-
-            train_dses.append(train_ds)
-            val_dses.append(val_ds)
-            test_dses.append(test_ds)
-        self.__train_ds = ConcatDataset(train_dses)
-        self.__val_ds = ConcatDataset(val_dses)
-        self.__test_ds = ConcatDataset(test_dses)
-
-    def train_dataloader(self):
-        return DataLoader(self.__train_ds, batch_size=self.batch_size, collate_fn=self.encoder.collate, shuffle=True)
-    def val_dataloader(self):
-        return DataLoader(self.__val_ds,  batch_size=self.batch_size, collate_fn=self.encoder.collate)
-    def test_dataloader(self):
-        return DataLoader(self.__test_ds,  batch_size=self.batch_size, collate_fn=self.encoder.collate)

@@ -218,7 +218,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                     dtype=torch.long)
             return encoding
 
-        def collate(self, samples):
+        def _collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
             if 'target' in samples[0]:
                 encoding['target'] = keyed_scalar_stack(samples, 'target')

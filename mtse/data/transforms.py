@@ -1,7 +1,9 @@
 import abc
 import json
 import re
+import os
 from typing import Dict, Optional, List, Tuple
+import pathlib
 import importlib.resources
 # 3rd Party
 import wordninja
@@ -9,7 +11,7 @@ import preprocessor as twp
 twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
-from .target_pred import TargetPred
+from .target_pred import TargetPred, parse_target_preds
 from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
 
 
@@ -25,6 +27,29 @@ class Transform(abc.ABC):
 _semeval_tag = re.compile('#SemST', flags=re.IGNORECASE)
 def _remove_semeval_tag(text):
     return _semeval_tag.sub('', text)
+
+class SetTargetPred(Transform):
+    def __init__(self,
+                 map_file: pathlib.Path,
+                 set_to_input: bool = True):
+        with open(map_file, 'r') as r:
+            file_map = json.load(r)
+        self.preds_by_path = {}
+        for in_path, preds_path in file_map.items():
+            assert os.path.exists(in_path)
+            self.preds_by_path[in_path] = [p.mapped_target for p in parse_target_preds(preds_path)]
+        self.inds_by_path = {p:0 for p in file_map}
+
+        self.set_to_input = set_to_input
+
+    def __call__(self, sample: Sample):
+        p = sample.source_path
+        targ = self.preds_by_path[p][self.inds_by_path[p]]
+        self.inds_by_path[p] += 1
+        sample.target_pred = targ
+        if self.set_to_input:
+            sample.target_input = targ
+
 
 class SemHashtagRemoval(Transform):
     def __call__(self, sample: Sample):
@@ -165,4 +190,5 @@ __all__ = [
     "TargetRename",
     "SemHashtagRemoval",
     "ClassicPreprocess",
+    "SetTargetPred",
 ]

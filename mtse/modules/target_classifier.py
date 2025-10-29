@@ -2,6 +2,7 @@ from __future__ import annotations
 import pathlib
 import dataclasses
 from typing import Optional
+import inspect
 # 3rd Party
 import torch
 from transformers import PreTrainedTokenizerFast
@@ -52,7 +53,7 @@ class _TargetClassifierModule(BaseModule, TargetMixin):
             target_code = self.module.targets.index(sample.target)
             encoding['target'] = torch.tensor(target_code)
             return encoding
-        def collate(self, samples):
+        def _collate(self, samples):
             rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             return rdict
@@ -78,6 +79,8 @@ class ClassicTargetClassifierModule(_TargetClassifierModule):
         self.linear = torch.nn.Linear(hidden_size, hidden_size, bias=True)
         self.out = torch.nn.Linear(hidden_size, self.n_targets)
         self.__encoder = self.Encoder(self)
+
+        self._bert_params = set(inspect.signature(self.bert.forward).parameters)
 
     class Encoder(_TargetClassifierModule.Encoder):
         def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None):
@@ -127,7 +130,8 @@ class ClassicTargetClassifierModule(_TargetClassifierModule):
         return loss
 
     def forward(self, **kwargs):
-        bert_kwargs = {k:v for k,v in kwargs.items() if k != 'target' and k != 'stance'}
+        # TODO: Use a set instead of a boolean condition here if it doesn't hurt efficiency?
+        bert_kwargs = {k:v for k,v in kwargs.items() if k != 'target' and k != 'stance' and k != 'source_path'}
         bert_output = self.bert(**bert_kwargs)
         cls_hidden_state = bert_output.last_hidden_state[:, 0]
         # Don't use torch.nn.Sequential because I want invididual layer variables I can refer to

@@ -1,0 +1,11 @@
+class_path: mtse.data.PattDataModule
+init_args:
+  # TSE authors cut the batch size down to 64 for the stance training
+  batch_size: 64
+
+  test_corpora:
+    - data/classic/am.test.csv
+    - data/classic/covid.test.csv
+    - data/classic/pstance.test.csv
+    - data/classic/semeval.test.csv
+    - data/classic/unrelated.test.csv

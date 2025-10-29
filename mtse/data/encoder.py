@@ -38,20 +38,31 @@ class Encoder(abc.ABC):
                 t(s)
         else:
             s = sample
-        return self._encode(s, *args, **kwargs)
+
+        encoding = self._encode(s, *args, **kwargs)
+
+        # Always include the provenance
+        encoding['source_path'] = sample.source_path
+        
+        return encoding
+
+    def collate(self, samples: List[TensorDict], *args, **kwargs):
+        batch = self._collate(samples)
+        batch['source_path'] = [s['source_path'] for s in samples]
+        return batch
 
     @abc.abstractmethod
     def _encode(self, sample: Sample, inference=False, predict_task: Optional[PredictTask] = None) -> TensorDict:
         pass
 
     @abc.abstractmethod
-    def collate(self, samples: List[TensorDict]) -> TensorDict:
+    def _collate(self, samples: List[TensorDict]) -> TensorDict:
         pass
 
 class NoopEncoder(Encoder):
     def _encode(self, *args, **kwargs):
         return {}
-    def collate(self, *args, **kwargs):
+    def _collate(self, *args, **kwargs):
         return {}
 
 def try_add_position_ids(encoding: TensorDict):

@@ -109,7 +109,7 @@ class OneShotTClsModule(BaseModule, TargetMixin):
             encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
-        def collate(self, samples):
+        def _collate(self, samples):
             rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')

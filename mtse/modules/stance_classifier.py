@@ -32,7 +32,7 @@ class ClassicStanceClassifierModule(_StanceClassifierModule):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
-    NON_BERT_KEYS = {'target', 'target_pred', 'stance', 'task'}
+    NON_BERT_KEYS = {'target', 'target_pred', 'stance', 'task', 'source_path'}
 
     @dataclasses.dataclass
     class Output:
@@ -151,7 +151,7 @@ class ClassicStanceClassifierModule(_StanceClassifierModule):
             encoding['stance'] = torch.tensor(sample.stance)
             encoding['task'] = torch.tensor(predict_task, dtype=torch.long)
             return encoding
-        def collate(self, samples):
+        def _collate(self, samples):
             tasks = [s.get('task') for s in samples]
             if not all(t is not None and t == tasks[0] for t in tasks):
                 raise ValueError("Need matching task IDs for all samples in batch")

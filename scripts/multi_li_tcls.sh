@@ -8,7 +8,7 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-seed=${1:- 0}
+seed=${1:-0}
 
 WITH_SE_BUG=${WITH_SE_BUG:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
@@ -109,9 +109,12 @@ then
     if [ $WITH_SE_BUG -eq 1 ]
     then
         EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.remove_se_hashtag false"
+        EXTRA_ARGS="$EXTRA_ARGS --data.stance_train_corpus.transforms.remove_se_hashtag false"
+        EXTRA_ARGS="$EXTRA_ARGS --data.val_corpus.transforms.remove_se_hashtag false"
     fi
     if [ $SCRUB_TARGETS -eq 1 ]
     then
+        # Li et al. never did target scrubbing for stance prediction
         EXTRA_ARGS="$EXTRA_ARGS --data.target_train_corpus.transforms.scrub_targets true"
     fi
 
@@ -127,16 +130,37 @@ fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    # We override the existing callback because we're not testing TSE this time
+    TRANSFORM_ARGS=("--data.transforms" '[mtse.data.ClassicPreprocess]')
+    if [ $WITH_SE_BUG -eq 1 ]
+    then
+        TRANSFORM_ARGS+=("--data.transforms.remove_se_hashtag" "false")
+    fi
+    # Li et al. never did target scrubbing for stance prediction
+
     train_dir=$LOGS_ROOT/seed${seed}_stance
     python -m mtse test \
         -c $train_dir/config.yaml \
+        --ckpt_path $train_dir/checkpoints/*ckpt \
+        --data configs/data/classic_stance_infer.yaml \
+        "${TRANSFORM_ARGS[@]}" \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-        --trainer.logger.version seed${seed}_stance_test \
-        --ckpt_path $train_dir/checkpoints/*ckpt
+        --trainer.logger.version seed${seed}_stance_test
 else
     echo "Skipping stance testing"
 fi
+
+function get_tse_transform_arg
+{
+    use_gt=$1
+    target_map_path="$LOGS_ROOT/seed${seed}_target_predict/target_pred_map.json"
+    remove_se_hashtag=$( [ $WITH_SE_BUG -eq 1 ] && echo 'false' || echo 'true' )
+    set_to_input=$( [ $use_gt -eq 1 ] && echo 'false' || echo 'true' )
+    # Don't have to worry about target scrubbing here
+    TRANSFORM_ARG="{class_path: mtse.data.ClassicPreprocess, init_args: {remove_se_hashtag: $remove_se_hashtag}},"
+    TRANSFORM_ARG="$TRANSFORM_ARG{class_path: mtse.data.SetTargetPred, init_args: {map_file: $target_map_path, set_to_input: $set_to_input}}"
+    TRANSFORM_ARG="[$TRANSFORM_ARG]"
+    echo "$TRANSFORM_ARG"
+}
 
 if [ $TSE_TEST -eq 1 ]
 then
@@ -144,8 +168,8 @@ then
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
-        --data.preds_dir $LOGS_ROOT/seed${seed}_target_predict \
-        --data.target_input pred \
+        --data configs/data/classic_stance_infer.yaml \
+        --data.transforms "$(get_tse_transform_arg 0)" \
         --trainer.callbacks mtse.callbacks.TSEStatsCallback \
         --trainer.callbacks.full_metrics true \
         --trainer.logger.version seed${seed}_tse_test
@@ -157,7 +181,7 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
     python -m mtse test \
         -c $LOGS_ROOT/seed${seed}_tse_test/config.yaml \
-        --data.target_input label \
+        --data.transforms "$(get_tse_transform_arg 1)" \
         --model.use_target_gt true \
         --trainer.logger.version seed${seed}_tse_test_gt
 else
