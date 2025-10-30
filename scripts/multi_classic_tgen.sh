@@ -14,14 +14,11 @@ seed=${1:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
 if [ $SCRUB_TARGETS -eq 1 ]
 then
-    DEFAULT_EXP_NAME=MultiClassicTGenWithScrub
-else
-    DEFAULT_EXP_NAME=MultiClassicTgen
+    exp_suffix="_with_scrub"
 fi
 
-
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-$DEFAULT_EXP_NAME}
+EXP_NAME=${EXP_NAME:-MultiClassicTgen}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
@@ -58,12 +55,15 @@ fi
 
 if [ $TARGET_PRED -eq 1 ]
 then
-        version=seed${seed}_target_predict
+        scrub_targets=$( [ $SCRUB_TARGETS -eq 1 ] && echo "true" || echo "false" )
+
+        version=seed${seed}_target_predict$exp_suffix
         python -m mtse predict \
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --return_predictions false \
             --model.predict_targets true \
             --data configs/data/classic_stance_infer.yaml \
+            --data.transforms "[{class_path: mtse.data.ClassicPreprocess, init_args: {scrub_targets: $scrub_targets}}]" \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
             --trainer.callbacks.out_dir $LOGS_ROOT/$version \
@@ -79,11 +79,11 @@ then
         python -m mtse test \
             --model mtse.modules.TargetPredModule \
             --model.targets_path static/classic_merged_targets.txt \
-            --model.map_file $LOGS_ROOT/seed${seed}_target_predict/target_pred_map.json \
+            --model.map_file $LOGS_ROOT/seed${seed}_target_predict$exp_suffix/target_pred_map.json \
             --data configs/data/classic_stance_infer.yaml \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target_test \
+            --trainer.logger.version seed${seed}_target_test$exp_suffix \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes 19
 else
@@ -105,7 +105,7 @@ then
     python -m mtse fit \
         -c configs/base/classic_stance_classifier.yaml \
         $LOGGER_ARGS \
-        --trainer.logger.version seed${seed}_stance \
+        --trainer.logger.version seed${seed}_stance$exp_suffix \
         --seed_everything $seed \
         $EXTRA_ARGS
 else
@@ -121,7 +121,7 @@ then
         --data configs/data/classic_stance_infer.yaml \
         --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-        --trainer.logger.version seed${seed}_stance_test
+        --trainer.logger.version seed${seed}_stance_test$exp_suffix
 else
     echo "Skipping stance testing"
 fi
@@ -129,7 +129,7 @@ fi
 function get_tse_transform_arg
 {
     use_gt=$1
-    target_map_path="$LOGS_ROOT/seed${seed}_target_predict/target_pred_map.json"
+    target_map_path="$LOGS_ROOT/seed${seed}_target_predict$exp_suffix/target_pred_map.json"
     set_to_input=$( [ $use_gt -eq 1 ] && echo 'false' || echo 'true' )
     # Don't have to worry about target scrubbing here
     TRANSFORM_ARG="{class_path: mtse.data.SetTargetPred, init_args: {map_file: $target_map_path, set_to_input: $set_to_input}}"
@@ -140,7 +140,7 @@ function get_tse_transform_arg
 
 if [ $TSE_TEST -eq 1 ]
 then
-    train_dir=$LOGS_ROOT/seed${seed}_stance
+    train_dir=$LOGS_ROOT/seed${seed}_stance$exp_suffix
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
@@ -148,7 +148,7 @@ then
         --data.transforms "$(get_tse_transform_arg 0)" \
         --trainer.callbacks mtse.callbacks.TSEStatsCallback \
         --trainer.callbacks.full_metrics true \
-        --trainer.logger.version seed${seed}_tse_test
+        --trainer.logger.version seed${seed}_tse_test$exp_suffix
 else
     echo "Skipping tse testing"
 fi
@@ -156,10 +156,10 @@ fi
 if [ $GT_TSE_TEST -eq 1 ]
 then
     python -m mtse test \
-        -c $LOGS_ROOT/seed${seed}_tse_test/config.yaml \
+        -c $LOGS_ROOT/seed${seed}_tse_test$exp_suffix/config.yaml \
         --data.transforms "$(get_tse_transform_arg 1)" \
         --model.use_target_gt true \
-        --trainer.logger.version seed${seed}_tse_test_gt
+        --trainer.logger.version seed${seed}_tse_test_gt$exp_suffix
 else
     echo "Skipping gt tse testing"
 fi

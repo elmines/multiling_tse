@@ -20,9 +20,8 @@ trainer:
         filename: "epoch={epoch:02d}-loss={val/loss:.3f}"
         auto_insert_metric_name: false
 
-  val_check_interval: 5
-  # max_time: "00:24:00:00"
-  max_time: "00:00:02:00"
+  val_check_interval: 500
+  max_time: "00:24:00:00"
 
 model:
   # We only train the target generation portion
@@ -43,6 +42,7 @@ data:
       init_args:
         patts: [data/kptimes/train.jsonl]
         corpus_type: kptimes
+        limit_n: 1000000
     val_corpus:
       class_path: mtse.data.StanceCorpus
       init_args:
