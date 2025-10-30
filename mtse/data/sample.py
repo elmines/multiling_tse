@@ -4,6 +4,7 @@ import enum
 import pathlib
 # Local
 from .stance import BaseStance
+from .target_pred import TargetPred
 
 class SampleType(enum.IntEnum):
     SD = 0
@@ -22,7 +23,7 @@ class Sample:
     stance: BaseStance
     source_path: pathlib.Path # Need the provenance of this sample somehow
 
-    target_pred: Optional[str] = None
+    target_pred: Optional[TargetPred] = None
     """
     Predicted target for the context
     """

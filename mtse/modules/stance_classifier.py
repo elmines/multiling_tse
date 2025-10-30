@@ -147,7 +147,9 @@ class ClassicStanceClassifierModule(_StanceClassifierModule):
             assert sample.target_label is not None
             encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
             if sample.target_pred is not None:
-                encoding['target_pred'] = torch.tensor(self.module.targets.index(sample.target_pred))
+                mapped = sample.target_pred.mapped_target
+                assert mapped is not None
+                encoding['target_pred'] = torch.tensor(self.module.targets.index(mapped))
             encoding['stance'] = torch.tensor(sample.stance)
             encoding['task'] = torch.tensor(predict_task, dtype=torch.long)
             return encoding

@@ -56,8 +56,9 @@ class ClassicTargetGenerator(BaseModule, TargetMixin):
         return self.__encoder
 
     def forward(self, **bart_kwargs):
-        # FIXME: Pop this in a cleaner place
+        # FIXME: Pop these in a cleaner place
         bart_kwargs.pop('lang', None)
+        bart_kwargs.pop('source_path', None)
         return self.bart(**bart_kwargs)
     def training_step(self, batch, batch_idx):
         res = self(**batch)

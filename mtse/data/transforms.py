@@ -34,21 +34,22 @@ class SetTargetPred(Transform):
                  set_to_input: bool = True):
         with open(map_file, 'r') as r:
             file_map = json.load(r)
-        self.preds_by_path = {}
+        self.preds_by_path: Dict[str, List[TargetPred]] = {}
         for in_path, preds_path in file_map.items():
             assert os.path.exists(in_path)
-            self.preds_by_path[in_path] = [p.mapped_target for p in parse_target_preds(preds_path)]
+            self.preds_by_path[in_path] = list(parse_target_preds(preds_path))
         self.inds_by_path = {p:0 for p in file_map}
 
         self.set_to_input = set_to_input
 
     def __call__(self, sample: Sample):
         p = sample.source_path
+        # TODO: Use path normalization, not just crude exact string matching on this path lookup
         targ = self.preds_by_path[p][self.inds_by_path[p]]
         self.inds_by_path[p] += 1
         sample.target_pred = targ
         if self.set_to_input:
-            sample.target_input = targ
+            sample.target_input = targ.mapped_target
 
 
 class SemHashtagRemoval(Transform):
