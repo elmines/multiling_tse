@@ -26,6 +26,17 @@ LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME
 
 function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
 
+if [ $TARGET_FIT -eq 1 ]
+then
+        python -m mtse fit \
+            -c configs/base/classic_target_generator.yaml \
+            $LOGGER_ARGS \
+            --trainer.logger.version seed${seed}_target \
+            --seed_everything $seed 
+else
+    echo "Skipping target fitting"
+fi
+
 if [ $FT_EMBED -eq 1 ]
 then
     mkdir -p $LOGS_ROOT
@@ -40,17 +51,6 @@ then
             --epochs 500 
 else
     echo "Skipping FastText embedding"
-fi
-
-if [ $TARGET_FIT -eq 1 ]
-then
-        python -m mtse fit \
-            -c configs/base/classic_target_generator.yaml \
-            $LOGGER_ARGS \
-            --trainer.logger.version seed${seed}_target \
-            --seed_everything $seed 
-else
-    echo "Skipping target fitting"
 fi
 
 if [ $TARGET_PRED -eq 1 ]
