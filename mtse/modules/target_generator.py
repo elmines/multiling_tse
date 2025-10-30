@@ -63,7 +63,7 @@ class ClassicTargetGenerator(BaseModule, TargetMixin):
     def training_step(self, batch, batch_idx):
         res = self(**batch)
         loss = res.loss
-        self.log('train/loss', loss)
+        self.log('train/loss', loss, batch_size=batch['input_ids'].shape[0])
         return loss
 
     def _predict_targets(self, batch):
@@ -75,7 +75,7 @@ class ClassicTargetGenerator(BaseModule, TargetMixin):
 
     def validation_step(self, batch, batch_idx):
         res = self(**batch)
-        self.log('val/loss', res.loss)
+        self.log('val/loss', res.loss, batch_size=batch['input_ids'].shape[0])
         if self.predict_targets:
             res = None # Want that entire forward pass gone to save memory for the target predictions
             # FIXME: Would be much more efficient to use the encoder hidden_states from res in _predict_targets
