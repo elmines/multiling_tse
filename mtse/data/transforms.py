@@ -1,4 +1,5 @@
 import abc
+import pdb
 import json
 import re
 import os
@@ -12,7 +13,6 @@ twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
 from .target_pred import TargetPred, parse_target_preds
-from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
 
 
 class Transform(abc.ABC):
@@ -34,9 +34,11 @@ class SetTargetPred(Transform):
                  set_to_input: bool = True):
         with open(map_file, 'r') as r:
             file_map = json.load(r)
+        preds_root = os.path.dirname(map_file)
         self.preds_by_path: Dict[str, List[TargetPred]] = {}
         for in_path, preds_path in file_map.items():
-            assert os.path.exists(in_path)
+            preds_path = os.path.join(preds_root, preds_path)
+            assert os.path.exists(preds_path)
             self.preds_by_path[in_path] = list(parse_target_preds(preds_path))
         self.inds_by_path = {p:0 for p in file_map}
 

@@ -1,4 +1,5 @@
 # STL
+from __future__ import annotations
 import dataclasses
 import pathlib
 # 3rd Party
@@ -6,8 +7,9 @@ import torch
 # Local
 from .base_module import BaseModule
 from .mixins import TargetMixin
-from ..data.encoder import NoopEncoder, Encoder, keyed_scalar_stack
+from ..data.encoder import NoopEncoder, Encoder, keyed_scalar_stack, concat_lists
 from ..data.transforms import SetTargetPred
+from ..callbacks.target_prediction_callback import TargetLevel
 
 class DotDict:
     def __init__(self, data):
@@ -18,35 +20,66 @@ class DotDict:
             raise AttributeError(f'Field "{name}" not in DotDict')
         return self._data[name]
 
-class TargetPredModule(BaseModule):
-    def __init__(self, targets_path: pathlib.Path, map_file: pathlib.Path):
+class TargetPredModule(BaseModule, TargetMixin):
+    def __init__(self,
+                 targets_path: pathlib.Path,
+                 map_file: pathlib.Path,
+                 input_target_level: TargetLevel = TargetLevel.mapped,
+                 with_lang: bool = False
+                 ):
         super().__init__()
-        self._encoder = TargetPredModule.Encoder(targets_path, map_file)
+        TargetMixin.__init__(self, targets_path)
+        self.with_lang = with_lang
+        self.input_target_level = input_target_level
+
+        self._encoder = TargetPredModule.Encoder(self)
+        self._encoder.add_transform(SetTargetPred(map_file))
     @property
     def encoder(self):
         return self._encoder
     def _infer_step(self, batch):
         assert isinstance(batch, dict)
         return DotDict(batch)
-    class Encoder(Encoder, TargetMixin):
-        def __init__(self, targets_path: pathlib.Path, map_file: pathlib.Path):
+    class Encoder(Encoder):
+        def __init__(self, module: TargetPredModule):
             Encoder.__init__(self)
-            TargetMixin.__init__(self, targets_path)
-            self.add_transform(SetTargetPred(map_file))
+            self.module = module
+            assert self.module.input_target_level > TargetLevel.none
+
         def _encode(self, sample, inference=False, predict_task = None):
-            target_label = sample.target_label
             target_pred = sample.target_pred
             assert target_pred is not None
-            assert target_pred.gt_target == target_label
-            return {
-                "target": torch.tensor(self.targets.index(target_label)),
-                "target_preds": torch.tensor(self.targets.index(target_pred.mapped_target)),
-                "sample_id": torch.tensor(target_pred.sample_id),
+            assert target_pred.gt_target == sample.target_label
+
+            rdict = {
+                "target": torch.tensor(self.module.targets.index(sample.target_label)),
             }
+            if self.module.with_lang:
+                rdict['lang'] = [target_pred.lang]
+
+            if self.module.input_target_level == TargetLevel.mapped:
+                rdict["sample_inds"] = torch.tensor([target_pred.sample_id])
+                rdict["target_preds"] = torch.tensor(self.module.targets.index(target_pred.mapped_target))
+            else:
+                gen_targets = target_pred.generated_targets
+                rdict["sample_inds"] = torch.full((len(gen_targets),), target_pred.sample_id)
+                rdict['target_gens'] = target_pred.generated_targets
+                rdict['target_untrans'] = target_pred.untranslated_targets
+            return rdict
+
         def _collate(self, samples):
-            return {
-                k:keyed_scalar_stack(samples, k) for k in ['target', 'target_preds', 'sample_id']
+            rdict = {
+                'target': keyed_scalar_stack(samples, 'target'),
+                'sample_inds': torch.concatenate([s['sample_inds'] for s in samples])
             }
+            if self.module.with_lang:
+                rdict['lang'] = concat_lists(samples, 'lang')
+            if self.module.input_target_level != TargetLevel.mapped:
+                for k in filter(lambda k: k in samples[0], ['target_untrans', 'target_gens']):
+                    rdict[k] = concat_lists(samples, k)
+            else:
+                rdict['target_preds'] = keyed_scalar_stack(samples,'target_preds')
+            return rdict
 
 class PassthroughModule(BaseModule):
     """

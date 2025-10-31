@@ -61,7 +61,8 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         self.__started_file = set()
         self.__sample_counter = defaultdict(int)
-        self.__file_map = dict()
+        self.__gen_targets_files = dict()
+        self.__map_targets_files = dict()
 
         self.__gen_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "GT Target", "Lang"]
         self.__map_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "Mapped Target", "GT Target", "Lang"]
@@ -92,8 +93,12 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
     def __get_gen_writer(self, source_path):
         label = os.path.basename(source_path)
+        # the path in the filemap must be relative
+        out_basename = f"{label}.target_gens.csv"
+        self.__gen_targets_files[source_path] = out_basename
+
         return self.__get_writer(
-            os.path.join(self.out_dir, f"{label}.target_gens.csv"),
+            os.path.join(self.out_dir, out_basename),
             self.__gen_fieldnames,
             label,
             "target_gen"
@@ -101,11 +106,11 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
     def __get_map_writer(self, source_path):
         label = os.path.basename(source_path)
-        out_path = os.path.join(self.out_dir, f"{label}.target_preds.csv")
-        self.__file_map[source_path] = out_path
+        out_basename = f"{label}.target_preds.csv"
+        self.__map_targets_files[source_path] = out_basename
 
         return self.__get_writer(
-            out_path,
+            os.path.join(self.out_dir, out_basename),
             self.__map_fieldnames,
             label,
             "target_pred"
@@ -205,7 +210,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 } for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
 
         
-        lang_strs = [ID_TO_LANG[l] for l in batch['lang'].detach().cpu().tolist()] if 'lang' in batch else None
+        lang_strs = batch['lang'] if 'lang' in batch else None
 
         if gen_rows is not None:
             if lang_strs is not None:
@@ -220,8 +225,10 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.__sample_counter[source_path] += len(target_labels)
 
     def _on_epoch_end(self, trainer, pl_module):
+        with open(os.path.join(self.out_dir, "target_gen_map.json"), 'w') as w:
+            json.dump(self.__gen_targets_files, w)
         with open(os.path.join(self.out_dir, "target_pred_map.json"), 'w') as w:
-            json.dump(self.__file_map, w)
+            json.dump(self.__map_targets_files, w)
     def on_test_epoch_end(self, trainer, pl_module):
         self._on_epoch_end(trainer, pl_module)
     def on_predict_epoch_end(self, trainer, pl_module):

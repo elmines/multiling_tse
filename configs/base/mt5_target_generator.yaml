@@ -28,51 +28,18 @@ model:
     multilingual: true
 
 data:
-  class_path: mtse.data.SplitDataModule
+  class_path: mtse.data.PattDataModule
   init_args:
     batch_size: 32
-
-    corpora:
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/ca_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/ca_dev.jsonl", "corpus_type": "kptimes"}
-
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/es_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/es_dev.jsonl", "corpus_type": "kptimes"}
-
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/et_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/et_dev.jsonl", "corpus_type": "kptimes"}
-
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/fr_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/fr_dev.jsonl", "corpus_type": "kptimes"}
-
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/it_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/it_dev.jsonl", "corpus_type": "kptimes"}
-
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/zh_train.jsonl", "corpus_type": "kptimes"}
-      - class_path: mtse.data.StanceCorpus
-        init_args: {"path": "data/kptimes/trans_part/zh_dev.jsonl", "corpus_type": "kptimes"}
-    ratios:
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-      - [1.0, 0.0, 0.0]
-      - [0.0, 1.0, 0.0]
-
+    train_corpus:
+      class_path: mtse.data.StanceCorpus
+      init_args:
+        patts: [data/kptimes/trans_part/*_train.jsonl]
+        corpus_type: kptimes
+        limit_n: 64
+    val_corpus:
+      class_path: mtse.data.StanceCorpus
+      init_args:
+        patts: [data/kptimes/trans_part/*_dev.jsonl]
+        corpus_type: kptimes
+        limit_n: 64

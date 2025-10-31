@@ -106,7 +106,7 @@ def part_cic(in_dir, fold_dirs):
             } for row in raw_rows)
         seed_and_shuffle(row_set)
         train_folds, val_folds, test_folds = split_rows_stance(row_set, K)
-        write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_catalonia_{part}.csv")
+        write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_catalonia.{part}.csv")
     return len(ca_rows), len(es_rows)
 
 def part_nlpcc(in_dir, fold_dirs):
@@ -156,7 +156,7 @@ def part_nlpcc(in_dir, fold_dirs):
         seed_and_shuffle(target_samples)
         target_train_folds, target_val_folds, target_test_folds = split_rows_stance(target_samples, K)
         file_label = file_labels[target]
-        write_corpora(fold_dirs, target_train_folds, target_val_folds, target_test_folds, f"zh_{file_label}_" + "{part}.csv")
+        write_corpora(fold_dirs, target_train_folds, target_val_folds, target_test_folds, f"zh_{file_label}" + ".{part}.csv")
 
     return sum(len(v) for v in samples_by_target.values())
 
@@ -198,7 +198,7 @@ def part_sardistance(in_dir, fold_dirs):
             })
     seed_and_shuffle(normed_rows)
     train_folds, val_folds, test_folds = split_rows_stance(normed_rows, len(fold_dirs))
-    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia_{part}.csv")
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "it_sardinia.{part}.csv")
     return len(normed_rows)
 
 def part_et_data(in_dir, fold_dirs):
@@ -243,20 +243,20 @@ def part_et_data(in_dir, fold_dirs):
     seed_and_shuffle(unrel_rows)
     unrel_rows = unrel_rows[:n_unrel]
     unrel_train, unrel_val, unrel_test = split_rows_simple(unrel_rows, len(fold_dirs))
-    write_corpora(fold_dirs, unrel_train, unrel_val, unrel_test, "et_unrelated_{part}.csv")
+    write_corpora(fold_dirs, unrel_train, unrel_val, unrel_test, "et_unrelated.{part}.csv")
     
 
     seed_and_shuffle(rows)
     train_folds, val_folds, test_folds = split_rows_stance(rows, len(fold_dirs))
-    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration_{part}.csv")
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_immigration.{part}.csv")
 
 
 def part_fr_election_data(in_dir, fold_dirs):
     URI_REGEX = re.compile(r'https://t.co/[a-zA-Z0-9]*')
 
     entries = [
-        ("fr_lepen.csv", "fr_lepen_{part}.csv", "Marine LePen"),
-        ("fr_macron.csv", "fr_macron_{part}.csv", "Emmanuel Macron"),
+        ("fr_lepen.csv", "fr_lepen.{part}.csv", "Marine LePen"),
+        ("fr_macron.csv", "fr_macron.{part}.csv", "Emmanuel Macron"),
     ]
     label_map = {
         'favor': 1,
@@ -296,7 +296,7 @@ def part_cstance_data(in_dir, fold_dirs, n_samples):
             "Stance": 2, # Neutral
             'Lang': 'zh'} for raw_row in raw_rows]
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
-    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "zh_unrelated_{part}.csv")
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "zh_unrelated.{part}.csv")
 
 def part_enc_data(in_dir, fold_dirs):
     in_path = os.path.join(in_dir, "et_unrelated.jsonl")
@@ -319,7 +319,7 @@ def part_enc_data(in_dir, fold_dirs):
         for t in samples
     ]
     train_folds, val_folds, test_folds = split_rows_simple(rows, len(fold_dirs))
-    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_unrelated_{part}.csv")
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, "et_unrelated.{part}.csv")
 
 def texts_to_samples(lang, texts):
     return [
@@ -342,7 +342,7 @@ def part_global_voices(in_dir, fold_dirs, lang, n_samples):
     samples = samples[:n_samples]
     samples = texts_to_samples(lang, samples)
     train_folds, val_folds, test_folds = split_rows_simple(samples, len(fold_dirs))
-    write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated_{part}.csv")
+    write_corpora(fold_dirs, train_folds, val_folds, test_folds, lang + "_unrelated.{part}.csv")
 
 def get_en_globalvoices(in_dir, out_dir, n_samples=64000):
     """
