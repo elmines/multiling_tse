@@ -283,18 +283,18 @@ class TaskSampler(Sampler):
         mixed_batches = [torch.tensor(inds) for inds in mixed_batches]
         return iter(mixed_batches)
 
-class MixedTrainingDataModule(BaseDataModule):
+class OneshotTgenDataModule(BaseDataModule):
     def __init__(self,
-                 stance_train_corpora: List[StanceCorpus],
-                 stance_val_corpora: List[StanceCorpus],
-                 keyword_corpus: Optional[StanceCorpus] = None,
+                 keyword_train_corpus: CorpusLike,
+                 stance_train_corpus: CorpusLike,
+                 stance_val_corpus: CorpusLike,
                  batch_size: int = DEFAULT_BATCH_SIZE,
                  **parent_kwargs,
                  ):
         super().__init__(**parent_kwargs)
-        self.keyword_corpus = keyword_corpus
-        self.stance_train_corpora = stance_train_corpora
-        self.stance_val_corpora = stance_val_corpora
+        self.keyword_train_corpus = StanceCorpus.make_corpus(keyword_train_corpus)
+        self.stance_train_corpus = StanceCorpus.make_corpus(stance_train_corpus)
+        self.stance_val_corpus = StanceCorpus.make_corpus(stance_val_corpus)
         self.batch_size = batch_size
 
         self.__train_ds: Dataset = None
@@ -306,20 +306,17 @@ class MixedTrainingDataModule(BaseDataModule):
             return
 
         train_samples = []
-        if self.keyword_corpus is not None:
-            keyword_samples = list(self.keyword_corpus)
-            keyword_samples = [self.encoder.encode(s, inference=False) for s in tqdm(keyword_samples, desc='Encoding keyword samples')]
-            self.__n_keyword = len(keyword_samples)
-            train_samples += keyword_samples
-        else:
-            self.__n_keyword = 0
+        keyword_samples = list(self.keyword_train_corpus)
+        keyword_samples = [self.encoder.encode(s, inference=False) for s in tqdm(keyword_samples, desc='Encoding keyword samples')]
+        self.__n_keyword = len(keyword_samples)
+        train_samples += keyword_samples
 
-        train_stance_samples = [s for corp in self.stance_train_corpora for s in corp]
+        train_stance_samples = list(self.stance_train_corpus)
         train_stance_samples = [self.encoder.encode(s, inference=False) for s in tqdm(train_stance_samples, desc='Encoding train stance samples')]
         train_samples += train_stance_samples
         self.__train_ds = MapDataset(train_samples)
 
-        val_stance_samples = [s for corp in self.stance_val_corpora for s in corp]
+        val_stance_samples = list(self.stance_val_corpus)
         self.__val_ds = MapDataset([self.encoder.encode(s, inference=False) for s in tqdm(val_stance_samples, desc='Encoding val stance samples')])
 
     def train_dataloader(self):

@@ -28,7 +28,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
 
     DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
-    EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight'}
+    EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight', 'source_path'}
 
     __POSTPROC_PATT_1 = re.compile(r'[;,\.]|\s')
     __POSTPROC_PATT_2 = re.compile(r'  +')
