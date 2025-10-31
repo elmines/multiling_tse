@@ -62,7 +62,7 @@ then
             -c $LOGS_ROOT/seed${seed}_target/config.yaml \
             --return_predictions false \
             --model.predict_targets true \
-            --data configs/data/classic_stance_infer.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --data.transforms "[{class_path: mtse.data.ClassicPreprocess, init_args: {scrub_targets: $scrub_targets}}]" \
             --trainer.logger.version $version \
             --trainer.callbacks mtse.callbacks.TargetPredictionWriter \
@@ -80,7 +80,7 @@ then
             --model mtse.modules.TargetPredModule \
             --model.targets_path static/classic_merged_targets.txt \
             --model.map_file $LOGS_ROOT/seed${seed}_target_predict$exp_suffix/target_pred_map.json \
-            --data configs/data/classic_stance_infer.yaml \
+            --data configs/data/classic_tse_test.yaml \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}_target_test$exp_suffix \
@@ -118,7 +118,7 @@ then
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
-        --data configs/data/classic_stance_infer.yaml \
+        --data configs/data/classic_tse_test.yaml \
         --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
         --trainer.logger.version seed${seed}_stance_test$exp_suffix
@@ -144,7 +144,7 @@ then
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
-        --data configs/data/classic_stance_infer.yaml \
+        --data configs/data/classic_tse_test.yaml \
         --data.transforms "$(get_tse_transform_arg 0)" \
         --trainer.callbacks mtse.callbacks.TSEStatsCallback \
         --trainer.callbacks.full_metrics true \
