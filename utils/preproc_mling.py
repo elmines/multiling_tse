@@ -384,11 +384,4 @@ if __name__ == "__main__":
     part_global_voices(in_dir, fold_dirs, 'it', int(it_count * UNREL_RATIO))
     part_global_voices(in_dir, fold_dirs, 'fr', int(fr_count * UNREL_RATIO))
     part_cstance_data(in_dir, fold_dirs, int(zh_count * UNREL_RATIO))
-
-    # Unrelated Data
-    # part_enc_data(in_dir, fold_dirs)
-    # part_cstance_data(in_dir, fold_dirs)
-    # part_globalvoices_data(in_dir, fold_dirs, out_dir)
-    # Core Data
-
-    
+    get_en_globalvoices(in_dir, out_dir)

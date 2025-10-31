@@ -4,7 +4,7 @@ import os
 import random
 import itertools
 
-kp_root = os.path.join(os.path.dirname(sys.argv[0]), "..", "..", "data", "kptimes")
+kp_root = os.path.join(os.path.dirname(sys.argv[0]), "..", "data", "kptimes")
 
 out_dir = os.path.join(kp_root, "en_part")
 os.makedirs(out_dir, exist_ok=True)
