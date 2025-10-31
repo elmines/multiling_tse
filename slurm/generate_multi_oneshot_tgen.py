@@ -52,7 +52,7 @@ variants = [
 
 for seed, variant in product(range(3), variants):
     suffix, var_settings = variant
-    name = f"multi_oneshot_tgen_seed{seed}_target{suffix}"
+    name = f"multi_oneshot_tgen_seed{seed}{suffix}"
     command = f"{var_settings} scripts/multi_oneshot_tgen.sh {seed}"
     bash_code = target_stage_template.format(name=name,
                                              command=command,
