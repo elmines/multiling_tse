@@ -20,12 +20,12 @@ target_stage_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
 #SBATCH --partition={partition}
-#SBATCH --time=30:00:00
+#SBATCH --time={duration}
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=20gb
+#SBATCH --mem=64gb
 #SBATCH --mail-user={user_email}
 #SBATCH --mail-type=FAIL,END
 #SBATCH --output=%x.%j.out
@@ -46,19 +46,20 @@ conda activate ./venv
 """
 
 variants = [
-    ("",           "                 FT_EMBED=1 TARGET_FIT=1 TARGET_PRED=1 TARGET_TEST=1"),
-    ("_with_scrub", "SCRUB_TARGETS=1                         TARGET_PRED=1 TARGET_TEST=1")
+    ("",           "                 FT_EMBED=1 TARGET_FIT=1 TARGET_PRED=1 TARGET_TEST=1", "8:00:00"),
+    ("_with_scrub", "SCRUB_TARGETS=1                         TARGET_PRED=1 TARGET_TEST=1", "2:00:00")
 ]
 
 for seed, variant in product(range(3), variants):
-    suffix, var_settings = variant
+    suffix, var_settings, duration = variant
     name = f"multi_classic_tgen_seed{seed}_target{suffix}"
     command = f"{var_settings} scripts/multi_classic_tgen.sh {seed}"
     bash_code = target_stage_template.format(name=name,
                                              command=command,
                                              user_email=user_email,
                                              repo_dir=repo_dir,
-                                             partition=b200_part)
+                                             partition=b200_part,
+                                             duration=duration)
     out_path = f"{name}.sh"
     with open(out_path, 'w') as w:
         w.write(bash_code)
@@ -101,7 +102,7 @@ variants = [
 for seed, variant  in product(range(3), variants):
     suffix, var_settings = variant
 
-    name = f"multi_li_tcls_seed{seed}_stance{suffix}"
+    name = f"multi_classic_tgen_seed{seed}_stance{suffix}"
     command = f"{var_settings} STANCE_FIT=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 scripts/multi_classic_tgen.sh {seed}"
     bash_code = stance_stage_template.format(name=name,
                                        command=command,
