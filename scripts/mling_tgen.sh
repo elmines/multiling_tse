@@ -18,16 +18,19 @@ if [ -z $TARGET_TYPE ]
 then
     TARGETS_PATH=static/multiling_targets.txt
     EXP_MOD=""
+    SHORTEN_TRANSFORM=""
 elif [ "$TARGET_TYPE" = llm ]
 then
     TARGETS_PATH=static/llm_multiling_targets.txt
     EXP_MOD="_llm"
     LLM_TARGETS=1
+    SHORTEN_TRANSFORM="{class_path: mtse.data.TargetRename, init_args: {renames: configs/llm_shorten_targets.yaml}}"
 elif [ "$TARGET_TYPE" = short ]
 then
     TARGETS_PATH=static/short.txt
     EXP_MOD="_short"
     SHORT_TARGETS=1
+    SHORTEN_TRANSFORM="{class_path: mtse.data.TargetRename, init_args: {renames: configs/shorten_targets.yaml}}"
 else
     echo Invalid TARGET_TYPE=$TARGET_TYPE
     exit 1
@@ -127,18 +130,6 @@ fi
 if [ $TARGET_MAP -eq 1 ]
 then
     version=fold${fold}_seed${seed}_target_map${EXP_MOD}
-
-    EXTRA_ARGS=()
-    if [ $LLM_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS+=(-c)
-        EXTRA_ARGS+=("configs/llm_shorten_targets.yaml")
-    elif [ $SHORT_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS+=(-c)
-        EXTRA_ARGS+=("configs/shorten_targets.yaml")
-    fi
-
     python -m mtse predict \
         --seed_everything $seed \
         --model mtse.modules.TargetPredModule \
@@ -147,6 +138,7 @@ then
         --model.input_target_level generated \
         --model.with_lang true \
         --data mtse.data.PattDataModule --data.test_corpora "[data/multiling/fold${fold}/*.test.csv]" \
+        --data.transforms "[$SHORTEN_TRANSFORM]" \
         --trainer.logger lightning.pytorch.loggers.CSVLogger \
         $LOGGER_ARGS \
         --trainer.logger.version $version \
@@ -165,17 +157,6 @@ fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
-        EXTRA_ARGS=()
-        if [ $LLM_TARGETS -eq 1 ]
-        then
-            EXTRA_ARGS+=(-c)
-            EXTRA_ARGS+=("configs/llm_shorten_targets.yaml")
-        elif [ $SHORT_TARGETS -eq 1 ]
-        then
-            EXTRA_ARGS+=(-c)
-            EXTRA_ARGS+=("configs/shorten_targets.yaml")
-        fi
-        
         # Have to re-copy everything from MAP stage because of the return_predictions param won't let me reuse the YAML file...
         python -m mtse test \
             --seed_everything $seed \
@@ -185,6 +166,7 @@ then
             --model.input_target_level mapped \
             --model.with_lang true \
             --data mtse.data.PattDataModule --data.test_corpora "[data/multiling/fold${fold}/*.test.csv]" \
+            --data.transforms "[$SHORTEN_TRANSFORM]" \
             --trainer.logger lightning.pytorch.loggers.CSVLogger \
             $LOGGER_ARGS \
             --trainer.logger.version fold${fold}_seed${seed}_target_test${EXP_MOD} \
@@ -195,23 +177,15 @@ else
     echo "Skipping target testing"
 fi
 
-EXTRA_ARGS=()
-if [ $LLM_TARGETS -eq 1 ]
-then
-    EXTRA_ARGS+=(-c "configs/llm_shorten_targets.yaml")
-elif [ $SHORT_TARGETS -eq 1 ]
-then
-    EXTRA_ARGS+=(-c "configs/shorten_targets.yaml")
-fi
 
 if [ $STANCE_FIT -eq 1 ]
 then
-
         python -m mtse fit \
             -c configs/base/m_stance_classifier.yaml \
             $LOGGER_ARGS \
             --model.targets_path $TARGETS_PATH \
             --data mtse.data.PattDataModule \
+            --data.transforms "[$SHORTEN_TRANSFORM]" \
             --data.train_corpus "data/multiling/fold${fold}/*.train.csv" \
             --data.val_corpus "data/multiling/fold${fold}/*.val.csv" \
             --trainer.logger.version fold${fold}_seed${seed}_stance${EXP_MOD} \
@@ -240,14 +214,27 @@ then
         python -m mtse test \
             -c $LOGS_ROOT/$train_version/config.yaml \
             --data mtse.data.PattDataModule \
+            --data.transforms "[$SHORTEN_TRANSFORM]" \
             --data.test_corpora "$corp_args" \
             $LOGGER_ARGS \
-            --trainer.logger.version ${train_version}_test \
+            --trainer.logger.version fold${fold}_seed${seed}_stance_test${EXP_MOD} \
             --ckpt_path $LOGS_ROOT/$train_version/checkpoints/*ckpt \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance testing"
 fi
+
+map_file=$LOGS_ROOT/fold${fold}_seed${seed}_target_map${EXP_MOD}/target_pred_map.json
+function get_tse_transform
+{
+    set_to_input=$1
+    TRANSFORM_LIST="{ class_path: mtse.data.SetTargetPred, init_args: {map_file: $map_file, set_to_input: $set_to_input } }"
+    if [ ! -z "$SHORTEN_TRANSFORM" ]
+    then
+        TRANSFORM_LIST="$TRANSFORM_LIST,$SHORTEN_TRANSFORM"
+    fi
+    echo "[$TRANSFORM_LIST]"
+}
 
 if [ $TSE_TEST -eq 1 ]
 then
@@ -268,29 +255,24 @@ then
             -c $LOGS_ROOT/$train_version/config.yaml \
             --data mtse.data.PattDataModule \
             --data.test_corpora "$corp_args" \
+            --data.transforms "$(get_tse_transform true)" \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
             $LOGGER_ARGS \
             --trainer.logger.version fold${fold}_seed${seed}_tse_test${EXP_MOD} \
-            --ckpt_path $LOGS_ROOT/$train_version/checkpoints/*ckpt \
-            "${EXTRA_ARGS[@]}"
+            --ckpt_path $LOGS_ROOT/$train_version/checkpoints/*ckpt
 else
     echo "Skipping tse testing"
 fi
 
 if [ $GT_TSE_TEST -eq 1 ]
 then
-        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}_stance${EXP_MOD}
         python -m mtse test \
-            -c $train_dir/config.yaml \
+            -c $LOGS_ROOT/fold${fold}_seed${seed}_tse_test${EXP_MOD}/config.yaml \
             $LOGGER_ARGS \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
             --model.use_target_gt true \
-            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}_target_map${EXP_MOD} \
-            --data.target_input label \
-            --trainer.callbacks mtse.callbacks.TSEStatsCallback \
-            --trainer.callbacks.full_metrics true \
-            --trainer.logger.version fold${fold}_seed${seed}_tse_test_gt${EXP_MOD} \
+            --data.transforms "$(get_tse_transform false)" \
+            --trainer.logger.version $LOGS_ROOT/fold${fold}_seed${seed}_tse_test_gt${EXP_MOD} \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping gt tse testing"

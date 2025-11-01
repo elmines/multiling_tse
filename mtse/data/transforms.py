@@ -7,13 +7,13 @@ from typing import Dict, Optional, List, Tuple
 import pathlib
 import importlib.resources
 # 3rd Party
+import yaml
 import wordninja
 import preprocessor as twp
 twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
 from .target_pred import TargetPred, parse_target_preds
-
 
 class Transform(abc.ABC):
     @abc.abstractmethod
@@ -59,21 +59,31 @@ class SemHashtagRemoval(Transform):
         sample.context = _remove_semeval_tag(sample.context)
 
 class TargetRename(Transform):
-    def __init__(self, renames: Dict[str, str]):
-        self.renames = renames
+    def __init__(self,
+                 renames: pathlib.Path | Dict[str, str]):
+        if not isinstance(renames, dict):
+            with open(renames, 'r') as f:
+                renames = yaml.load(f, yaml.FullLoader)
+        self.renames: Dict[str, str] = renames
+
+    def _update_pred(self, pred: TargetPred):
+        for prop in ["gt_target", "mapped_target"]:
+            orig = getattr(pred, prop)
+            if orig in self.renames:
+                setattr(pred, prop, self.renames[orig])
+
     def __call__(self, sample: Sample | TargetPred):
         if isinstance(sample, Sample):
+            if sample.target_pred is not None:
+                self._update_pred(sample.target_pred)
             # TODO: Be more fine-grained and don't sweep through every property
-            for prop in ["target_pred", "target_label", "target_input"]:
+            for prop in ["target_label", "target_input"]:
                 orig = getattr(sample, prop)
                 if orig in self.renames:
                     setattr(sample, prop, self.renames[orig])
             return
+        self._update_pred(sample)
 
-        for prop in ["gt_target", "mapped_target"]:
-            orig = getattr(sample, prop)
-            if orig in self.renames:
-                setattr(sample, prop, self.renames[orig])
 
 class ClassicPreprocess(Transform):
     """

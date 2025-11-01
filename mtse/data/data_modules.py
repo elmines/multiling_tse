@@ -1,30 +1,23 @@
 # STL
 from __future__ import annotations
 import os
-import pathlib
-import glob
-import pdb
 from collections import Counter, defaultdict
 from itertools import batched, chain
 # 3rd Party
 import random
 import torch
 import numpy as np
-from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split, Sampler
+from torch.utils.data import DataLoader, Dataset, Sampler
 import lightning as L
 from tqdm import tqdm
-from typing import Tuple, List, Tuple, Optional, Generator
+from typing import List, Optional, Generator
 # Local
-from .encoder import Encoder, PredictTask, keyed_scalar_stack, concat_lists
-from .target_pred import TargetPred
+from .encoder import Encoder, PredictTask
 from .dataset import MapDataset
-from .transforms import Transform, TargetRename
-from .corpus import StanceCorpus, TargetInputType, CorpusLike
-from .parse import DetCorpusType, CORPUS_PARSERS, parse_standard
-from .target_pred import parse_target_preds
+from .transforms import Transform
+from .corpus import StanceCorpus, CorpusLike
 from .sample import Sample
-from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET, LANG_TO_ID, INDEPENDENCE_TARGETS, INDEPENDENCE
-from ..modules.mixins import TargetMixin
+from ..constants import DEFAULT_BATCH_SIZE, UNRELATED_TARGET
 
 class BaseDataModule(L.LightningDataModule):
     """
@@ -164,95 +157,6 @@ class PattDataModule(BaseDataModule):
         return loaders
     def predict_dataloader(self):
         return self.test_dataloader()
-
-class TargetPredictionDataModule(BaseDataModule):
-    """
-    Only reads a CSV file of target predictions.
-    Meant for use with the PassthroughModule
-    """
-
-
-    def __init__(self,
-                 data_dir: pathlib.Path,
-                 targets_path: pathlib.Path,
-                 suffix_pattern: str = ".target_gens.csv",
-                 exclude_patterns: List[str] = [],
-                 with_generated: bool = False,
-                 with_untranslated: bool = False,
-                 transforms: List[Transform] = []
-                 ):
-        super().__init__()
-        # Inheriting from the TargetMixin breaks the super()
-        # calls in L.LightningDataModule and its ancestors
-        # Hence we use composition here instead
-        self.data_dir = data_dir
-        target_mixin = TargetMixin(targets_path)
-        self.targets = target_mixin.targets
-        self.with_generated = with_generated
-        self.with_untranslated = with_untranslated
-
-        self.datasets = []
-        self.transforms = transforms
-
-        all_paths = glob.glob(os.path.join(self.data_dir, f"*{suffix_pattern}"))
-        excluded = []
-        for patt in exclude_patterns:
-            excluded.extend(glob.glob(os.path.join(self.data_dir, patt)))
-        self.__test_paths = sorted(set(all_paths) - set(excluded))
-        self.__testloader_labels = [os.path.basename(p).split(suffix_pattern)[0] for p in self.__test_paths]
-
-    @property
-    def testloader_labels(self):
-        return self.__testloader_labels
-
-    def prepare_data(self):
-        self.datasets.clear()
-        for path in self.__test_paths:
-            samples = []
-            pred_iter = parse_target_preds(path)
-
-            for pred in pred_iter:
-                for t in self.transforms:
-                    t(pred) # Transforms are in-place
-
-                s = {
-                    "target": torch.tensor(self.targets.index(pred.gt_target)),
-                }
-                s['lang'] = torch.tensor(LANG_TO_ID[pred.lang], dtype=torch.long)
-                if pred.mapped_target is not None:
-                    s["target_preds"] = torch.tensor(self.targets.index(pred.mapped_target))
-                if self.with_generated or self.with_untranslated:
-                    s["sample_inds"] = torch.full((len(pred.generated_targets),), pred.sample_id)
-                    if self.with_generated:
-                        s['target_gens'] = pred.generated_targets
-                    if self.with_untranslated:
-                        s['target_untrans'] = pred.untranslated_targets
-                samples.append(s)
-            self.datasets.append(MapDataset(samples))
-
-    def _collate(self, samples):
-        encoding = dict()
-        encoding['target'] = keyed_scalar_stack(samples, 'target')
-        encoding['lang'] = keyed_scalar_stack(samples, 'lang')
-        if 'target_preds' in samples[0]:
-            encoding['target_preds'] = keyed_scalar_stack(samples, 'target_preds')
-        for k in ['target_gens', 'target_untrans']:
-            if k in samples[0]:
-                encoding[k] = concat_lists(samples, k)
-        if 'sample_inds' in samples[0]:
-            encoding['sample_inds'] = torch.concatenate([s['sample_inds'] for s in samples])
-        return encoding
-    
-    def _dataloaders(self) -> List[torch.utils.data.DataLoader]:
-        return [
-            torch.utils.data.DataLoader(ds,
-                                        batch_size=1024,
-                                        collate_fn=self._collate) for ds in self.datasets]
-
-    def predict_dataloader(self):
-        return self._dataloaders()
-    def test_dataloader(self):
-        return self._dataloaders()
 
 class TaskSampler(Sampler):
     def __init__(self,
