@@ -36,10 +36,8 @@ data:
       init_args:
         patts: [data/kptimes/trans_part/*_train.jsonl]
         corpus_type: kptimes
-        limit_n: 64
     val_corpus:
       class_path: mtse.data.StanceCorpus
       init_args:
         patts: [data/kptimes/trans_part/*_dev.jsonl]
         corpus_type: kptimes
-        limit_n: 64

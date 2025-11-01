@@ -195,25 +195,28 @@ else
     echo "Skipping target testing"
 fi
 
+EXTRA_ARGS=()
+if [ $LLM_TARGETS -eq 1 ]
+then
+    EXTRA_ARGS+=(-c "configs/llm_shorten_targets.yaml")
+elif [ $SHORT_TARGETS -eq 1 ]
+then
+    EXTRA_ARGS+=(-c "configs/shorten_targets.yaml")
+fi
+
 if [ $STANCE_FIT -eq 1 ]
 then
-        EXTRA_ARGS=()
-        if [ $LLM_TARGETS -eq 1 ]
-        then
-            EXTRA_ARGS+=(-c "configs/llm_shorten_targets.yaml")
-        elif [ $SHORT_TARGETS -eq 1 ]
-        then
-            EXTRA_ARGS+=(-c "configs/shorten_targets.yaml")
-        fi
 
         python -m mtse fit \
             -c configs/base/m_stance_classifier.yaml \
             $LOGGER_ARGS \
             --model.targets_path $TARGETS_PATH \
-            --data mtse.data.DirDataModule \
-            --data.data_dir data/multiling/fold${fold} \
+            --data mtse.data.PattDataModule \
+            --data.train_corpus "data/multiling/fold${fold}/*.train.csv" \
+            --data.val_corpus "data/multiling/fold${fold}/*.val.csv" \
             --trainer.logger.version fold${fold}_seed${seed}_stance${EXP_MOD} \
             --seed_everything $seed \
+            --trainer.max_epochs 1 \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance fitting"
@@ -221,29 +224,56 @@ fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-        train_dir=fold${fold}_seed${seed}_stance${EXP_MOD}
-        # We override the existing callback because we're not testing TSE this time
+        # Make each file a separate StanceCorpus object
+        # StanceCorpus will give them better names that way
+        corp_args=""
+        add_comma=0
+        for f in data/multiling/fold${fold}/*.test.csv
+        do
+            if [ $add_comma -eq 1 ]; then corp_args="$corp_args,"; fi
+            corp_args="${corp_args}[$f]"
+            add_comma=1
+        done
+        corp_args="[$corp_args]"
+
+        train_version=fold${fold}_seed${seed}_stance${EXP_MOD}
         python -m mtse test \
-            -c $LOGS_ROOT/$train_dir/config.yaml \
+            -c $LOGS_ROOT/$train_version/config.yaml \
+            --data mtse.data.PattDataModule \
+            --data.test_corpora "$corp_args" \
             $LOGGER_ARGS \
-            --trainer.logger.version ${train_dir}_test \
-            --ckpt_path $LOGS_ROOT/$train_dir/checkpoints/*ckpt
+            --trainer.logger.version ${train_version}_test \
+            --ckpt_path $LOGS_ROOT/$train_version/checkpoints/*ckpt \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance testing"
 fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-        train_dir=$LOGS_ROOT/fold${fold}_seed${seed}_stance${EXP_MOD}
+        # Make each language a separate StanceCorpus object
+        # StanceCorpus will give them better names that way
+        corp_args=""
+        add_comma=0
+        for lang in ca es et fr it zh
+        do
+            if [ $add_comma -eq 1 ]; then corp_args="$corp_args,"; fi
+            corp_args="${corp_args}{class_path: mtse.data.StanceCorpus,init_args: {name: $lang, patts: [data/multiling/fold${fold}/${lang}*.test.csv]}}"
+            add_comma=1
+        done
+        corp_args="[$corp_args]"
+
+        train_version=fold${fold}_seed${seed}_stance${EXP_MOD}
         python -m mtse test \
-            -c $train_dir/config.yaml \
-            $LOGGER_ARGS \
-            --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data.preds_dir $LOGS_ROOT/fold${fold}_seed${seed}_target_map${EXP_MOD} \
-            --data.target_input pred \
+            -c $LOGS_ROOT/$train_version/config.yaml \
+            --data mtse.data.PattDataModule \
+            --data.test_corpora "$corp_args" \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version fold${fold}_seed${seed}_tse_test${EXP_MOD}
+            $LOGGER_ARGS \
+            --trainer.logger.version fold${fold}_seed${seed}_tse_test${EXP_MOD} \
+            --ckpt_path $LOGS_ROOT/$train_version/checkpoints/*ckpt \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping tse testing"
 fi
@@ -260,7 +290,8 @@ then
             --data.target_input label \
             --trainer.callbacks mtse.callbacks.TSEStatsCallback \
             --trainer.callbacks.full_metrics true \
-            --trainer.logger.version fold${fold}_seed${seed}_tse_test_gt${EXP_MOD}
+            --trainer.logger.version fold${fold}_seed${seed}_tse_test_gt${EXP_MOD} \
+            "${EXTRA_ARGS[@]}"
 else
     echo "Skipping gt tse testing"
 fi
