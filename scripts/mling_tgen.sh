@@ -190,7 +190,6 @@ then
             --data.val_corpus "data/multiling/fold${fold}/*.val.csv" \
             --trainer.logger.version fold${fold}_seed${seed}_stance${EXP_MOD} \
             --seed_everything $seed \
-            --trainer.max_epochs 1 \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping stance fitting"
@@ -272,7 +271,7 @@ then
             $LOGGER_ARGS \
             --model.use_target_gt true \
             --data.transforms "$(get_tse_transform false)" \
-            --trainer.logger.version $LOGS_ROOT/fold${fold}_seed${seed}_tse_test_gt${EXP_MOD} \
+            --trainer.logger.version fold${fold}_seed${seed}_tse_test_gt${EXP_MOD} \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping gt tse testing"
