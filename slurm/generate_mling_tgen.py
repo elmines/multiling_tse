@@ -43,7 +43,7 @@ conda activate ./venv
 """
 
 for seed in range(3):
-    name = f"mling_tgen_ftembed_seed{seed}"
+    name = f"mling_tgen_seed{seed}_stage1_cpu"
     command = f"FT_EMBED=1 scripts/mling_tgen.sh N/A {seed}"
     bash_code = embed_stage_template.format(name=name,
                                             command=command,
@@ -52,7 +52,7 @@ for seed in range(3):
                                             )
     write_code(os.path.join(out_dir, f"{name}.sh"), bash_code)
 
-target_state_template = """#!/bin/bash
+b200_stage_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
 #SBATCH --partition={partition}
@@ -78,17 +78,26 @@ source "/apps/conda/25.3.1/etc/profile.d/conda.sh"
 git log -1
 conda activate ./venv
 
-TARGET_FIT=1 {var_settings} scripts/mling_tgen.sh N/A {seed}
+TARGET_FIT=1 scripts/mling_tgen.sh N/A {seed}
 for fold in 0 1 2 3 4
 do
-    TARGET_GEN=1 TARGET_TRANS=1 TARGET_MAP=1 TARGET_TEST=1 {var_settings} scripts/mling_tgen.sh $fold {seed}
+    TARGET_GEN=1 TARGET_TRANS=1 scripts/mling_tgen.sh $fold {seed}
 done
 """
+
+for seed in range(3):
+    name = f"mling_tgen_seed{seed}_stage2_b200"
+    write_code(os.path.join(out_dir, f"{name}.sh"),
+               b200_stage_template.format(name=name,
+                                            seed=seed,
+                                             user_email=user_email,
+                                             repo_dir=repo_dir,
+                                             partition=b200_part))
 
 stance_stage_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
-#SBATCH --time=15:00:00
+#SBATCH --time=20:00:00
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -112,7 +121,7 @@ conda activate ./venv
 
 for fold in 0 1 2 3 4
 do
-    STANCE_FIT=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 {var_settings} scripts/mling_tgen.sh $fold {seed}
+    TARGET_MAP=1 TARGET_TEST=1 STANCE_FIT=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 {var_settings} scripts/mling_tgen.sh $fold {seed}
 done
 """
 
@@ -121,18 +130,9 @@ variants = [
     ("_short","TARGET_TYPE=short"),
     ("_llm","TARGET_TYPE=llm"),
 ]
-
 for seed, variant in product(range(3), variants):
     suffix, var_settings = variant
-    name = f"mling_tgen_seed{seed}_target{suffix}"
-    write_code(os.path.join(out_dir, f"{name}.sh"),
-               target_state_template.format(name=name,
-                                            seed=seed,
-                                            var_settings=var_settings,
-                                             user_email=user_email,
-                                             repo_dir=repo_dir,
-                                             partition=b200_part))
-    name = f"mling_tgen_seed{seed}_stance{suffix}"
+    name = f"mling_tgen_seed{seed}{suffix}_stage3_l4"
     write_code(os.path.join(out_dir, f"{name}.sh"),
                stance_stage_template.format(name=name,
                                             seed=seed,
