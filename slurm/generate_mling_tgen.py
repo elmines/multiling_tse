@@ -19,12 +19,12 @@ user_email = secrets["email"]
 
 embed_stage_template ="""#!/bin/bash
 
-#SBATCH --time=3:00:00
+#SBATCH --time=2:00:00
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=16gb
+#SBATCH --mem=8gb
 #SBATCH --mail-user={user_email}
 #SBATCH --mail-type=FAIL,END
 #SBATCH --output=%x.%j.out
@@ -56,12 +56,12 @@ b200_stage_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
 #SBATCH --partition={partition}
-#SBATCH --time=32:00:00
+#SBATCH --time=28:00:00
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=64gb
+#SBATCH --mem=24gb
 #SBATCH --mail-user={user_email}
 #SBATCH --mail-type=FAIL,END
 #SBATCH --output=%x.%j.out
@@ -97,12 +97,12 @@ for seed in range(3):
 stance_stage_template = """#!/bin/bash
 
 #SBATCH --gres=gpu:1
-#SBATCH --time=20:00:00
+#SBATCH --time=4:00:00
 #SBATCH --job-name={name}
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=16gb
+#SBATCH --mem=8gb
 #SBATCH --mail-user={user_email}
 #SBATCH --mail-type=FAIL,END
 #SBATCH --output=%x.%j.out
