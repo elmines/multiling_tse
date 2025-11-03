@@ -39,7 +39,8 @@ def parse_standard(corpus_path) -> Generator[Sample, None, None]:
             context=row['Context'],
             target_label=row['Target'],
             stance=stance_val,
-            lang=row['Lang']
+            lang=row['Lang'],
+            source_path=corpus_path
         )
         return s
     with open(corpus_path, 'r', encoding='utf-8') as r:
@@ -104,7 +105,8 @@ def parse_kptimes(corpus_path: os.PathLike):
                 target_label=target_phrase,
                 stance=TriStance.neutral,
                 lang='en',
-                sample_type=SampleType.KG
+                sample_type=SampleType.KG,
+                source_path=corpus_path
             )
 
 DetCorpusType = Literal['standard', 'nlpcc', 'cstance', 'li', 'kptimes']

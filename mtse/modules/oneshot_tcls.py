@@ -3,12 +3,11 @@ import pathlib
 import dataclasses
 # 3rd Party
 import torch
-from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer, BartForConditionalGeneration, BartTokenizerFast
+from transformers import RobertaModel, PreTrainedTokenizerFast, BertweetTokenizer
 # 
 from .mixins import TargetMixin
 from .base_module import BaseModule
-from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack, SampleType
-from ..constants import UNRELATED_TARGET, TARGET_DELIMITER
+from ..data import Encoder, StanceType, STANCE_TYPE_MAP, Sample, collate_ids, keyed_scalar_stack
 
 class OneShotTClsModule(BaseModule, TargetMixin):
     """
@@ -25,7 +24,7 @@ class OneShotTClsModule(BaseModule, TargetMixin):
 
     PRETRAINED_MODEL = "vinai/bertweet-base"
 
-    NON_BERT_KEYS = {'target', 'stance'}
+    NON_BERT_KEYS = {'target', 'stance', 'source_path'}
 
     def __init__(self,
                  targets_path: pathlib.Path,
@@ -109,7 +108,7 @@ class OneShotTClsModule(BaseModule, TargetMixin):
             encoding['target'] = torch.tensor(self.module.targets.index(sample.target_label))
             encoding['stance'] = torch.tensor(sample.stance)
             return encoding
-        def collate(self, samples):
+        def _collate(self, samples):
             rdict = collate_ids(self.module.tokenizer, samples, return_attention_mask=True)
             rdict['target'] = keyed_scalar_stack(samples, 'target')
             rdict['stance'] = keyed_scalar_stack(samples, 'stance')

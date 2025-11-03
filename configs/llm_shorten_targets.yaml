@@ -1,16 +1,10 @@
-data:
-  init_args:
-    transforms:
-      - class_path: mtse.data.TargetRename
-        init_args:
-          renames:
-            "Emmanuel Macron": Emmanuel Macron
-            "Marine LePen": Marine LePen
-            "Immigration": Immigration
-            "IphoneSE": iPhone SE
-            "Russia's counter-terrorism operations in Syria": Russian counterterrorism in Syria
-            "Allowing second births": Allowing second births
-            "Setting off firecrackers during the Spring Festival": Firecracker Spring Festival
-            "Shenzhen bans motorcycles and imposes electricity restrictions": Shenzhen motorcycle electricity
-            "Sardinian Independence": Sardinian Independence
-            "Catalonian Independence": Catalonian Independence
+"Emmanuel Macron": Emmanuel Macron
+"Marine LePen": Marine LePen
+"Immigration": Immigration
+"IphoneSE": iPhone SE
+"Russia's counter-terrorism operations in Syria": Russian counterterrorism in Syria
+"Allowing second births": Allowing second births
+"Setting off firecrackers during the Spring Festival": Firecracker Spring Festival
+"Shenzhen bans motorcycles and imposes electricity restrictions": Shenzhen motorcycle electricity
+"Sardinian Independence": Sardinian Independence
+"Catalonian Independence": Catalonian Independence

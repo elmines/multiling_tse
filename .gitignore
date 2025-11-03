@@ -1,6 +1,8 @@
 .vscode/
 lightning_logs/
 *.ipynb
+*.out
+*.err
 
 # Gensim artifacts
 *.model

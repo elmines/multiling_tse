@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import enum
 import csv
@@ -48,9 +49,6 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.out_dir = out_dir
         self.target_level = target_level
 
-        # Meant to be set by the CLI after instantiation
-        self.dataloader_labels = []
-
         self.related_threshold = related_threshold
         if embeddings_path is not None:
             self.fast_text = FastText.load(str(embeddings_path))
@@ -63,6 +61,8 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         self.__started_file = set()
         self.__sample_counter = defaultdict(int)
+        self.__gen_targets_files = dict()
+        self.__map_targets_files = dict()
 
         self.__gen_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "GT Target", "Lang"]
         self.__map_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "Mapped Target", "GT Target", "Lang"]
@@ -91,21 +91,28 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             finally:
                 pass
 
-    def __get_gen_writer(self, dataloader_idx):
-        label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
+    def __get_gen_writer(self, source_path):
+        label = os.path.basename(source_path)
+        # the path in the filemap must be relative
+        out_basename = f"{label}.target_gens.csv"
+        self.__gen_targets_files[source_path] = out_basename
+
         return self.__get_writer(
-            os.path.join(self.out_dir, f"{label}.target_gens.csv"),
+            os.path.join(self.out_dir, out_basename),
             self.__gen_fieldnames,
-            dataloader_idx,
+            label,
             "target_gen"
         )
 
-    def __get_map_writer(self, dataloader_idx):
-        label = self.dataloader_labels[dataloader_idx] if dataloader_idx < len(self.dataloader_labels) else dataloader_idx
+    def __get_map_writer(self, source_path):
+        label = os.path.basename(source_path)
+        out_basename = f"{label}.target_preds.csv"
+        self.__map_targets_files[source_path] = out_basename
+
         return self.__get_writer(
-            os.path.join(self.out_dir, f"{label}.target_preds.csv"),
+            os.path.join(self.out_dir, out_basename),
             self.__map_fieldnames,
-            dataloader_idx,
+            label,
             "target_pred"
         )
 
@@ -124,9 +131,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         if self.target_level <= TargetLevel.none:
             return
 
+        source_paths = batch['source_path']
+        assert all(p == source_paths[0] for p in source_paths)
+        source_path = source_paths[0]
+
         target_labels = batch['target'].flatten().detach().cpu().tolist()
         str_labels = [self.targets[t] for t in target_labels]
-        index_start = self.__sample_counter[dataloader_idx]
+        index_start = self.__sample_counter[source_path]
 
         gen_rows = None
         map_rows = None
@@ -175,14 +186,14 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 ]
         else:
             if hasattr(prediction, "target_gens"):
-                print(f"Warning: Skipping logging of target_gens for dataloader {dataloader_idx}", file=sys.stderr)
+                print(f"Warning: Skipping logging of target_gens for {source_path}", file=sys.stderr)
             if self.target_level < TargetLevel.mapped:
                 return
 
             # If we have target_preds, the mapping has already been done
             # For simplicity, ignore any target_gen fields
             target_preds = [self.targets[p] for p in prediction.target_preds.flatten().detach().cpu().tolist()]
-            untrans_preds = batch.get('target_untrans', freeform_preds)
+            untrans_preds = batch.get('target_untrans', target_preds)
             assert len(untrans_preds) == len(target_preds)
 
             if hasattr(prediction, "sample_inds"):
@@ -199,16 +210,26 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 } for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
 
         
-        lang_strs = [ID_TO_LANG[l] for l in batch['lang'].detach().cpu().tolist()] if 'lang' in batch else None
+        lang_strs = batch['lang'] if 'lang' in batch else None
 
         if gen_rows is not None:
             if lang_strs is not None:
                 TargetPredictionWriter.__add_langs(gen_rows, lang_strs)
-            with self.__get_gen_writer(dataloader_idx) as writer:
+            with self.__get_gen_writer(source_path) as writer:
                 writer.writerows(gen_rows)
         if map_rows is not None:
             if lang_strs is not None:
                 TargetPredictionWriter.__add_langs(map_rows, lang_strs)
-            with self.__get_map_writer(dataloader_idx) as writer:
+            with self.__get_map_writer(source_path) as writer:
                 writer.writerows(map_rows)
-        self.__sample_counter[dataloader_idx] += len(target_labels)
+        self.__sample_counter[source_path] += len(target_labels)
+
+    def _on_epoch_end(self, trainer, pl_module):
+        with open(os.path.join(self.out_dir, "target_gen_map.json"), 'w') as w:
+            json.dump(self.__gen_targets_files, w)
+        with open(os.path.join(self.out_dir, "target_pred_map.json"), 'w') as w:
+            json.dump(self.__map_targets_files, w)
+    def on_test_epoch_end(self, trainer, pl_module):
+        self._on_epoch_end(trainer, pl_module)
+    def on_predict_epoch_end(self, trainer, pl_module):
+        self._on_epoch_end(trainer, pl_module)

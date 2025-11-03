@@ -31,21 +31,14 @@ trainer:
 model:
   class_path: mtse.modules.OneShotTClsModule
   init_args:
-    targets_path: static/li_merged_targets.txt
+    targets_path: static/classic_merged_targets.txt
     stance_type: tri
 
 data:
-  class_path: mtse.data.SplitDataModule
+  class_path: mtse.data.PattDataModule
   init_args:
     batch_size: 64
     transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    corpora:
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_train_all_onecol.csv
-          corpus_type: li
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_val_all_onecol.csv
-          corpus_type: li
-    ratios: [ [1.0, 0.0, 0.0], [0.0, 1.0, 0.0] ]
+    train_corpus: data/classic/*.train.csv 
+    val_corpus:   data/classic/*.val.csv
+    test_corpora:  [data/classic/*.test.csv]

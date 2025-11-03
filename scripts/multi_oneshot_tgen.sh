@@ -8,10 +8,16 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-SEEDS=${@:- 0 1 2}
+seed=${1:-0}
+
+SCRUB_TARGETS=${SCRUB_TARGETS:-0}
+if [ $SCRUB_TARGETS -eq 1 ]
+then
+    exp_suffix="_with_scrub"
+fi
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
-EXP_NAME=${EXP_NAME:-MultiOursTGen}
+EXP_NAME=${EXP_NAME:-MultiOneshotTgen}
 LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
@@ -22,94 +28,84 @@ function embed_path { echo $LOGS_ROOT/ft_seed${seed}.model; }
 if [ $FT_EMBED -eq 1 ]
 then
     mkdir -p $LOGS_ROOT
-    for seed in $SEEDS
-    do
+    in_files=(data/classic/*.train.csv)
+    corpus_types=$(for f in ${in_files[@]}; do echo " standard"; done)
         python -m mtse.train_ft \
-            --corpus_type li \
-            -i data/classic_tse/raw_train_all_onecol.csv \
+            --corpus_type $corpus_types \
+            -i ${in_files[@]} \
             --seed $seed \
             --embed 256 \
             -o $(embed_path $seed) \
             --epochs 500 
-    done
 else
     echo "Skipping FastText embedding"
 fi
 
 if [ $FIT -eq 1 ]
 then
-    for seed in $SEEDS
-    do
         python -m mtse fit \
-            -c configs/base/ours_tg_oneshot.yaml \
+            -c configs/base/oneshot_tgen.yaml \
             --model.embeddings_path $(embed_path $seed) \
+            $( [ $SCRUB_TARGETS -eq 1 ] && echo --data.stance_val_corpus.transforms.scrub_targets 'true' ) \
             $LOGGER_ARGS \
-            --trainer.logger.version seed${seed} \
+            --trainer.logger.version seed${seed}${exp_suffix} \
             --seed_everything $seed
-    done
 else
     echo "Skipping fitting"
 fi
 
+train_dir=$LOGS_ROOT/seed${seed}${exp_suffix}
+data_args=(--data configs/data/classic_tse_test.yaml --data.transforms "[{class_path: mtse.data.ClassicPreprocess}]")
+if [ $SCRUB_TARGETS -eq 1 ]
+then
+    data_args+=(--data.transforms.scrub_targets 'true')
+fi
+
 if [ $TARGET_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
         python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/classic_tc_test.yaml \
-            --trainer.logger.version seed${seed}_target_test \
+            -c $train_dir/config.yaml \
+            "${data_args[@]}" \
+            --trainer.logger.version seed${seed}_target_test${exp_suffix} \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes $((1 + $(wc -l < static/classic_merged_targets.txt) )) \
-            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
-    done
+            --trainer.callbacks.n_classes 19 \
+            --ckpt_path $train_dir/checkpoints/*ckpt 
 else
     echo "Skipping target testing"
 fi
 
 if [ $STANCE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --data configs/data/classic_stance_test.yaml \
+            -c $train_dir/config.yaml \
+            "${data_args[@]}" \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt 
-    done
+            --trainer.logger.version seed${seed}_stance_test${exp_suffix} \
+            --ckpt_path $train_dir/checkpoints/*ckpt 
 else
     echo "Skipping stance testing"
 fi
 
 if [ $TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}
         python -m mtse test \
             -c $train_dir/config.yaml \
+            "${data_args[@]}" \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/classic_tse_test.yaml \
-            --trainer.logger.version seed${seed}_tse_test 
-    done
+            --trainer.logger.version seed${seed}_tse_test${exp_suffix}
 else
     echo "Skipping tse testing"
 fi
 
 if [ $GT_TSE_TEST -eq 1 ]
 then
-    for seed in $SEEDS
-    do
-        train_dir=$LOGS_ROOT/seed${seed}
         python -m mtse test \
             -c $train_dir/config.yaml \
+            "${data_args[@]}" \
             --ckpt_path $train_dir/checkpoints/*ckpt \
-            --data configs/data/classic_tse_test.yaml \
-            --trainer.logger.version seed${seed}_tse_test_gt \
+            --trainer.logger.version seed${seed}_tse_test_gt${exp_suffix} \
             --model.use_target_gt true 
-    done
 else
     echo "Skipping gt tse testing"
 fi

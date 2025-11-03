@@ -28,7 +28,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
 
     DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
-    EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight'}
+    EXCLUDE_KWARGS = {'target', 'stance', 'stype', 'lm_weight', 'source_path'}
 
     __POSTPROC_PATT_1 = re.compile(r'[;,\.]|\s')
     __POSTPROC_PATT_2 = re.compile(r'  +')
@@ -218,7 +218,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                     dtype=torch.long)
             return encoding
 
-        def collate(self, samples):
+        def _collate(self, samples):
             encoding = collate_ids(self.tokenizer, samples, return_attention_mask=True)
             if 'target' in samples[0]:
                 encoding['target'] = keyed_scalar_stack(samples, 'target')

@@ -1,17 +1,19 @@
 import abc
+import pdb
 import json
 import re
+import os
 from typing import Dict, Optional, List, Tuple
+import pathlib
 import importlib.resources
 # 3rd Party
+import yaml
 import wordninja
 import preprocessor as twp
 twp.set_options(twp.OPT.URL, twp.OPT.EMOJI, twp.OPT.RESERVED)
 # Local
 from .sample import Sample
-from .target_pred import TargetPred
-from ..constants import INDEPENDENCE,INDEPENDENCE_TARGETS
-
+from .target_pred import TargetPred, parse_target_preds
 
 class Transform(abc.ABC):
     @abc.abstractmethod
@@ -26,26 +28,62 @@ _semeval_tag = re.compile('#SemST', flags=re.IGNORECASE)
 def _remove_semeval_tag(text):
     return _semeval_tag.sub('', text)
 
+class SetTargetPred(Transform):
+    def __init__(self,
+                 map_file: pathlib.Path,
+                 set_to_input: bool = True):
+        with open(map_file, 'r') as r:
+            file_map = json.load(r)
+        preds_root = os.path.dirname(map_file)
+        self.preds_by_path: Dict[str, List[TargetPred]] = {}
+        for in_path, preds_path in file_map.items():
+            preds_path = os.path.join(preds_root, preds_path)
+            assert os.path.exists(preds_path)
+            self.preds_by_path[in_path] = list(parse_target_preds(preds_path))
+        self.inds_by_path = {p:0 for p in file_map}
+
+        self.set_to_input = set_to_input
+
+    def __call__(self, sample: Sample):
+        p = sample.source_path
+        # TODO: Use path normalization, not just crude exact string matching on this path lookup
+        targ = self.preds_by_path[p][self.inds_by_path[p]]
+        self.inds_by_path[p] += 1
+        sample.target_pred = targ
+        if self.set_to_input:
+            sample.target_input = targ.mapped_target
+
+
 class SemHashtagRemoval(Transform):
     def __call__(self, sample: Sample):
         sample.context = _remove_semeval_tag(sample.context)
 
 class TargetRename(Transform):
-    def __init__(self, renames: Dict[str, str]):
-        self.renames = renames
+    def __init__(self,
+                 renames: pathlib.Path | Dict[str, str]):
+        if not isinstance(renames, dict):
+            with open(renames, 'r') as f:
+                renames = yaml.load(f, yaml.FullLoader)
+        self.renames: Dict[str, str] = renames
+
+    def _update_pred(self, pred: TargetPred):
+        for prop in ["gt_target", "mapped_target"]:
+            orig = getattr(pred, prop)
+            if orig in self.renames:
+                setattr(pred, prop, self.renames[orig])
+
     def __call__(self, sample: Sample | TargetPred):
         if isinstance(sample, Sample):
+            if sample.target_pred is not None:
+                self._update_pred(sample.target_pred)
             # TODO: Be more fine-grained and don't sweep through every property
-            for prop in ["target_pred", "target_label", "target_input"]:
+            for prop in ["target_label", "target_input"]:
                 orig = getattr(sample, prop)
                 if orig in self.renames:
                     setattr(sample, prop, self.renames[orig])
             return
+        self._update_pred(sample)
 
-        for prop in ["gt_target", "mapped_target"]:
-            orig = getattr(sample, prop)
-            if orig in self.renames:
-                setattr(sample, prop, self.renames[orig])
 
 class ClassicPreprocess(Transform):
     """
@@ -165,4 +203,5 @@ __all__ = [
     "TargetRename",
     "SemHashtagRemoval",
     "ClassicPreprocess",
+    "SetTargetPred",
 ]

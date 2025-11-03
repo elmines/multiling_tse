@@ -1,9 +1,11 @@
+from __future__ import annotations
+import os
+import glob
 import pathlib
 import csv
-from typing import Optional, List, Literal
-import functools
+from typing import Optional, List, Literal, Iterable
 import copy
-from itertools import islice
+from itertools import islice, chain
 # 3rd Party
 from tqdm import tqdm
 # Local
@@ -13,35 +15,43 @@ from .transforms import Transform
 
 TargetInputType = Literal['pred', 'label']
 
-class StanceCorpus:
+def get_paths(patterns: List[pathlib.Path]):
+    all_paths = []
+    for p in patterns:
+        all_paths.extend(glob.glob(str(p)))
+    return sorted(set(all_paths))
 
-    class SetTargetInput(Transform):
-        def __init__(self, target_input: TargetInputType):
-            self.target_input = target_input
-        def __call__(self, sample: Sample):
-            assert sample.target_input is None
-            if self.target_input == 'pred':
-                sample.target_input = sample.target_pred
-            elif self.target_input == 'label':
-                sample.target_input = sample.target_label
-            else:
-                raise ValueError(f"Invalid target_input = {self.target_input}")
+class StanceCorpus(Iterable[Sample]):
 
     def __init__(self,
-                 path: pathlib.Path,
+                 patts: List[pathlib.Path],
                  corpus_type: DetCorpusType = 'standard',
-                 target_preds_path: Optional[pathlib.Path] = None,
                  transforms: List[Transform] = [],
-                 target_input: TargetInputType = 'label',
-                 limit_n: Optional[int] = None):
+                 limit_n: Optional[int] = None,
+                 name: Optional[str] = None):
+        self._paths = get_paths(patts)
+        assert self._paths, f"Found no paths from {patts}"
         self._parse_fn = CORPUS_PARSERS[corpus_type]
-        self._path = path
-        self._target_preds_path = target_preds_path
-        self._transforms = [StanceCorpus.SetTargetInput(target_input)] + transforms
+        self._transforms = transforms
         self._limit_n = limit_n
 
-        # Combine those transforms into one function
-        self._transform = lambda s: functools.reduce(lambda accum, t: t(accum), transforms, s)
+        if name is None:
+            self.name = StanceCorpus._extract_label(self._paths[0])
+        else:
+            self.name = name
+
+    @staticmethod
+    def _extract_label(file_path):
+        return os.path.basename(file_path).split(".")[0]
+
+    @staticmethod
+    def make_corpus(corp_like: CorpusLike):
+        if isinstance(corp_like, StanceCorpus):
+            return corp_like
+        elif isinstance(corp_like, list):
+            return StanceCorpus(corp_like)
+        else:
+            return StanceCorpus([corp_like])
 
     def _apply_transforms(self, sample: Sample):
         if self._transforms:
@@ -65,19 +75,12 @@ class StanceCorpus:
                 yield row['Mapped Target']
 
     def __iter__(self):
-        sample_iter = self._parse_fn(self._path)
-        if self._target_preds_path is not None:
-            target_iter = StanceCorpus._iter_targets(self._target_preds_path)
-            def combined_iter():
-                for sample, target in zip(sample_iter, target_iter):
-                    sample.target_pred = target
-                    yield sample
-            raw_iter = combined_iter()
-            desc = f"Parsing {self._path} and {self._target_preds_path}"
-        else:
-            raw_iter = sample_iter
-            desc = f"Parsing {self._path}"
-        trans_iter = map(self._apply_transforms, raw_iter)
-        if self._limit_n is not None:
-            trans_iter = islice(trans_iter, self._limit_n)
-        return iter(tqdm(trans_iter, desc=desc))
+        corp_iterables = []
+        for p in self._paths:
+            trans_iter = map(self._apply_transforms, self._parse_fn(p))
+            if self._limit_n is not None:
+                trans_iter = islice(trans_iter, self._limit_n)
+            corp_iterables.append(tqdm(trans_iter, desc=f"Parsing {p}"))
+        return chain(*corp_iterables)
+
+CorpusLike = StanceCorpus | pathlib.Path | List[pathlib.Path]

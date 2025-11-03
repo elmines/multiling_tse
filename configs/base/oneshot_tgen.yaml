@@ -1,4 +1,4 @@
-seed_everything: 0 # His seeds were 0,112,343
+seed_everything: 0 
 trainer:
   logger:
     class_path: lightning.pytorch.loggers.CSVLogger
@@ -33,18 +33,18 @@ trainer:
 model:
   class_path: mtse.modules.TGOneShotModule
   init_args:
-    targets_path: static/li_merged_targets.txt
+    targets_path: static/classic_merged_targets.txt
     stance_type: tri
 
 data:
-  class_path: mtse.data.MixedTrainingDataModule
+  class_path: mtse.data.OneshotTgenDataModule
   init_args:
     batch_size: 32
 
-    keyword_corpus:
+    keyword_train_corpus:
       class_path: mtse.data.StanceCorpus
       init_args:
-        path: data/kptimes/train.jsonl
+        patts: [data/kptimes/train.jsonl]
         corpus_type: kptimes
         transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
 
@@ -52,15 +52,15 @@ data:
         # so we roughly match that here
         limit_n: 51000
 
-    stance_val_corpora:
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_val_all_onecol.csv
-          corpus_type: li
-          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
-    stance_train_corpora:
-      - class_path: mtse.data.StanceCorpus
-        init_args:
-          path: data/classic_tse/raw_train_all_onecol.csv
-          corpus_type: li
-          transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
+    stance_val_corpus:
+      class_path: mtse.data.StanceCorpus
+      init_args:
+        patts: [data/classic/*.val.csv]
+        transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
+
+    stance_train_corpus:
+      class_path: mtse.data.StanceCorpus
+      init_args:
+        patts: [data/classic/*.train.csv]
+        transforms: [ {"class_path": "mtse.data.ClassicPreprocess"} ]
+
