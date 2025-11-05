@@ -131,7 +131,7 @@ then
     python -m mtse test \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
-        --data configs/data/classic_tse_test.yaml \
+        --data configs/data/classic_stance_test.yaml \
         --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
         --trainer.logger.version seed${seed}_stance_test
