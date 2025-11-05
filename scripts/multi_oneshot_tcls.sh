@@ -9,8 +9,15 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 seed=${1:-0}
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
+WITH_SE_BUG=${WITH_SE_BUG:-0}
 
-if [ $SCRUB_TARGETS -eq 1 ]
+if [ $WITH_SE_BUG -eq 1 -a $SCRUB_TARGETS -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiOneshotTClsWithBugWithScrub
+elif [ $WITH_SE_BUG -eq 1 ]
+then
+    DEFAULT_EXP_NAME=MultiOneshotTClsWithBug
+elif [ $SCRUB_TARGETS -eq 1 ]
 then
     DEFAULT_EXP_NAME=MultiOneshotTClsWithScrub
 else
@@ -28,6 +35,10 @@ if [ $SCRUB_TARGETS -eq 1 ]
 then
     TRANSFORM_ARGS="$TRANSFORM_ARGS --data.transforms.scrub_targets true"
 fi
+if [ $WITH_SE_BUG -eq 1 ]
+then
+    TRANSFORM_ARGS="$TRANSFORM_ARGS --data.transforms.remove_se_hashtag false"
+fi
 
 if [ $FIT -eq 1 ]
 then
@@ -42,6 +53,22 @@ else
     echo "Skipping fitting"
 fi
 
+if [ $STANCE_TEST -eq 1 ]
+then
+        # We override the existing callback because we're not testing TSE this time
+        python -m mtse test \
+            -c $LOGS_ROOT/seed${seed}/config.yaml \
+            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
+            --trainer.logger.version seed${seed}_stance_test \
+            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt \
+            --data configs/data/classic_stance_test.yaml \
+            --data.transforms "[{class_path: mtse.data.ClassicPreprocess}]" \
+            $( [ $WITH_SE_BUG -eq 1 ] && echo "--data.transforms.remove_se_hashtag false" || echo "")
+            # No target scrubbing when doing pure stance testing
+else
+    echo "Skipping stance testing"
+fi
+
 if [ $TARGET_TEST -eq 1 ]
 then
         python -m mtse test \
@@ -52,20 +79,6 @@ then
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt
 else
     echo "Skipping target testing"
-fi
-
-if [ $STANCE_TEST -eq 1 ]
-then
-        # We override the existing callback because we're not testing TSE this time
-        python -m mtse test \
-            -c $LOGS_ROOT/seed${seed}/config.yaml \
-            --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
-            --trainer.logger.version seed${seed}_stance_test \
-            --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt \
-            --data configs/data/classic_stance_test.yaml
-            # No transforms here--only scrub targets for that auxiliary objective training
-else
-    echo "Skipping stance testing"
 fi
 
 if [ $TSE_TEST -eq 1 ]

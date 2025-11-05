@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
+import json
 import sys
 import os
-import stat
 from itertools import product
+from common import write_code
 
-# Can't hard-code your email in here--don't want that published on GitHub
-user_email = sys.argv[1]
-repo_dir = os.path.join( os.path.abspath(os.path.dirname(sys.argv[0])), "..")
+this_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+repo_dir = os.path.join(this_dir, "..")
+out_dir = os.path.join(this_dir, "scripts_generate_multi_oneshot_tcls")
+os.makedirs(out_dir, exist_ok=True)
 
+with open(os.path.join(this_dir, 'secret.json')) as r:
+    secrets = json.load(r)
+user_email = secrets["email"]
 
 sbatch_template = """#!/bin/bash
 
@@ -40,19 +45,17 @@ ALL=1 {command}
 variants = [
     ("", ""),
     ("_with_scrub", "SCRUB_TARGETS=1"),
+    ("_with_bug", "WITH_SE_BUG=1"),
+    ("_with_bug_with_scrub", "WITH_SE_BUG=1 SCRUB_TARGETS=1"),
 ]
 
 for seed, variant  in product(range(3), variants):
     suffix, var_settings = variant
     name = f"multi_oneshot_tcls_seed{seed}{suffix}"
     command = f"{var_settings} scripts/multi_oneshot_tcls.sh {seed}"
-    bash_code = sbatch_template.format(name=name,
+    write_code(os.path.join(out_dir, f"{name}.sh"),
+        sbatch_template.format(name=name,
                                        command=command,
                                        user_email=user_email,
                                        repo_dir=repo_dir)
-    out_path = f"{name}.sh"
-    with open(out_path, 'w') as w:
-        w.write(bash_code)
-    # All this just to do the equivalent of `chmod +x` ...
-    os.chmod(out_path, os.stat(out_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
+    )
