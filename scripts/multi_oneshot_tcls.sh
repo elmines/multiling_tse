@@ -23,21 +23,21 @@ LOGS_ROOT=$SAVE_DIR/$EXP_NAME
 
 LOGGER_ARGS="--trainer.logger.save_dir $SAVE_DIR --trainer.logger.name $EXP_NAME"
 
+TRANSFORM_ARGS=""
+if [ $SCRUB_TARGETS -eq 1 ]
+then
+    TRANSFORM_ARGS="$TRANSFORM_ARGS --data.transforms.scrub_targets true"
+fi
 
 if [ $FIT -eq 1 ]
 then
-    EXTRA_ARGS=""
-    if [ $SCRUB_TARGETS -eq 1 ]
-    then
-        EXTRA_ARGS="$EXTRA_ARGS --data.transforms.scrub_targets true"
-    fi
 
         python -m mtse fit \
             -c configs/base/oneshot_tcls.yaml \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed} \
             --seed_everything $seed \
-            $EXTRA_ARGS
+            $TRANSFORM_ARGS
 else
     echo "Skipping fitting"
 fi
@@ -62,7 +62,8 @@ then
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt \
-            $EXTRA_ARGS
+            --data configs/data/classic_stance_test.yaml
+            # No transforms here--only scrub targets for that auxiliary objective training
 else
     echo "Skipping stance testing"
 fi
