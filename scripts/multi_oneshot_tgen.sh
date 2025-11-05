@@ -79,7 +79,7 @@ then
 fi
 if [ $WITH_SE_BUG -eq 1 ]
 then
-    TRANSFORM_ARGS="$TRANSFORM_ARGS --data.transforms.remove_se_hashtag false"
+    TRANSFORM_ARGS+=(--data.transforms.remove_se_hashtag 'false')
 fi
 
 if [ $TARGET_TEST -eq 1 ]

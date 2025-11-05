@@ -25,7 +25,7 @@ target_stage_template = """#!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=24gb
+#SBATCH --mem=16gb
 #SBATCH --mail-user={user_email}
 #SBATCH --mail-type=FAIL,END
 #SBATCH --output=%x.%j.out
@@ -47,9 +47,9 @@ ALL=1 {command}
 
 variants = [
     ("", "", "4:00:00"),
-    ("_with_scrub", "SCRUB_TARGETS=1 FT_EMBED=0", "2:00:00"),
-    ("_with_bug",            "WITH_SE_BUG=1 FT_EMBED=0", "2:00:00"),
-    ("_with_bug_with_scrub", "WITH_SE_BUG=1 SCRUB_TARGETS=1 FT_EMBED=0", "2:00:00")
+    ("_with_scrub", "SCRUB_TARGETS=1 FT_EMBED=0", "1:30:00"),
+    ("_with_bug",            "WITH_SE_BUG=1 FT_EMBED=0", "1:30:00"),
+    ("_with_bug_with_scrub", "WITH_SE_BUG=1 SCRUB_TARGETS=1 FT_EMBED=0", "1:30:00")
 ]
 
 for seed, variant in product(range(3), variants):
