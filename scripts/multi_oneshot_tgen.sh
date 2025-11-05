@@ -55,21 +55,23 @@ else
 fi
 
 train_dir=$LOGS_ROOT/seed${seed}${exp_suffix}
-data_args=(--data configs/data/classic_tse_test.yaml --data.transforms "[{class_path: mtse.data.ClassicPreprocess}]")
+
+TRANSFORM_ARGS=(--data.transforms "[{class_path: mtse.data.ClassicPreprocess}]")
 if [ $SCRUB_TARGETS -eq 1 ]
 then
-    data_args+=(--data.transforms.scrub_targets 'true')
+    TRANSFORM_ARGS+=(--data.transforms.scrub_targets 'true')
 fi
 
 if [ $TARGET_TEST -eq 1 ]
 then
         python -m mtse test \
             -c $train_dir/config.yaml \
-            "${data_args[@]}" \
+            --data configs/data/classic_tse_test.yaml \
+            "${TRANSFORM_ARGS[@]}" \
             --trainer.logger.version seed${seed}_target_test${exp_suffix} \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
             --trainer.callbacks.n_classes 19 \
-            --ckpt_path $train_dir/checkpoints/*ckpt 
+            --ckpt_path $train_dir/checkpoints/*ckpt
 else
     echo "Skipping target testing"
 fi
@@ -79,7 +81,7 @@ then
         # We override the existing callback because we're not testing TSE this time
         python -m mtse test \
             -c $train_dir/config.yaml \
-            "${data_args[@]}" \
+            --data configs/data/classic_stance_test.yaml \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test${exp_suffix} \
             --ckpt_path $train_dir/checkpoints/*ckpt 
@@ -91,7 +93,8 @@ if [ $TSE_TEST -eq 1 ]
 then
         python -m mtse test \
             -c $train_dir/config.yaml \
-            "${data_args[@]}" \
+            --data configs/data/classic_tse_test.yaml \
+            "${TRANSFORM_ARGS[@]}" \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --trainer.logger.version seed${seed}_tse_test${exp_suffix}
 else
@@ -102,7 +105,8 @@ if [ $GT_TSE_TEST -eq 1 ]
 then
         python -m mtse test \
             -c $train_dir/config.yaml \
-            "${data_args[@]}" \
+            --data configs/data/classic_tse_test.yaml \
+            "${TRANSFORM_ARGS[@]}" \
             --ckpt_path $train_dir/checkpoints/*ckpt \
             --trainer.logger.version seed${seed}_tse_test_gt${exp_suffix} \
             --model.use_target_gt true 
