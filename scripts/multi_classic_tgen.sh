@@ -122,6 +122,8 @@ then
         --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
         --trainer.logger.version seed${seed}_stance_test$exp_suffix
+    # TODO: Those --data lines do override the transform logic we had in config.yaml,
+    # but in the future wanna make that more explicit here
 else
     echo "Skipping stance testing"
 fi
