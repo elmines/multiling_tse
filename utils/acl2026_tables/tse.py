@@ -50,9 +50,9 @@ tc_entries = [
     ("MultiLiTClsWithScrub/seed*tse_test/metrics.csv", f"{hspace}No Hashtag"),
     ("MultiLiTClsWithBug/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
     ("MultiLiTCls/seed*tse_test/metrics.csv", f"{hspace}No Hashtag + No Scrub"),
-    ("MultiOneshotTClsWithBugWithScrub/seed*tse_test/metrics.csv", "One-shot (Ours)"),
+    ("MultiOneshotTClsWithBugWithScrub/seed*tse_test/metrics.csv", "One-shot"),
     ("MultiOneshotTClsWithScrub/seed*tse_test/metrics.csv", f"{hspace}No Hashtag"),
-    # ("MultiOneshotTClsWithBug/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
+    ("MultiOneshotTClsWithBug/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
     ("MultiOneshotTCls/seed*tse_test/metrics.csv", f"{hspace}No Hashtag + No Scrub")
 ]
 for patt, name in tc_entries:
@@ -65,7 +65,7 @@ rowprint(r"Two-shot \cite{li-etal-2023-new}", "38.92", "79.49")
 tg_entries = [
     ("MultiClassicTgen/seed*tse_test_with_scrub/metrics.csv", "Two-shot (Ours)"),
     ("MultiClassicTgen/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
-    ("MultiOneshotTgen/seed*tse_test_with_scrub/metrics.csv", "One-shot (Ours)"),
+    ("MultiOneshotTgen/seed*tse_test_with_scrub/metrics.csv", "One-shot"),
     ("MultiOneshotTgen/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
 ]
 for patt, name in tg_entries:
