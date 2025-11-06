@@ -3,6 +3,8 @@ lightning_logs/
 *.ipynb
 *.out
 *.err
+# Anything called run.sh is for my own debugging convenience
+run.sh
 
 # Gensim artifacts
 *.model
