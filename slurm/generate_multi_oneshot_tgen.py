@@ -42,7 +42,7 @@ source "/apps/conda/25.3.1/etc/profile.d/conda.sh"
 git log -1
 conda activate ./venv
 
-STANCE_TEST=1 {command}
+ALL=1 {command}
 """
 
 variants = [
