@@ -62,9 +62,9 @@ then
             --trainer.logger.version seed${seed}_stance_test \
             --ckpt_path $LOGS_ROOT/seed${seed}/checkpoints/*ckpt \
             --data configs/data/classic_stance_test.yaml \
-            --data.transforms "[{class_path: mtse.data.ClassicPreprocess}]" \
-            $( [ $WITH_SE_BUG -eq 1 ] && echo "--data.transforms.remove_se_hashtag false" || echo "")
+            --data.transforms "[{class_path: mtse.data.ClassicPreprocess, init_args: { scrub_targets: false , remove_se_hashtag: true } }]"
             # No target scrubbing when doing pure stance testing
+            # And since the TSE authors scrubbed the hashtag in stance testing, so will we here
 else
     echo "Skipping stance testing"
 fi
