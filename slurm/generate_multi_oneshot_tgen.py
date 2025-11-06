@@ -42,14 +42,12 @@ source "/apps/conda/25.3.1/etc/profile.d/conda.sh"
 git log -1
 conda activate ./venv
 
-ALL=1 {command}
+STANCE_TEST=1 {command}
 """
 
 variants = [
     ("", "", "4:00:00"),
     ("_with_scrub", "SCRUB_TARGETS=1 FT_EMBED=0", "1:30:00"),
-    ("_with_bug",            "WITH_SE_BUG=1 FT_EMBED=0", "1:30:00"),
-    ("_with_bug_with_scrub", "WITH_SE_BUG=1 SCRUB_TARGETS=1 FT_EMBED=0", "1:30:00")
 ]
 
 for seed, variant in product(range(3), variants):

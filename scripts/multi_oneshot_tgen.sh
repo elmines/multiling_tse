@@ -11,25 +11,10 @@ GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 seed=${1:-0}
 
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
-WITH_SE_BUG=${WITH_SE_BUG:-0}
 if [ $SCRUB_TARGETS -eq 1 ]
 then
     exp_suffix="_with_scrub"
 fi
-
-if [ $WITH_SE_BUG -eq 1 -a $SCRUB_TARGETS -eq 1 ]
-then
-    exp_suffix="_with_bug_with_scrub"
-elif [ $WITH_SE_BUG -eq 1 ]
-then
-    exp_suffix="_with_bug"
-elif [ $SCRUB_TARGETS -eq 1 ]
-then
-    exp_suffix="_with_scrub"
-else
-    exp_suffix=""
-fi
-
 
 SAVE_DIR=${SAVE_DIR:-./lightning_logs}
 EXP_NAME=${EXP_NAME:-MultiOneshotTgen}
@@ -61,8 +46,7 @@ then
         python -m mtse fit \
             -c configs/base/oneshot_tgen.yaml \
             --model.embeddings_path $(embed_path $seed) \
-            $( [ $SCRUB_TARGETS -eq 1 ] && echo --data.stance_train_corpus.transforms.scrub_targets     'true' --data.stance_val_corpus.transforms.scrub_targets     'true' ) \
-            $( [ $WITH_SE_BUG   -eq 1 ] && echo --data.stance_train_corpus.transforms.remove_se_hashtag 'true' --data.stance_val_corpus.transforms.remove_se_hashtag 'true') \
+            $( [ $SCRUB_TARGETS -eq 1 ] && echo --data.stance_val_corpus.transforms.scrub_targets 'true' ) \
             $LOGGER_ARGS \
             --trainer.logger.version seed${seed}${exp_suffix} \
             --seed_everything $seed
@@ -76,10 +60,6 @@ TRANSFORM_ARGS=(--data.transforms "[{class_path: mtse.data.ClassicPreprocess}]")
 if [ $SCRUB_TARGETS -eq 1 ]
 then
     TRANSFORM_ARGS+=(--data.transforms.scrub_targets 'true')
-fi
-if [ $WITH_SE_BUG -eq 1 ]
-then
-    TRANSFORM_ARGS+=(--data.transforms.remove_se_hashtag 'false')
 fi
 
 if [ $TARGET_TEST -eq 1 ]
@@ -102,10 +82,12 @@ then
         python -m mtse test \
             -c $train_dir/config.yaml \
             --data configs/data/classic_stance_test.yaml \
-            $( [ $WITH_SE_BUG   -eq 1 ] && echo --data.transforms.remove_se_hashtag 'true') \
             --trainer.callbacks mtse.callbacks.StanceClassificationStatsCallback \
             --trainer.logger.version seed${seed}_stance_test${exp_suffix} \
-            --ckpt_path $train_dir/checkpoints/*ckpt 
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --data.transforms "[{class_path: mtse.data.ClassicPreprocess, init_args: { scrub_targets: false , remove_se_hashtag: true } }]"
+            # No target scrubbing when doing pure stance testing
+            # And since the TSE authors scrubbed the hashtag in stance testing, so will we here
 else
     echo "Skipping stance testing"
 fi
