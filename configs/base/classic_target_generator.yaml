@@ -21,7 +21,7 @@ trainer:
         auto_insert_metric_name: false
 
   val_check_interval: 500
-  max_time: "00:00:05:00"
+  max_time: "00:24:00:00"
 
 model:
   # We only train the target generation portion
