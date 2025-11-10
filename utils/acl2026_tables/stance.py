@@ -58,23 +58,23 @@ head_matter()
 # li_met_vals = ["70.62", "64.85", "74.42", "81.67", "72.89", "73.01"]
 li_met_vals = ["72.89", "73.01"]
 
-rowprint(r"Two-shot \cite{li-etal-2023-new}", *li_met_vals)
+rowprint(r"Two-Pass \cite{li-etal-2023-new}", *li_met_vals)
 tc_entries = [
-    ("MultiLiTClsWithBugWithScrub/seed*stance_test/metrics.csv", "Two-shot (Ours)"),
-    # ("MultiLiTClsWithScrub/seed*stance_test/metrics.csv", f"{hspace}No Hashtag"),
-    # ("MultiLiTClsWithBug/seed*stance_test/metrics.csv", f"{hspace}No Scrub"),
-    # ("MultiLiTCls/seed*stance_test/metrics.csv", f"{hspace}No Hashtag + No Scrub"),
+    ("MultiLiTClsWithBugWithScrub/seed*stance_test/metrics.csv", "Two-Pass (Ours)"),
+    ("MultiLiTClsWithScrub/seed*stance_test/metrics.csv", f"{hspace}No Hashtag"),
+    ("MultiLiTClsWithBug/seed*stance_test/metrics.csv", f"{hspace}No Scrub"),
+    ("MultiLiTCls/seed*stance_test/metrics.csv", f"{hspace}No Hashtag + No Scrub"),
 
-    # ("MultiClassicTgen/seed*stance_test_with_scrub/metrics.csv", "Two-shot TG (Ours)"),
+    # ("MultiClassicTgen/seed*stance_test_with_scrub/metrics.csv", "Two-Pass TG (Ours)"),
     # ("MultiClassicTgen/seed*stance_test/metrics.csv", f"{hspace}No Scrub"),
 
-    ("MultiOneshotTClsWithBugWithScrub/seed*stance_test/metrics.csv", "One-shot TC"),
+    ("MultiOneshotTClsWithBugWithScrub/seed*stance_test/metrics.csv", "One-Pass TC"),
     ("MultiOneshotTClsWithScrub/seed*stance_test/metrics.csv", f"{hspace}No Hashtag"),
     ("MultiOneshotTClsWithBug/seed*stance_test/metrics.csv", f"{hspace}No Scrub"),
     ("MultiOneshotTCls/seed*stance_test/metrics.csv", f"{hspace}No Hashtag + No Scrub"),
-    ("MultiOneshotTgen/seed*stance_test_with_scrub/metrics.csv", "One-shot TG"),
+    ("MultiOneshotTgen/seed*stance_test_with_scrub/metrics.csv", "One-Pass TG"),
     ("MultiOneshotTgen/seed*stance_test/metrics.csv", f"{hspace}No Scrub"),
 ]
 for patt, name in tc_entries:
     rowprint(name, *get_means(patt))
-tail_matter("tab:stance_res", r"Stance \Favg for each algorithm.")
+tail_matter("tab:stance_res", r"Stance \Favg\ scores one two-pass and one-pass models. For two-pass models, stance results are the same in both TC and TG scenarios.")

@@ -44,30 +44,29 @@ def get_means(pattern):
 hspace = r"\hspace{5pt}+"
 
 head_matter()
-rowprint(r"Two-shot \cite{li-etal-2023-new}", "53.30", "75.28")
+rowprint(r"Two-Pass TC \cite{li-etal-2023-new}", "53.30", "75.28")
 tc_entries = [
-    ("MultiLiTClsWithBugWithScrub/seed*tse_test/metrics.csv", "Two-shot (Ours)"),
+    # Target classification
+    ("MultiLiTClsWithBugWithScrub/seed*tse_test/metrics.csv", "Two-Pass TC (Ours)"),
     ("MultiLiTClsWithScrub/seed*tse_test/metrics.csv", f"{hspace}No Hashtag"),
     ("MultiLiTClsWithBug/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
     ("MultiLiTCls/seed*tse_test/metrics.csv", f"{hspace}No Hashtag + No Scrub"),
-    ("MultiOneshotTClsWithBugWithScrub/seed*tse_test/metrics.csv", "One-shot"),
+    ("MultiOneshotTClsWithBugWithScrub/seed*tse_test/metrics.csv", "One-Pass TC"),
     ("MultiOneshotTClsWithScrub/seed*tse_test/metrics.csv", f"{hspace}No Hashtag"),
     ("MultiOneshotTClsWithBug/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
     ("MultiOneshotTCls/seed*tse_test/metrics.csv", f"{hspace}No Hashtag + No Scrub")
 ]
 for patt, name in tc_entries:
     rowprint(name, *get_means(patt))
-tail_matter("tab:tc_tse", r"TSE F1 Scores for Target Classification (TC) scenario, using both Predicted and GT targets.")
-
+print_rule()
 ## Target Generation
-head_matter()
-rowprint(r"Two-shot \cite{li-etal-2023-new}", "38.92", "79.49")
+rowprint(r"Two-Pass TG \cite{li-etal-2023-new}", "38.92", "79.49")
 tg_entries = [
-    ("MultiClassicTgen/seed*tse_test_with_scrub/metrics.csv", "Two-shot (Ours)"),
+    ("MultiClassicTgen/seed*tse_test_with_scrub/metrics.csv", "Two-Pass TG (Ours)"),
     ("MultiClassicTgen/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
-    ("MultiOneshotTgen/seed*tse_test_with_scrub/metrics.csv", "One-shot"),
+    ("MultiOneshotTgen/seed*tse_test_with_scrub/metrics.csv", "One-Pass TG"),
     ("MultiOneshotTgen/seed*tse_test/metrics.csv", f"{hspace}No Scrub"),
 ]
 for patt, name in tg_entries:
     rowprint(name, *get_means(patt))
-tail_matter("tab:tg_tse", r"TSE F1 Scores for Target Generation (TG) scenario, using both Predicted and GT targets.")
+tail_matter("tab:tse_res", r"TSE F1 Scores, using both Predicted and GT targets.")
