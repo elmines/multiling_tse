@@ -8,6 +8,9 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
+# Never run by default--something we only do for viz/debugging
+PRED=${PRED:-0}
+
 seed=${1:-0}
 
 SCRUB_TARGETS=${SCRUB_TARGETS:-0}
@@ -115,4 +118,27 @@ then
             --model.use_target_gt true 
 else
     echo "Skipping gt tse testing"
+fi
+
+if [ $PRED -eq 1 ]
+then
+        version=seed${seed}_pred${exp_suffix}
+        out_dir=$LOGS_ROOT/$version
+        python -m mtse predict \
+            -c $train_dir/config.yaml \
+            --data configs/data/classic_tse_test.yaml \
+            "${TRANSFORM_ARGS[@]}" \
+            --ckpt_path $train_dir/checkpoints/*ckpt \
+            --return_prediction false \
+            --model.map_targets false \
+            --trainer.callbacks "[]" \
+            --trainer.callbacks+=mtse.callbacks.StancePredictionWriter \
+            --trainer.callbacks.out_dir $out_dir \
+            --trainer.callbacks+=mtse.callbacks.TargetPredictionWriter \
+            --trainer.callbacks.out_dir $out_dir \
+            --trainer.callbacks.embeddings_path $(embed_path $seed) \
+            --trainer.callbacks.targets_path static/classic_merged_targets.txt \
+            --trainer.logger.version $version
+else
+    echo "Skipping tse testing"
 fi

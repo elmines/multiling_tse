@@ -141,7 +141,11 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         gen_rows = None
         map_rows = None
-        if not hasattr(prediction, "target_preds"):
+        if getattr(prediction, "target_preds", None) is None:
+            if hasattr(prediction, "generate_output"):
+                prediction = prediction.generate_output
+                assert isinstance(prediction, GenerateBeamEncoderDecoderOutput)
+
             if isinstance(prediction, GenerateBeamEncoderDecoderOutput):
                 all_texts, sample_inds = detokenize_generated_targets(prediction, pl_module.tokenizer)
                 zerobased_inds = torch.tensor(sample_inds, device=pl_module.device)

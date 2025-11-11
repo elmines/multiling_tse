@@ -1,11 +1,14 @@
 # STL
 from __future__ import annotations
+from functools import reduce
 import pathlib
 import dataclasses
 import re
+from typing import Optional
 # 3rd Party
 import torch
 from transformers import PreTrainedTokenizerFast, BartForConditionalGeneration, BartTokenizerFast
+from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from gensim.models import FastText
 # Local 
 from .mixins import TargetMixin
@@ -23,8 +26,9 @@ class TGOneShotModule(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class InferOutput:
-        target_preds: torch.Tensor
+        generate_output: GenerateBeamEncoderDecoderOutput
         stance_preds: torch.Tensor
+        target_preds: Optional[torch.Tensor] = None
 
     DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
@@ -50,6 +54,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                  fixed_lm: bool = False,
                  pretrained_model: str = DEFAULT_PRETRAINED_MODEL,
                  use_target_gt: bool = False,
+                 map_targets: bool = True,
                  **parent_kwargs):
         BaseModule.__init__(self, **parent_kwargs)
         TargetMixin.__init__(self, targets_path)
@@ -61,6 +66,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
         self.max_length = max_length
         self.fixed_lm = fixed_lm
         self.use_target_gt = use_target_gt
+        self.map_targets = map_targets
 
         self.bart = BartForConditionalGeneration.from_pretrained(pretrained_model)
         self.tokenizer: PreTrainedTokenizerFast = BartTokenizerFast.from_pretrained(pretrained_model, normalization=True)
@@ -179,10 +185,11 @@ class TGOneShotModule(BaseModule, TargetMixin):
 
         stance_logits = self.stance_classifier(stance_feature_vec)
         stance_preds = torch.argmax(stance_logits, axis=-1)
+        target_preds = None
 
         if self.use_target_gt:
             target_preds = batch['target']
-        else:
+        elif self.map_targets:
             all_texts, sample_inds = detokenize_generated_targets(generate_output, self.tokenizer)
             sample_inds = torch.tensor(sample_inds, device=self.device)
             target_preds, _ = map_targets(
@@ -193,6 +200,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                 self.related_threshold
             )
         return TGOneShotModule.InferOutput(
+            generate_output=generate_output,
             target_preds=target_preds,
             stance_preds=stance_preds
         )
@@ -212,6 +220,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
                                       max_length=self.max_length)
             encoding['stance'] = torch.tensor([sample.stance])
             encoding['stype'] = torch.tensor(sample.sample_type)
+            encoding['source_path'] = [sample.source_path]
             if sample.sample_type == SampleType.SD:
                 encoding['target'] = torch.tensor(
                     [self.module.targets.index(sample.target_label)],
@@ -226,6 +235,7 @@ class TGOneShotModule(BaseModule, TargetMixin):
             first_type = samples[0]['stype']
             assert all(s['stype'] == first_type for s in samples)
             encoding['stype'] = first_type
+            encoding['source_path'] = reduce(lambda accum, el: accum + el, map(lambda x: x['source_path'], samples))
             return encoding
 
 __all__ = ["TGOneShotModule"]
