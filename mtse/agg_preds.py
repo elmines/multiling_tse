@@ -19,12 +19,14 @@ def main(raw_args=None):
     joined = data_df
     if args.gen:
         gen_df = pd.read_csv(args.gen, usecols=["Sample", "Generated Target"], index_col=None)
+        gen_df['Generated Target'] = gen_df['Generated Target'].apply(str) # Sometimes have a bad prediction that's a number
         gen_df = gen_df.groupby("Sample")['Generated Target'].apply(TARGET_DELIMITER.join)
         gen_df.name = "TargetCandidates"
         joined = joined.join(gen_df, how='inner')
     if args.pred:
         pred_df = pd.read_csv(args.pred, index_col='Sample', usecols=["Sample", "Generated Target", "Mapped Target"])
         pred_df.rename(columns={"Generated Target": "GeneratedTarget", "Mapped Target": "MappedTarget"}, inplace=True)
+        pred_df['GeneratedTarget'] = pred_df['GeneratedTarget'].apply(str) # Sometimes have a bad prediction that's a number
         joined = joined.join(pred_df, how='inner')
     if args.stance:
         stance_df = pd.read_csv(args.stance, index_col='Sample', usecols=["Sample", "StancePred"])
