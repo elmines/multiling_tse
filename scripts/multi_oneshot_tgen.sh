@@ -139,6 +139,17 @@ then
             --trainer.callbacks.embeddings_path $(embed_path $seed) \
             --trainer.callbacks.targets_path static/classic_merged_targets.txt \
             --trainer.logger.version $version
+
+        for data_file in data/classic/*.test.csv
+        do
+            f_basename=$(basename $data_file)
+            python -m mtse.agg_preds \
+                -i $data_file \
+                -o $out_dir/$f_basename.full.csv \
+                --gen $out_dir/$f_basename.target_gens.csv \
+                --pred $out_dir/$f_basename.target_preds.csv \
+                --stance $out_dir/$f_basename.stance_preds.csv
+        done
 else
     echo "Skipping tse testing"
 fi
