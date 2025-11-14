@@ -26,9 +26,9 @@ class TGOneShotModule(BaseModule, TargetMixin):
 
     @dataclasses.dataclass
     class InferOutput:
-        generate_output: GenerateBeamEncoderDecoderOutput
         stance_preds: torch.Tensor
         target_preds: Optional[torch.Tensor] = None
+        generate_output: Optional[GenerateBeamEncoderDecoderOutput] = None
 
     DEFAULT_PRETRAINED_MODEL = "facebook/bart-base"
 
@@ -150,55 +150,71 @@ class TGOneShotModule(BaseModule, TargetMixin):
         return target_features
 
     def _infer_step(self, batch):
-        generate_output = self.bart.generate(batch['input_ids'],
-                                             return_dict_in_generate=True,
-                                             output_hidden_states=True,
-                                             max_length=self.max_length,
-                                             num_beams=3)
 
-        # (beam_width * batch_size, seq_length, hidden_size)
-        allbeam_states = torch.concatenate(
-            [tok_states[-1] for tok_states in generate_output.decoder_hidden_states],
-        dim=-2)
-
-        # Have to duplicate that last dimension for .gather to work
-        # (batch_size, seq_length, hidden_size)
-
-        beam_indices = generate_output.beam_indices
-        # .generate returns a -1 beam index for padding tokens
-        # torch.gather does not accept negative indices
-        # We arbitrarily replace them with 0, because ultimately those output token positions
-        # will get ignored by _pool_decoder_states
-        beam_indices = torch.where(beam_indices < 0, 0, beam_indices)
-        beam_indices = torch.unsqueeze(beam_indices, -1).expand(-1, -1, allbeam_states.shape[-1])
-        beam_indices = beam_indices.to(torch.int64)
-
-        decoder_hidden_states = torch.gather(allbeam_states, 0, beam_indices)
-
-        output_ids = generate_output.sequences
-        # The "1:" is to chop off the BOS token that doesn't have a hidden state
-        target_features = self._pool_decoder_states(decoder_hidden_states, output_ids[:, 1:] != self.tokenizer.pad_token_id)
-
-        stance_feature_vec = self._forward_att(generate_output.encoder_hidden_states[-1],
-                                                       target_features,
-                                                       batch['attention_mask'])
-
-        stance_logits = self.stance_classifier(stance_feature_vec)
-        stance_preds = torch.argmax(stance_logits, axis=-1)
         target_preds = None
+        generate_output = None
 
         if self.use_target_gt:
-            target_preds = batch['target']
-        elif self.map_targets:
-            all_texts, sample_inds = detokenize_generated_targets(generate_output, self.tokenizer)
-            sample_inds = torch.tensor(sample_inds, device=self.device)
-            target_preds, _ = map_targets(
-                self.fast_text,
-                self.target_embeddings,
-                all_texts,
-                sample_inds,
-                self.related_threshold
-            )
+            target_preds = batch['target'] 
+            bart_kwargs = {k:v for k,v in batch.items() if k not in TGOneShotModule.EXCLUDE_KWARGS}
+            # Use the same teacher-forcing mechanism as in training
+            bart_output = self.bart(**bart_kwargs, output_hidden_states=True)
+            encoder_hidden_states = bart_output.encoder_hidden_states[-1]
+            decoder_hidden_states = bart_output.decoder_hidden_states[-1]
+            not_padding = batch['labels'] != self.tokenizer.pad_token_id
+        else:
+            generate_output = self.bart.generate(batch['input_ids'],
+                                                 return_dict_in_generate=True,
+                                                 output_hidden_states=True,
+                                                 max_length=self.max_length,
+                                                 num_beams=3)
+            if self.map_targets:
+                all_texts, sample_inds = detokenize_generated_targets(generate_output, self.tokenizer)
+                sample_inds = torch.tensor(sample_inds, device=self.device)
+                target_preds, _ = map_targets(
+                    self.fast_text,
+                    self.target_embeddings,
+                    all_texts,
+                    sample_inds,
+                    self.related_threshold
+                )
+
+            encoder_hidden_states = generate_output.encoder_hidden_states[-1]
+            decoder_hidden_states = generate_output.decoder_hidden_states
+
+
+            # (beam_width * batch_size, seq_length, hidden_size)
+            allbeam_states = torch.concatenate(
+                [tok_states[-1] for tok_states in generate_output.decoder_hidden_states],
+            dim=-2)
+
+            # Have to duplicate that last dimension for .gather to work
+            # (batch_size, seq_length, hidden_size)
+
+            beam_indices = generate_output.beam_indices
+            # .generate returns a -1 beam index for padding tokens
+            # torch.gather does not accept negative indices
+            # We arbitrarily replace them with 0, because ultimately those output token positions
+            # will get ignored by _pool_decoder_states
+            beam_indices = torch.where(beam_indices < 0, 0, beam_indices)
+            beam_indices = torch.unsqueeze(beam_indices, -1).expand(-1, -1, allbeam_states.shape[-1])
+            beam_indices = beam_indices.to(torch.int64)
+
+            decoder_hidden_states = torch.gather(allbeam_states, 0, beam_indices)
+            output_ids = generate_output.sequences
+            not_padding = output_ids[:, 1:] != self.tokenizer.pad_token_id
+
+
+        # The "1:" is to chop off the BOS token that doesn't have a hidden state
+        target_features = self._pool_decoder_states(decoder_hidden_states, not_padding)
+
+        stance_feature_vec = self._forward_att(encoder_hidden_states,
+                                                       target_features,
+                                                       batch['attention_mask'])
+        stance_logits = self.stance_classifier(stance_feature_vec)
+        stance_preds = torch.argmax(stance_logits, axis=-1)
+
+
         return TGOneShotModule.InferOutput(
             generate_output=generate_output,
             target_preds=target_preds,
