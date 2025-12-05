@@ -117,7 +117,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         )
 
     @staticmethod
-    def __add_langs(rows, lang_strs):
+    def __add_langs(rows, lang_ids):
         last_sid = None
         i = -1
         for row in rows:
@@ -125,7 +125,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             if sid != last_sid:
                 i += 1
                 last_sid = sid
-            row['Lang'] = lang_strs[i]
+            row['Lang'] = ID_TO_LANG[lang_ids[i]]
 
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
         if self.target_level <= TargetLevel.none:
@@ -214,16 +214,16 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 } for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
 
         
-        lang_strs = batch['lang'] if 'lang' in batch else None
+        lang_ids = batch['lang'].detach().cpu().tolist() if 'lang' in batch else None
 
         if gen_rows is not None:
-            if lang_strs is not None:
-                TargetPredictionWriter.__add_langs(gen_rows, lang_strs)
+            if lang_ids is not None:
+                TargetPredictionWriter.__add_langs(gen_rows, lang_ids)
             with self.__get_gen_writer(source_path) as writer:
                 writer.writerows(gen_rows)
         if map_rows is not None:
-            if lang_strs is not None:
-                TargetPredictionWriter.__add_langs(map_rows, lang_strs)
+            if lang_ids is not None:
+                TargetPredictionWriter.__add_langs(map_rows, lang_ids)
             with self.__get_map_writer(source_path) as writer:
                 writer.writerows(map_rows)
         self.__sample_counter[source_path] += len(target_labels)
