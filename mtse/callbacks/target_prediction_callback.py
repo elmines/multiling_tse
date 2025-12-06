@@ -2,7 +2,6 @@ import os
 import json
 import sys
 import enum
-import csv
 from contextlib import contextmanager
 from typing import Optional
 from collections import defaultdict
@@ -17,7 +16,7 @@ from transformers.generation.utils import GenerateBeamEncoderDecoderOutput
 from ..modules.mixins import TargetMixin
 from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
-from ..data.target_pred import TargetPred
+from ..data.target_pred import TargetPred, CsvTargetPredWriter
 from ..constants import ID_TO_LANG
 
 @enum.unique
@@ -64,28 +63,21 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
         self.__gen_targets_files = dict()
         self.__map_targets_files = dict()
 
-        self.__gen_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "GT Target", "Lang"]
-        self.__map_fieldnames = ["Sample", "Untranslated Target", "Generated Target", "Mapped Target", "GT Target", "Lang"]
-
-
-    @staticmethod
-    def __cons_writer(file_handle, fieldnames):
-        return csv.DictWriter(file_handle, fieldnames=fieldnames, lineterminator='\n')
 
     @contextmanager
-    def __get_writer(self, out_path, fieldnames, dataloader_idx, task):
+    def __get_writer(self, out_path, dataloader_idx, task):
         k = (dataloader_idx, task)
         if k in self.__started_file:
             try:
                 with open(out_path, 'a') as w:
-                    yield self.__cons_writer(w, fieldnames)
+                    yield CsvTargetPredWriter(w)
             finally:
                 pass
         else:
             self.__started_file.add(k)
             try:
                 with open(out_path, 'w') as w:
-                    writer = self.__cons_writer(w, fieldnames)
+                    writer = CsvTargetPredWriter(w)
                     writer.writeheader()
                     yield writer
             finally:
@@ -99,7 +91,6 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         return self.__get_writer(
             os.path.join(self.out_dir, out_basename),
-            self.__gen_fieldnames,
             label,
             "target_gen"
         )
@@ -111,21 +102,20 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
 
         return self.__get_writer(
             os.path.join(self.out_dir, out_basename),
-            self.__map_fieldnames,
             label,
             "target_pred"
         )
 
     @staticmethod
-    def __add_langs(rows, lang_ids):
+    def __add_langs(rows: List[TargetPred], lang_ids):
         last_sid = None
         i = -1
         for row in rows:
-            sid = row['Sample']
+            sid = row.sample_id
             if sid != last_sid:
                 i += 1
                 last_sid = sid
-            row['Lang'] = ID_TO_LANG[lang_ids[i]]
+            row.lang = ID_TO_LANG[lang_ids[i]]
 
     def write_on_batch_end(self, trainer, pl_module, prediction, batch_indices, batch, batch_idx, dataloader_idx):
         if self.target_level <= TargetLevel.none:
@@ -155,12 +145,15 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 zerobased_inds = prediction.sample_inds - torch.min(prediction.sample_inds)
                 sample_inds = prediction.sample_inds.detach().cpu().tolist()
             untrans_gens = batch.get('target_untrans', all_texts)
+
             gen_rows = [
-                {"Sample": sind,
-                 "Generated Target": text,
-                 "Untranslated Target": ut_target,
-                 "GT Target": str_labels[zind]
-            } for zind, sind, text, ut_target in zip(zerobased_inds, sample_inds, all_texts, untrans_gens)]
+                TargetPred(
+                    sample_id=sind,
+                    generated_targets=[text],
+                    untranslated_targets=[ut_target],
+                    gt_target=str_labels[zind]
+                )
+            for zind, sind, text, ut_target in zip(zerobased_inds, sample_inds, all_texts, untrans_gens)]
 
             if self.target_level >= TargetLevel.mapped:
                 if self.fast_text is None or self.__target_embeddings is None:
@@ -181,12 +174,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 untrans_preds = [untrans_gens[i] if i < len(all_texts) else "" for i in all_text_inds]
 
                 sample_inds = unique_consecutive(sample_inds)
-                map_rows = [{"Sample": sind,
-                    "Generated Target": freeform_pred,
-                    "Mapped Target": self.targets[target_pred],
-                    "Untranslated Target": ut_pred,
-                    "GT Target": str_labels[i]
-                    } for i, (sind, freeform_pred, ut_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, untrans_preds, target_preds))
+                map_rows = [TargetPred(
+                    sample_id=sind,
+                    generated_targets=[freeform_pred],
+                    mapped_target=self.targets[target_pred],
+                    untranslated_targets=[ut_pred],
+                    gt_target=str_labels[i]
+                    ) for i, (sind, freeform_pred, ut_pred, target_pred) in enumerate(zip(sample_inds, freeform_preds, untrans_preds, target_preds))
                 ]
         else:
             if hasattr(prediction, "target_gens"):
@@ -205,13 +199,13 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
             else:
                 sample_inds = torch.arange(0, len(target_preds))
             sample_inds = unique_consecutive(sample_inds.detach().cpu().tolist())
-            map_rows = [{
-                "Sample": sind,
-                "Generated Target": pred,
-                "Mapped Target": pred,
-                "Untranslated Target": ut_pred,
-                "GT Target": str_labels[i]
-                } for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
+            map_rows = [TargetPred(
+                sample_id=sind,
+                generated_targets=[pred],
+                mapped_target=pred,
+                untranslated_targets=[ut_pred],
+                gt_target=str_labels[i]
+                ) for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
 
         
         lang_ids = batch['lang'].detach().cpu().tolist() if 'lang' in batch else None
