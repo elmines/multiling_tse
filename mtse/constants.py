@@ -28,3 +28,18 @@ LANGS = [
 ]
 ID_TO_LANG = dict(enumerate(LANGS))
 LANG_TO_ID = {v:k for k,v in ID_TO_LANG.items()}
+
+# Column Names
+
+C_SAMPLE = "Sample"
+
+C_UNTRANSLATED_TARGET = "UntranslatedTarget"
+
+C_GENERATED_TARGET = "GeneratedTarget"
+
+C_MAPPED_TARGET = "MappedTarget"
+
+C_GT_TARGET = "Target"
+C_GT_STANCE = "Stance"
+
+C_LANG = "Lang"
