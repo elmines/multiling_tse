@@ -4,11 +4,13 @@ import os
 from itertools import product
 import json
 
-from common import chmodx
+from common import write_code
 
 # Can't hard-code your email in here--don't want that published on GitHub
 this_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
 repo_dir = os.path.join(this_dir, "..")
+out_dir = os.path.join(this_dir, "scripts_generate_multi_classic_tgen")
+os.makedirs(out_dir, exist_ok=True)
 
 with open(os.path.join(this_dir, 'secret.json')) as r:
     secrets = json.load(r)
@@ -60,10 +62,7 @@ for seed, variant in product(range(3), variants):
                                              repo_dir=repo_dir,
                                              partition=b200_part,
                                              duration=duration)
-    out_path = f"{name}.sh"
-    with open(out_path, 'w') as w:
-        w.write(bash_code)
-    chmodx(out_path)
+    write_code(os.path.join(out_dir, f"{name}.sh"), bash_code)
 
 stance_stage_template = """#!/bin/bash
 
@@ -108,8 +107,4 @@ for seed, variant  in product(range(3), variants):
                                        command=command,
                                        user_email=user_email,
                                        repo_dir=repo_dir)
-    out_path = f"{name}.sh"
-    with open(out_path, 'w') as w:
-        w.write(bash_code)
-    chmodx(out_path)
-
+    write_code(os.path.join(out_dir, f"{name}.sh"), bash_code)
