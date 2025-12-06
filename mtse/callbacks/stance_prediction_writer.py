@@ -6,6 +6,7 @@ from collections import defaultdict
 # 3rd Party
 from lightning.pytorch.callbacks import BasePredictionWriter
 # Local
+from ..constants import C_SAMPLE, C_PRED_STANCE
 
 class StancePredictionWriter(BasePredictionWriter):
     def __init__(self, out_dir: os.PathLike):
@@ -17,7 +18,7 @@ class StancePredictionWriter(BasePredictionWriter):
     
     @staticmethod
     def __cons_writer(file_handle):
-        return csv.DictWriter(file_handle, fieldnames=['Sample', 'StancePred'], lineterminator='\n')
+        return csv.DictWriter(file_handle, fieldnames=[C_SAMPLE, C_PRED_STANCE], lineterminator='\n')
 
     @contextmanager
     def __get_writer(self, source_path):
@@ -46,7 +47,7 @@ class StancePredictionWriter(BasePredictionWriter):
         index_start = self.__sample_counter[source_path]
         stance_preds = prediction.stance_preds.detach().cpu().tolist()
 
-        stance_preds = [{"Sample": i, "StancePred": pred} for i,pred in enumerate(stance_preds, start=index_start)]
+        stance_preds = [{C_SAMPLE: i, C_PRED_STANCE: pred} for i,pred in enumerate(stance_preds, start=index_start)]
         self.__sample_counter[source_path] += len(stance_preds)
         with self.__get_writer(source_path) as writer:
             writer.writerows(stance_preds)

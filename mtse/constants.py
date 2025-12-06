@@ -39,6 +39,8 @@ C_GENERATED_TARGET = "GeneratedTarget"
 
 C_MAPPED_TARGET = "MappedTarget"
 
+C_PRED_STANCE = "StancePred"
+
 C_GT_TARGET = "Target"
 C_GT_STANCE = "Stance"
 
