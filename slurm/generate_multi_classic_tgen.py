@@ -103,7 +103,7 @@ for seed, variant  in product(range(3), variants):
     suffix, var_settings = variant
 
     name = f"multi_classic_tgen_seed{seed}_stance{suffix}"
-    command = f"{var_settings} STANCE_FIT=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 scripts/multi_classic_tgen.sh {seed}"
+    command = f"{var_settings} STANCE_FIT=1 STANCE_TEST=1 AGG_PRED=1 TSE_TEST=1 GT_TSE_TEST=1 scripts/multi_classic_tgen.sh {seed}"
     bash_code = stance_stage_template.format(name=name,
                                        command=command,
                                        user_email=user_email,
