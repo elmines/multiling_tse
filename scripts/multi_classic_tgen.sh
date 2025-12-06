@@ -10,7 +10,7 @@ TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 # Never run by default--something we only do for viz/debugging
-PRED=${PRED:-0}
+AGG_PRED=${AGG_PRED:-0}
 
 seed=${1:-0}
 
@@ -131,20 +131,22 @@ else
     echo "Skipping stance testing"
 fi
 
-if [ $PRED -eq 1 ]
+if [ $AGG_PRED -eq 1 ]
 then
     version=seed${seed}_stance_predict${exp_suffix}
-    out_dir=$LOGS_ROOT/$version
     train_dir=$LOGS_ROOT/seed${seed}_stance$exp_suffix
+    stance_pred_dir=$LOGS_ROOT/$version
     python -m mtse predict \
         -c $train_dir/config.yaml \
         --ckpt_path $train_dir/checkpoints/*ckpt \
         --data configs/data/classic_tse_test.yaml \
         --data.transforms '[mtse.data.ClassicPreprocess]' \
         --trainer.callbacks mtse.callbacks.StancePredictionWriter \
-        --trainer.callbacks.out_dir $out_dir \
+        --trainer.callbacks.out_dir $stance_pred_dir \
         --trainer.logger.version $version
 
+    out_dir=$LOGS_ROOT/seed${seed}_catpred${exp_suffix}
+    mkdir -p $out_dir
     target_pred_dir=$LOGS_ROOT/seed${seed}_target_predict$exp_suffix
     for data_file in data/classic/*.test.csv
     do
@@ -154,7 +156,7 @@ then
             -o $out_dir/$f_basename.full.csv \
             --gen $target_pred_dir/$f_basename.target_gens.csv \
             --pred $target_pred_dir/$f_basename.target_preds.csv \
-            --stance $out_dir/$f_basename.stance_preds.csv
+            --stance $stance_pred_dir/$f_basename.stance_preds.csv
     done
 else
     echo "Skipping prediction CSV generation"
