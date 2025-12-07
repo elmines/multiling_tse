@@ -9,7 +9,7 @@ TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
 # Never run by default--something we only do for viz/debugging
-PRED=${PRED:-0}
+AGG_PRED=${AGG_PRED:-0}
 
 seed=${1:-0}
 
@@ -120,9 +120,9 @@ else
     echo "Skipping gt tse testing"
 fi
 
-if [ $PRED -eq 1 ]
+if [ $AGG_PRED -eq 1 ]
 then
-        version=seed${seed}_pred${exp_suffix}
+        version=seed${seed}_catpred${exp_suffix}
         out_dir=$LOGS_ROOT/$version
         python -m mtse predict \
             -c $train_dir/config.yaml \
