@@ -47,7 +47,7 @@ python scripts/split_tse.py
 ```
 
 ### Execution
-This simple loop will run every experiment. In practice, it's better to separate these into different jobs
+This simple loop will run every experiment. In practice, it's better to separate these into different jobs.
 ```bash
 conda activate ./venv
 for seed in {0..2}
