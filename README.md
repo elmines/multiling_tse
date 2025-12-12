@@ -39,11 +39,17 @@ Download the `raw_(train|val|test)_all_onecol.csv` files from Li et al. (2023)'s
 and copy them to [./data/classic_tse/raw](./data/classic_tse/raw).
 
 ### Preprocessing
-Run `python3 utils/split_tse.py` to split the merged TSE corpus into its component corpora (SemEval 2016, P-Stance, etc.).
+
+```bash
+# Split the TSE merged corpus into its component corpora (SemEval 2016, P-Stance, etc.).
+conda activate ./venv
+python scripts/split_tse.py
+```
 
 ### Execution
 This simple loop will run every experiment. In practice, it's better to separate these into different jobs
 ```bash
+conda activate ./venv
 for seed in {0..2}
 do
 	# Two-Pass TC experiments

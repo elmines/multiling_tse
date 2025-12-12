@@ -73,7 +73,9 @@ for table_label, file_label in entries:
         assert s['StanceType'] == 'tri'
         s['Context'], c = TARGET_PATT.subn(lambda m: r"\st{" + m.group(0) + "}", s['Context'], count=0)
         repl_counts.append(c)
-    most_replaced = max(range(len(repl_counts)), key=lambda i: repl_counts[i])
+
+    sorted_inds = sorted(range(len(repl_counts)), key=lambda i: repl_counts[i], reverse=True)
+    most_replaced = sorted_inds[0]
     sample = samples[most_replaced]
 
 

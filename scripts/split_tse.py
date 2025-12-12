@@ -11,24 +11,27 @@ import sys
 
 ENCODING = 'ISO-8859-1'
 
+from mtse.constants import C_GT_STANCE, C_GT_TARGET, C_LANG
+from mtse.data.stance import TriStance
+
 def part_corpus(source_path, corpora_inds):
     with open(source_path, 'r', encoding=ENCODING) as r:
         reader = csv.DictReader(r)
         all_rows = list(reader)
     
     str2strance = {
-        "AGAINST": 0,
-        "FAVOR": 1,
-        "NONE": 2,
-        "Dummy Stance": 2
+        "AGAINST": TriStance.against.value,
+        "FAVOR": TriStance.favor.value,
+        "NONE": TriStance.neutral.value,
+        "Dummy Stance": TriStance.neutral.value
     }
     def convert_row(row):
         return {
             "Context": row["Tweet"],
-            "Target": row["Target"],
+            C_GT_TARGET: row["Target"],
             "StanceType": "tri",
-            "Stance": str2strance[row["Stance"]],
-            "Lang": "en"
+            C_GT_STANCE: str2strance[row["Stance"]],
+            C_LANG: "en"
         }
     all_rows = list(map(convert_row, all_rows))
 
@@ -36,7 +39,7 @@ def part_corpus(source_path, corpora_inds):
         rowset = [all_rows[i] for i in corpus_inds]
         with open(filename, 'w', encoding=ENCODING) as w:
             writer = csv.DictWriter(w,
-                                    fieldnames=["Context", "Target", "StanceType", "Stance", "Lang"],
+                                    fieldnames=["Context", C_GT_TARGET, "StanceType", C_GT_STANCE, C_LANG],
                                     lineterminator='\n'
                                     )
             writer.writeheader()
