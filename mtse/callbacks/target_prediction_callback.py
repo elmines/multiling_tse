@@ -18,6 +18,7 @@ from ..constants import DEFAULT_RELATED_THRESHOLD
 from ..mapping import make_target_embeddings, detokenize_generated_targets, map_targets
 from ..data.target_pred import TargetPred, CsvTargetPredWriter
 from ..constants import ID_TO_LANG
+from ..utils import tensor2list
 
 @enum.unique
 class TargetLevel(enum.IntEnum):
@@ -208,7 +209,7 @@ class TargetPredictionWriter(BasePredictionWriter, TargetMixin):
                 ) for i, (sind, pred, ut_pred) in enumerate(zip(sample_inds, target_preds, untrans_preds))]
 
         
-        lang_ids = batch['lang'].detach().cpu().tolist() if 'lang' in batch else None
+        lang_ids = tensor2list(batch['lang']) if 'lang' in batch else None
 
         if gen_rows is not None:
             if lang_ids is not None:

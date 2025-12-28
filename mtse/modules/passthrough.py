@@ -10,6 +10,7 @@ from .mixins import TargetMixin
 from ..data.encoder import NoopEncoder, Encoder, keyed_scalar_stack, concat_lists
 from ..data.transforms import SetTargetPred
 from ..callbacks.target_prediction_callback import TargetLevel
+from ..constants import LANG_TO_ID
 
 class DotDict:
     def __init__(self, data):
@@ -55,7 +56,7 @@ class TargetPredModule(BaseModule, TargetMixin):
                 "target": torch.tensor(self.module.targets.index(sample.target_label)),
             }
             if self.module.with_lang:
-                rdict['lang'] = [target_pred.lang]
+                rdict['lang'] = torch.tensor([LANG_TO_ID[target_pred.lang]], dtype=torch.long)
 
             if self.module.input_target_level == TargetLevel.mapped:
                 rdict["sample_inds"] = torch.tensor([target_pred.sample_id])
@@ -73,7 +74,7 @@ class TargetPredModule(BaseModule, TargetMixin):
                 'sample_inds': torch.concatenate([s['sample_inds'] for s in samples])
             }
             if self.module.with_lang:
-                rdict['lang'] = concat_lists(samples, 'lang')
+                rdict['lang'] = keyed_scalar_stack(samples, 'lang')
             if self.module.input_target_level != TargetLevel.mapped:
                 for k in filter(lambda k: k in samples[0], ['target_untrans', 'target_gens']):
                     rdict[k] = concat_lists(samples, k)
