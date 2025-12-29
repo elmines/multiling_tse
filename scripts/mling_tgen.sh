@@ -149,8 +149,6 @@ then
         --trainer.callbacks.target_level mapped \
         --trainer.callbacks.related_threshold 0.35 \
         "${EXTRA_ARGS[@]}"
-
-    $(dirname $0)/../utils/cat_preds.py $LOGS_ROOT $LOGS_ROOT/fold${fold}_seed${seed}${EXP_MOD}_full_target_preds.csv $fold $seed
 else
     echo "Skipping target mapping"
 fi
@@ -195,20 +193,24 @@ else
     echo "Skipping stance fitting"
 fi
 
+function get_corp_args
+{
+    # Make each file a separate StanceCorpus object
+    # StanceCorpus will give them better names that way
+    corp_args=""
+    add_comma=0
+    for f in data/multiling/fold${fold}/*.test.csv
+    do
+        if [ $add_comma -eq 1 ]; then corp_args="$corp_args,"; fi
+        corp_args="${corp_args}[$f]"
+        add_comma=1
+    done
+    echo "[$corp_args]"
+}
+
 if [ $STANCE_TEST -eq 1 ]
 then
-        # Make each file a separate StanceCorpus object
-        # StanceCorpus will give them better names that way
-        corp_args=""
-        add_comma=0
-        for f in data/multiling/fold${fold}/*.test.csv
-        do
-            if [ $add_comma -eq 1 ]; then corp_args="$corp_args,"; fi
-            corp_args="${corp_args}[$f]"
-            add_comma=1
-        done
-        corp_args="[$corp_args]"
-
+        corp_args=$(get_corp_args)
         train_version=fold${fold}_seed${seed}_stance${EXP_MOD}
         python -m mtse test \
             -c $LOGS_ROOT/$train_version/config.yaml \
@@ -222,6 +224,41 @@ then
 else
     echo "Skipping stance testing"
 fi
+
+if [ $AGG_PRED -eq 1 ]
+then
+    train_dir=$LOGS_ROOT/fold${fold}_seed${seed}_stance${EXP_MOD}
+    version=fold${fold}_seed${seed}_stance_predict${EXP_MOD}
+    stance_pred_dir=$LOGS_ROOT/$version
+
+    # Run stance prediction
+    python -m mtse predict \
+        -c $train_dir/config.yaml \
+        --ckpt_path $train_dir/checkpoints/*ckpt \
+        --data mtse.data.PattDataModule \
+        --data.transforms "[$SHORTEN_TRANSFORM]" \
+        --data.test_corpora "$(get_corp_args)" \
+        --trainer.callbacks mtse.callbacks.StancePredictionWriter \
+        --trainer.callbacks.out_dir $stance_pred_dir \
+        --trainer.logger.version $version
+
+    out_dir=$LOGS_ROOT/fold${fold}_seed${seed}_catpred${EXP_MOD}
+    mkdir -p $out_dir
+    target_pred_dir=$LOGS_ROOT/fold${fold}_seed${seed}_target_map${EXP_MOD}
+    for data_file in data/multiling/fold${fold}/*.test.csv
+    do
+        f_basename=$(basename $data_file)
+        python -m mtse.agg_preds \
+            -i $data_file \
+            -o $out_dir/$f_basename.full.csv \
+            --gen $target_pred_dir/$f_basename.target_gens.csv \
+            --pred $target_pred_dir/$f_basename.target_preds.csv \
+            --stance $stance_pred_dir/$f_basename.stance_preds.csv
+    done
+else
+    echo "Skipping prediction CSV generation"
+fi
+
 
 map_file=$LOGS_ROOT/fold${fold}_seed${seed}_target_map${EXP_MOD}/target_pred_map.json
 function get_tse_transform
