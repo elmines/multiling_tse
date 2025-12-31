@@ -11,7 +11,9 @@ STANCE_TEST=${STANCE_TEST:-$ALL}
 TSE_TEST=${TSE_TEST:-$ALL}
 GT_TSE_TEST=${GT_TSE_TEST:-$ALL}
 
-set -x
+# Never run by default--something we only do for viz/debugging
+AGG_PRED=${AGG_PRED:-0}
+
 SHORT_TARGETS=0
 LLM_TARGETS=0
 if [ -z $TARGET_TYPE ]

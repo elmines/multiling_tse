@@ -121,7 +121,7 @@ conda activate ./venv
 
 for fold in 0 1 2 3 4
 do
-    TARGET_MAP=1 TARGET_TEST=1 STANCE_FIT=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 {var_settings} scripts/mling_tgen.sh $fold {seed}
+    TARGET_MAP=1 TARGET_TEST=1 STANCE_FIT=1 AGG_PRED=1 STANCE_TEST=1 TSE_TEST=1 GT_TSE_TEST=1 {var_settings} scripts/mling_tgen.sh $fold {seed}
 done
 """
 
