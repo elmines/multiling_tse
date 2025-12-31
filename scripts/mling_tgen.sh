@@ -171,7 +171,7 @@ then
             $LOGGER_ARGS \
             --trainer.logger.version fold${fold}_seed${seed}_target_test${EXP_MOD} \
             --trainer.callbacks mtse.callbacks.TargetClassificationStatsCallback \
-            --trainer.callbacks.n_classes 10 \
+            --trainer.callbacks.n_classes 11 \
             "${EXTRA_ARGS[@]}"
 else
     echo "Skipping target testing"
