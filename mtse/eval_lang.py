@@ -18,7 +18,6 @@ def lang_to_str(l: Language):
 def main(raw_args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", type=pathlib.Path)
-    parser.add_argument("-k", type=int, default=5)
     parser.add_argument("--batch", type=int, default=32)
 
     args = parser.parse_args(raw_args)
@@ -45,7 +44,6 @@ def main(raw_args=None):
                 yield targ, lang
 
     fold_dirs = glob.glob(os.path.join(in_dir, "fold*target_gen"))
-    assert len(fold_dirs) == args.k
 
     fold_results = []
     for fold_dir in fold_dirs:
